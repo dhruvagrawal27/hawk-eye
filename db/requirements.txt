@@ -1,0 +1,38 @@
+# Hawk-Eye DATABASE — Python tooling, pinned (blueprint Part 24.3 + db/README.md).
+# Targets Python 3.12.x. Used by: Alembic migrations, the WORM writer/verifier,
+# the registry helpers, the retention job, and the db/ test suite.
+# NOTE: code is kept 3.9-compatible (from __future__ import annotations) so the
+# unit tests also run on older interpreters; the pinned runtime is 3.12.
+
+# --- migrations / DDL versioning (DATABASE-2) --------------------------------
+alembic>=1.13,<1.15
+SQLAlchemy>=2.0,<2.1
+psycopg2-binary>=2.9,<3.0          # Postgres driver (apply path)
+
+# --- object store + analytics clients (integration) --------------------------
+minio>=7.2,<8.0                    # MinIO/S3 object-lock client (DATABASE-1/6/8)
+clickhouse-connect==0.8.11         # ClickHouse client (DATABASE-3/4/9) — BOM pin
+redis==5.2.1                       # Redis client (DATABASE-2) — BOM pin
+
+# --- audit topic (DATABASE-5/6) ---------------------------------------------
+confluent-kafka==2.6.1             # Kafka producer/consumer — BOM pin
+fastavro>=1.9,<2.0                 # Avro schema validation (audit_event.avsc)
+
+# --- model registry (DATABASE-7/8) ------------------------------------------
+cryptography>=42,<46               # Ed25519 model signing / verify-on-load
+mlflow==2.18.0                     # Model Registry stages config — BOM pin
+onnx>=1.16,<2.0                    # ONNX artifact construction/round-trip
+onnxruntime>=1.18,<2.0             # ONNX inference (round-trip equality test)
+joblib>=1.3,<2.0                   # native booster / transform-chain / calibrator
+numpy>=1.26,<3.0
+
+# --- retention + config (DATABASE-9) ----------------------------------------
+PyYAML>=6.0,<7.0
+
+# --- dev / test / lint gates (db §8) ----------------------------------------
+pytest>=8.0,<9.0
+ruff>=0.6
+black>=24.0
+mypy>=1.10
+sqlfluff>=3.0
+types-PyYAML
