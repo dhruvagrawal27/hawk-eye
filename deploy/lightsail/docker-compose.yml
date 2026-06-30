@@ -1,0 +1,67 @@
+# =============================================================================
+# Hawk-Eye — Lightsail PILOT stack (the connected, demonstrated app).
+# Three real services, no stubs:
+#   gateway  ML narrative gateway   NEAR AI (primary, TEE) -> Groq -> template
+#   backend  FastAPI control plane  events -> L1/L2/L3 -> alerts -> disposition -> audit
+#   web      React SPA + nginx      public entry (:80); proxies /api,/ws -> backend
+#
+# Secrets/config come from the repo-root .env (chmod 600 on the box). Bring up with:
+#   docker compose -f deploy/lightsail/docker-compose.yml up -d --build
+# The alert-only pilot runs in-process (no external Kafka/Postgres needed); add the
+# full stack later via deploy/compose/* once you move past the pilot.
+# =============================================================================
+name: hawkeye-pilot
+
+services:
+  gateway:
+    build:
+      context: ../..
+      dockerfile: deploy/lightsail/Dockerfile.narrative
+    image: hawkeye/narrative:pilot
+    env_file: ../../.env          # NEAR_AI_API_KEY, GROQ_API_KEY, PII_HMAC_KEY
+    expose:
+      - "8002"                    # internal only — never published to the host
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health',timeout=3).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: deploy/Dockerfile.api
+    image: hawkeye/backend:pilot
+    env_file: ../../.env          # HAWKEYE_* settings + PII_HMAC_KEY
+    environment:
+      # point the control plane at the gateway service (overrides the .env localhost value)
+      HAWKEYE_NARRATIVE_REMOTE: "true"
+      HAWKEYE_NARRATIVE_URL: "http://gateway:8002/narrate"
+      HAWKEYE_NARRATIVE_TIMEOUT: "15"
+      HAWKEYE_API_HOST: "0.0.0.0"
+    expose:
+      - "8000"                    # internal only — nginx is the public edge
+    depends_on:
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health',timeout=3).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/lightsail/Dockerfile.frontend
+    image: hawkeye/web:pilot
+    ports:
+      - "80:80"                   # the only published port; put TLS in front in prod
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

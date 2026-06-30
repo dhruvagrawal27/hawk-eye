@@ -1,0 +1,18 @@
+# Hawk-Eye — ML Narrative Gateway image (NEAR AI primary -> Groq fallback -> template).
+# Slim: only the `narrative` extra (openai/jinja2/fastapi/uvicorn/httpx + numpy base) —
+# NO torch/lightgbm/pyg. Build context = repo ROOT (it needs the top-level `ml/` package).
+#   docker build -f deploy/lightsail/Dockerfile.narrative -t hawkeye/narrative:pilot .
+FROM python:3.12-slim
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    KMP_DUPLICATE_LIB_OK=TRUE
+
+# Install the ML package with only the narrative extra (fast: pure-Python LLM clients).
+COPY ml/ ./ml/
+RUN pip install --no-cache-dir "./ml[narrative]"
+
+EXPOSE 8002
+# --factory: ml.narrative.api:create_app() builds the FastAPI app (POST /narrate, GET /health).
+CMD ["uvicorn", "ml.narrative.api:create_app", "--factory", "--host", "0.0.0.0", "--port", "8002"]
