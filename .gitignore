@@ -65,3 +65,6 @@ security/vuln-mgmt/tracker.json
 ops/backup/out/
 ops/dr/out/
 ci/security/sbom/*.json
+tests/uat/out/
+governance/docs/out/
+tools/release/out/

@@ -1,0 +1,11 @@
+# Kafka HA (PLATFORM-25, Part 9.2/30.1). Prod overrides the single-broker dev compose.
+broker:
+  replication_factor: 3            # RF3 (Part 9.2)
+  min_insync_replicas: 2
+  rack_awareness: true             # spread replicas across racks/AZs (no SPOF)
+  unclean_leader_election: false   # never lose committed data
+  num_brokers: 5
+  partitions_default: 6            # partitioned by entity_id
+topics_durability:
+  hawkeye.audit: { cleanup_policy: compact, min_insync_replicas: 2, retention_ms: -1 }
+  hawkeye.alerts: { retention_ms: 2592000000 }

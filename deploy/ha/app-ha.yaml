@@ -1,0 +1,10 @@
+# App/serving HA (PLATFORM-25, Part 30.1). Mirrors the Helm chart HA settings.
+deployment:
+  replicas: 3                       # >= 2 for HA
+  strategy: RollingUpdate           # zero-downtime deploys
+  podAntiAffinity: requiredDuringSchedulingIgnoredDuringExecution   # spread across nodes
+  podDisruptionBudget: { minAvailable: 2 }
+  readinessProbe: true
+  livenessProbe: true
+continuity:
+  serving_loss: "degradation switch -> L1-rules-only (Part 18/30.1); no SPOF for scoring"

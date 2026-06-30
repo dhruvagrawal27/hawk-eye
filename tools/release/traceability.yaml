@@ -1,0 +1,33 @@
+# Requirement -> code -> test -> deploy traceability matrix (PLATFORM-19, Part 34.3).
+# A sample of the PLATFORM mapping (full matrix grows per release). Each row links a
+# blueprint requirement to the code that implements it, the test that proves it, and how it
+# deploys — the audit chain a regulator expects (requirement -> code -> test -> deploy).
+matrix:
+  - requirement: "Alert-only graceful degradation (Part 18/30.1)"
+    code: "services/degradation-switch/"
+    test: "tests/test_degradation_switch.py, tests/integration/topology_smoke.py"
+    deploy: "deploy/compose/docker-compose.platform.yml :: degradation-switch; Helm chart"
+  - requirement: "TEE attestation + tokenize-before-egress (Part 25)"
+    code: "services/tee-attestation/"
+    test: "tests/test_tee_attestation.py"
+    deploy: "compose :: tee-attestation; deploy/profiles/onprem-llm-node.yaml"
+  - requirement: "HITL natural-justice gate, alert-only (Part 15/29.2)"
+    code: "services/hitl-gate/"
+    test: "tests/test_hitl_gate.py"
+    deploy: "compose :: hitl-gate"
+  - requirement: "Independent validation before prod promotion (Part 22.4/27.2)"
+    code: "governance/validation/signoff_gate.py"
+    test: "tests/test_governance.py::test_signoff_gate_blocks_unvalidated_version"
+    deploy: ".github/workflows/cd.yml :: signoff-gate job"
+  - requirement: "Data residency in-India (Part 16/9.3)"
+    code: "deploy/k8s/policy/residency.rego, infra/terraform/variables.tf"
+    test: "make residency-check (conftest); terraform validate"
+    deploy: "Helm labels data-residency: in-india on every workload"
+  - requirement: "SoD: builder!=labeler!=actor!=admin (Part 19.3)"
+    code: "governance/rbac/route_guards.py, keycloak realm"
+    test: "tests/test_rbac_sod.py"
+    deploy: "Keycloak realm import; route guards in services"
+  - requirement: "DB-backed go-live readiness (Part 34.6)"
+    code: "governance/go-live/checklist.py, governance/db/"
+    test: "tests/test_governance.py::test_go_live_gate_is_go_after_seed"
+    deploy: "governance-api :: GET /api/v1/go-live"
