@@ -15,8 +15,15 @@ Usage::
 from __future__ import annotations
 
 import importlib
+import os
 from types import ModuleType
 from typing import Optional
+
+# macOS dual-OpenMP hazard: torch ships its own libomp and so do lightgbm/sklearn; loading
+# both aborts ("OMP: Error #15"). Allow the duplicate (the recommended workaround). We do NOT
+# pin OMP_NUM_THREADS globally (it destabilised LightGBM); thread pinning is done per-process
+# in conftest/torch-using modules. setdefault preserves any user-set value.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 # Canonical import names for every optional dependency we touch.
 _OPTIONAL = (
@@ -75,28 +82,26 @@ def require(name: str, *, reason: str = "") -> ModuleType:
     return mod
 
 
-# Eagerly computed convenience flags (used in `if HAS_X:` guards and pytest skips).
-HAS_PYOD = has("pyod")
-HAS_LIGHTGBM = has("lightgbm")
-HAS_XGBOOST = has("xgboost")
-HAS_CATBOOST = has("catboost")
-HAS_SHAP = has("shap")
-HAS_TORCH = has("torch")
-HAS_TORCH_GEOMETRIC = has("torch_geometric")
-HAS_MLFLOW = has("mlflow")
-HAS_EVIDENTLY = has("evidently")
-HAS_FAIRLEARN = has("fairlearn")
-HAS_FEATURETOOLS = has("featuretools")
-HAS_ONNXRUNTIME = has("onnxruntime")
-HAS_ONNX = has("onnx")
-HAS_SKL2ONNX = has("skl2onnx")
-HAS_ONNXMLTOOLS = has("onnxmltools")
-HAS_OPENAI = has("openai")
-HAS_JINJA2 = has("jinja2")
-HAS_FASTAPI = has("fastapi")
-HAS_NETWORKX = has("networkx")
-HAS_PYGOD = has("pygod")
-HAS_DICE_ML = has("dice_ml")
+# LAZY convenience flags: ``HAS_TORCH`` etc. resolve on FIRST ACCESS (module __getattr__),
+# so merely importing ml._optional (and thus `import ml`) does NOT pull in torch + lightgbm +
+# every heavy lib at once. That keeps torch and LightGBM from being co-loaded into a process
+# that only needs one of them — the macOS dual-libomp segfault trigger.
+_FLAG_TO_LIB = {
+    "HAS_PYOD": "pyod", "HAS_LIGHTGBM": "lightgbm", "HAS_XGBOOST": "xgboost",
+    "HAS_CATBOOST": "catboost", "HAS_SHAP": "shap", "HAS_TORCH": "torch",
+    "HAS_TORCH_GEOMETRIC": "torch_geometric", "HAS_MLFLOW": "mlflow", "HAS_EVIDENTLY": "evidently",
+    "HAS_FAIRLEARN": "fairlearn", "HAS_FEATURETOOLS": "featuretools", "HAS_ONNXRUNTIME": "onnxruntime",
+    "HAS_ONNX": "onnx", "HAS_SKL2ONNX": "skl2onnx", "HAS_ONNXMLTOOLS": "onnxmltools",
+    "HAS_OPENAI": "openai", "HAS_JINJA2": "jinja2", "HAS_FASTAPI": "fastapi",
+    "HAS_NETWORKX": "networkx", "HAS_PYGOD": "pygod", "HAS_DICE_ML": "dice_ml",
+}
+
+
+def __getattr__(name: str) -> bool:
+    """Lazily resolve HAS_<LIB> flags on first access (PEP 562 module __getattr__)."""
+    if name in _FLAG_TO_LIB:
+        return has(_FLAG_TO_LIB[name])
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def installed_summary() -> dict[str, bool]:

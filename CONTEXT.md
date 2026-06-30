@@ -55,6 +55,9 @@ The L0 event JSON, the L6 alert JSON, the API route table, RBAC roles, and the s
 ## 8. INTEGRATION LOG — append below (newest first)
 > Format: `### YYYY-MM-DD — [WS] — title` then a short note. Append; never overwrite.
 
+### 2026-06-30 — [ML] — ML stack landed (L2–L6 + narrative); run ML tests per-file (macOS libomp)
+ML workstream `ml/` is live on branch `hawk-eye/ml`: foundation (interfaces/adapters/honest-eval), L2 unsupervised, L3 GBDT, L4 sequence, L5 graph, L6 fusion, shared strategies, design, and the TEE-LLM narrative gateway — **100+ tests green**. Heads-up for **PLATFORM (CI harness)**: torch and LightGBM each ship their own `libomp`; co-loading both into one long-lived process **segfaults** on macOS. **Run ML tests per-file in separate processes** — the canonical runner is `python -m ml.tests.run` (each `tests/ml/test_*.py` in its own subprocess). A single `pytest tests/ml/` process will crash once both torch and LightGBM are exercised. `KMP_DUPLICATE_LIB_OK=TRUE` is set in `ml/_optional.py`. **Consumers:** ML produces per-layer scores in [0,1] + reason codes (BACKEND.md §2 shape), an L6 `Alert`, and `POST /narratives/{alert_id}` (`ml.narrative.api.get_router()` for BACKEND to mount). ML venv is py3.13 at `.mlvenv`; ML code is pandas-3.0-safe (`pd.api.types`).
+
 ### 2026-06-30 — [DATA] — pandas 3.0 compatibility (affects all laptops using pandas)
 DATA tests now pass on **both pandas 2.2.1 and 3.0.3** (100/100). Heads-up for everyone: pandas 3.0 makes string columns the extension `StringDtype`, so **`np.issubdtype(series.dtype, np.number)` raises `TypeError`** — use **`pd.api.types.is_numeric_dtype(series)`** instead. (Fixed in `data/datasets/splits.py`; regression test in `data/tests/test_pandas3_compat.py`.)
 

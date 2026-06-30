@@ -6,6 +6,11 @@ pytest is run from anywhere, and provides cached feature-source fixtures.
 from __future__ import annotations
 
 import os
+
+# macOS dual-OpenMP hazard (torch libomp vs lightgbm/sklearn libomp): allow the duplicate.
+# We do NOT pin OMP_NUM_THREADS here (it destabilised LightGBM); torch threads are pinned below.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
 import sys
 import warnings
 
@@ -17,14 +22,10 @@ if REPO_ROOT not in sys.path:
 
 warnings.filterwarnings("ignore")
 
-# Training many tiny torch models back-to-back segfaults under the default OpenMP thread
-# pool on macOS; pin to a single thread for the whole ML suite (defensive, suite-wide).
-try:  # pragma: no cover
-    import torch
-
-    torch.set_num_threads(1)
-except Exception:
-    pass
+# NOTE: we deliberately do NOT `import torch` here. conftest runs in EVERY test process, so
+# importing torch globally would load torch's libomp into LightGBM-only processes (e.g. test_l3)
+# and trigger the macOS dual-libomp segfault. torch-using test files pin threads themselves
+# (test_l4 sets torch.set_num_threads(1); l5's GNN modules set OMP env vars on import).
 
 
 @pytest.fixture(scope="session")
