@@ -9,12 +9,13 @@
 - [x] M4 Feature engineering catalogue (every 6.1–6.6 + slow-lane) + three-way baselines + DFS + online/offline parity
 - [~] M5 Governance/quality/lineage/MDM/retention (REAL); label store: gold=MOCK, EDD source-4 **[!] stubbed — awaits BACKEND `POST /alerts/{id}/disposition`**
 
-## 2. 🤖 ML (29 tasks — see prompts/02_ML.md)
-- [ ] M1 L2 unsupervised (IsoForest/ECOD/COPOD/AE) + baselines
-- [ ] M2 L3 GBDT (LightGBM/CatBoost/XGBoost) + SHAP + calibration + imbalance
-- [ ] M3 L4 sequence (baselines first, then USAD/TranAD/LAXCAT) + honest eval
-- [ ] M4 L5 graph (XGB-Graph/GraphSAGE/specialized GNNs) + L6 fusion
-- [ ] M5 MLOps (MLflow, champion/challenger, drift), fairness/bias, LLM narrative gateway
+## 2. 🤖 ML (29 tasks — see prompts/02_ML.md) — **✅ COMPLETE on hawk-eye/ml. All 29 tasks; 250 tests pass / 0 fail (.mlvenv py3.13, `python -m ml.tests.run`). End-to-end demo runs (`python -m ml.demo`).**
+- [x] M1 Foundations (ML-1/2) + L2 unsupervised (ML-3: IF/ECOD/COPOD/AE/OCSVM via PyOD+torch, ensemble)
+- [x] M2 L3 GBDT (ML-4) + L4 sequence (ML-5, REAL torch) + L5 graph (ML-6, REAL PyG, GADBench lift) + L6 fusion (ML-7→BACKEND §2 alert) + strategies (ML-8) + design (ML-9) + narrative gateway (ML-10..13: failover/grounding/audit/attestation/POST·narratives)
+- [x] M3 Pipelines (ML-14..19): DAG, per-layer trainers, EDD feedback+active-learning, repro/ledger, sync/async/shadow/backfill inference, backtest
+- [x] M4 MLOps (ML-20..24): registry+inventory, champion/challenger+shadow+canary+signed-load+auto-rollback, PSI/KS+concept drift+threshold governance, model cards/MRM, SIMULATED validation sign-off (MOCK)
+- [x] M5 fairness (ML-25/26), robustness (ML-27), CI suites (ML-28, fairness-gated), phasing+ops metrics incl. RBI TAT (ML-29)
+- **SCAFFOLD** (need real keys/HW): live NEAR AI/Groq calls + TEE attestation. **MOCK**: independent human validator sign-off.
 
 ## 3. ⚙️ BACKEND (29 tasks — see prompts/03_BACKEND.md) — also owns BACKEND.md
 - [x] M1 FastAPI app, auth/RBAC (Keycloak/JWT), health/metrics — BACKEND-1..4 (Part 24.1/24.2/24.5)
