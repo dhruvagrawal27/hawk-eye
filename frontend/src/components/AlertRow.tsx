@@ -20,10 +20,18 @@ export const ALERT_ROW_GRID =
   'grid grid-cols-[3.25rem_5.5rem_minmax(8rem,1fr)_minmax(11rem,1.4fr)_6.5rem_6.5rem_5.5rem_9rem_8rem_6rem] items-center gap-2'
 
 const severityGutter: Record<Severity, string> = {
-  critical: 'bg-severity-critical',
+  critical: 'bg-severity-critical motion-safe:animate-pulse-urgent',
   high: 'bg-severity-high',
   medium: 'bg-severity-medium',
   low: 'bg-severity-low',
+}
+
+// Faint full-row tint so a critical alert never looks like a low one (study S3).
+const severityRowTint: Record<Severity, string> = {
+  critical: 'bg-severity-critical/[0.06]',
+  high: 'bg-severity-high/[0.04]',
+  medium: '',
+  low: '',
 }
 
 export function AlertRow({
@@ -65,6 +73,7 @@ export function AlertRow({
       }}
       className={cn(
         'group relative cursor-pointer border-b border-border/70 pl-3 pr-2 transition-colors hover:bg-muted/40 focus-ring',
+        severityRowTint[alert.severity],
         selected && 'bg-muted/60',
       )}
     >
@@ -74,7 +83,7 @@ export function AlertRow({
         className={cn('absolute inset-y-0 left-0 w-1', severityGutter[alert.severity])}
       />
 
-      <div className={cn(ALERT_ROW_GRID, 'py-2')}>
+      <div className={cn(ALERT_ROW_GRID, 'py-[var(--row-py)]')}>
         {/* risk */}
         <div role="cell" className="flex justify-center">
           <RiskScore score={alert.risk_score} size="sm" />

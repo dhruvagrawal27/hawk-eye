@@ -52,6 +52,13 @@
 
     --ai: 271 70% 56%;
     --tee: 161 70% 36%;
+
+    /* terminal accents + flat/neutral risk band + Bloomberg-tape cyan */
+    --risk-flat: 215 16% 47%;
+    --ticker: 187 85% 42%;
+
+    /* density: data-row vertical padding (compact | comfortable) */
+    --row-py: 0.5rem;
   }
 
   .dark {
@@ -97,6 +104,14 @@
 
     --ai: 271 76% 70%;
     --tee: 161 84% 46%;
+
+    --risk-flat: 215 16% 58%;
+    --ticker: 187 92% 60%;
+  }
+
+  /* density toggle: <html data-density="compact"> tightens every data row */
+  :root[data-density='compact'] {
+    --row-py: 0.25rem;
   }
 
   * {
@@ -114,19 +129,48 @@
     font-feature-settings:
       'rlig' 1,
       'calt' 1,
-      'tnum' 1;
+      'tnum' 1,
+      'zero' 1;
+  }
+
+  /* Terminal background: near-black navy with two low-opacity radial glows — the cheap
+     "this is an ops terminal, not a dark dashboard" tell. Dark theme only; light stays flat. */
+  .dark body {
+    background-image:
+      radial-gradient(ellipse 800px 400px at 30% -120px, hsl(var(--primary) / 0.07), transparent),
+      radial-gradient(ellipse 1000px 600px at 95% 110%, hsl(var(--ticker) / 0.05), transparent);
+    background-attachment: fixed;
+  }
+
+  /* Tabular, slashed-zero numerics wherever data lives (tables, opt-in .tabular). */
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums slashed-zero;
+  }
+  .font-mono {
+    font-feature-settings:
+      'tnum' 1,
+      'zero' 1;
   }
 
   /* Slim, themed scrollbars for the dense investigation surfaces. */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-thumb {
     @apply rounded-full bg-border;
   }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
   ::-webkit-scrollbar-track {
     background: transparent;
+  }
+  /* firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
   }
 
   ::selection {

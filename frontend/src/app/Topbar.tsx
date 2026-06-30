@@ -4,6 +4,7 @@ import { HUMAN_ROLES, ROLE_META } from '@/auth/capabilities'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DensityToggle } from '@/components/ui/density-toggle'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +39,7 @@ export function Topbar() {
 
       <div className="flex items-center gap-3">
         <IstClock />
+        <DensityToggle />
 
         {/* Demo role switcher (mock SSO) — swap persona to inspect RBAC end-to-end. */}
         {isMock ? (
