@@ -70,6 +70,13 @@ The L0 event JSON, the L6 alert JSON, the API route table, RBAC roles, and the s
 ## 8. INTEGRATION LOG — append below (newest first)
 > Format: `### YYYY-MM-DD — [WS] — title` then a short note. Append; never overwrite.
 
+### 2026-06-30 — [INTEGRATION] — All workstreams merged to `main`; whole-app validation + red-team (3 cross-cutting fixes)
+All six workstreams are unified on `main` (data + ml + backend + frontend + platform). Whole-app validation is green: **DATA 100, ML 250, BACKEND 109, FRONTEND 112 +3 e2e, PLATFORM 73 +4 contract**, compose config validates. Added an adversarial **red-team suite** (`tests/redteam/`) that attacks the blueprint golden rules; it found + **fixed 3 real cross-cutting issues**:
+1. **Audit trail was not tamper-evident** (Part 19.3): `AuditEvent` was mutable in place and the `immutable=True` flag was decorative. Fixed → the model is now **frozen** and carries a **hash-chain** (`prev_hash`→`entry_hash`); `AuditWriter.verify_chain()` detects any post-write edit to who-viewed-whom.
+2. **Alerts without reason codes were servable** (Part 29.2 contestability): `Alert` now rejects construction unless it carries ≥1 reason code — no un-contestable accusation can be surfaced.
+3. **reason_codes source drift** at the ML↔BACKEND seam: ML emits `source="attention"` (LAXCAT) but backend's `ReasonSource` only had `sequence`. Added `attention` as an accepted synonym so ML reason codes are never rejected. (BACKEND: consider unifying the term in BACKEND.md §2.)
+Run the red-team: `tests/redteam/` (rbac/sod/audit in `.bevenv`; alert-only/secrets + contract-conformance are static, any venv). DATABASE (`db/`) remains the one workstream not delivered standalone — its storage role is served by PLATFORM (ClickHouse/Postgres/Redis/MinIO in compose) + BACKEND persistence.
+
 ### 2026-06-30 — [PLATFORM] — PLATFORM workstream COMPLETE (all 41 tasks, M1–M5) — integration points for everyone
 The full platform substrate + enterprise wrapper is built on branch `hawk-eye/platform`. Key things other laptops integrate against:
 - **Runtime:** `make up` brings the 26-service stack (core+app+platform). Ports/service-names in §7. Stubs (`backend`,`serving`,`frontend`) are labelled `# STUB` — swap your real images via the BOM/compose. Topics: `infra/kafka/topics.yaml` (`hawkeye.events.l0/enriched/scores/alerts/audit/feedback/rescore/dlq`).

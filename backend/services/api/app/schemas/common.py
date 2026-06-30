@@ -42,6 +42,10 @@ class ReasonSource(str, Enum):
     SHAP = "shap"
     GRAPH = "graph"
     SEQUENCE = "sequence"
+    # ML emits "attention" for L4 sequence-attention (LAXCAT) evidence; "sequence" and
+    # "attention" are synonyms. Accept both so reason codes from ML are never rejected at the
+    # seam (cross-workstream contract reconciliation — see CONTEXT.md). red-team: contract_conformance
+    ATTENTION = "attention"
 
 
 class DispositionOutcome(str, Enum):
