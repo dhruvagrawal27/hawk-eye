@@ -9,12 +9,13 @@
 - [x] M4 Feature engineering catalogue (every 6.1–6.6 + slow-lane) + three-way baselines + DFS + online/offline parity
 - [~] M5 Governance/quality/lineage/MDM/retention (REAL); label store: gold=MOCK, EDD source-4 **[!] stubbed — awaits BACKEND `POST /alerts/{id}/disposition`**
 
-## 2. 🤖 ML (29 tasks — see prompts/02_ML.md)
-- [ ] M1 L2 unsupervised (IsoForest/ECOD/COPOD/AE) + baselines
-- [ ] M2 L3 GBDT (LightGBM/CatBoost/XGBoost) + SHAP + calibration + imbalance
-- [ ] M3 L4 sequence (baselines first, then USAD/TranAD/LAXCAT) + honest eval
-- [ ] M4 L5 graph (XGB-Graph/GraphSAGE/specialized GNNs) + L6 fusion
-- [ ] M5 MLOps (MLflow, champion/challenger, drift), fairness/bias, LLM narrative gateway
+## 2. 🤖 ML (29 tasks — see prompts/02_ML.md) — **✅ COMPLETE on hawk-eye/ml. All 29 tasks; 250 tests pass / 0 fail (.mlvenv py3.13, `python -m ml.tests.run`). End-to-end demo runs (`python -m ml.demo`).**
+- [x] M1 Foundations (ML-1/2) + L2 unsupervised (ML-3: IF/ECOD/COPOD/AE/OCSVM via PyOD+torch, ensemble)
+- [x] M2 L3 GBDT (ML-4) + L4 sequence (ML-5, REAL torch) + L5 graph (ML-6, REAL PyG, GADBench lift) + L6 fusion (ML-7→BACKEND §2 alert) + strategies (ML-8) + design (ML-9) + narrative gateway (ML-10..13: failover/grounding/audit/attestation/POST·narratives)
+- [x] M3 Pipelines (ML-14..19): DAG, per-layer trainers, EDD feedback+active-learning, repro/ledger, sync/async/shadow/backfill inference, backtest
+- [x] M4 MLOps (ML-20..24): registry+inventory, champion/challenger+shadow+canary+signed-load+auto-rollback, PSI/KS+concept drift+threshold governance, model cards/MRM, SIMULATED validation sign-off (MOCK)
+- [x] M5 fairness (ML-25/26), robustness (ML-27), CI suites (ML-28, fairness-gated), phasing+ops metrics incl. RBI TAT (ML-29)
+- **SCAFFOLD** (need real keys/HW): live NEAR AI/Groq calls + TEE attestation. **MOCK**: independent human validator sign-off.
 
 ## 3. ⚙️ BACKEND (29 tasks — see prompts/03_BACKEND.md) — also owns BACKEND.md
 - [x] M1 FastAPI app, auth/RBAC (Keycloak/JWT), health/metrics — BACKEND-1..4 (Part 24.1/24.2/24.5)
@@ -25,11 +26,12 @@
   - SCAFFOLD (code-complete on synthetic; await live external resource): BACKEND-24/25 (RBI submission channel), 27 (live SIEM), 29 (TEE hardware + legal jurisdiction).
   - 102 backend tests green (unit + integration + contract); `openapi.json` generated; `BACKEND.md` synced. Rust `gateway/` crate written (cargo not installed locally → `cargo test` deferred to PLATFORM CI).
 
-## 4. 🖥️ FRONTEND (13 tasks — see prompts/04_FRONTEND.md)
-- [ ] M1 App shell, SSO/login, routing, API client, RBAC-aware views
-- [ ] M2 Triage queue + alert/case detail + entity-360 timeline
-- [ ] M3 Explanation panel + graph view + peer comparison
-- [ ] M4 Compliance/auditor/model-engineer/admin views + reporting/KRI UI
+## 4. 🖥️ FRONTEND (13 tasks — see prompts/04_FRONTEND.md) — **M1–M4 built, REAL, all §8 gates green (tsc/eslint/prettier/vitest 112/Playwright e2e 3/build), branch hawk-eye/frontend**
+- [x] M1 App shell, SSO/login (OIDC PKCE + mock SSO), RBAC routing (Part 24.1 8×9 matrix + SoD), typed API client, MSW mocks, audited `<MaskedPII>` (FRONTEND-1,2,3)
+- [x] M2 Triage queue (ranked risk×exposure×confidence, dedup, SLA timer, claim) + alert/case detail + case management + entity-360 timeline (FRONTEND-4,5,6,7)
+- [x] M3 Explanation panel (SHAP + rule provenance + LAXCAT attention + AI narrative w/ TEE badge) + graph/link view (Cytoscape, collusion/ring/GNNExplainer) + peer comparison + EDD action panel (alert-only, audit+relabel) (FRONTEND-8,9,10,11)
+- [x] M4 Compliance (rules four-eyes change-control + EWS/RFA coverage + CRILC/FMR export) + auditor + model-engineer + admin (Grafana embed) + reporting/board-KRI views (FRONTEND-12,13)
+- Renders the Part 24.5 worked burst end-to-end on MSW (`VITE_USE_MOCKS=true`); contract needs flagged in CONTEXT.md (newest entry) — `[FE-proposed]` bodies + `/cases`, `/reports/ews-coverage`, `/reports/kris` tagged BACKEND.
 
 ## 5. 🗄️ DATABASE (9 tasks — see prompts/05_DATABASE.md)
 - [ ] M1 ClickHouse (events/history) + hot-cold tiering
@@ -50,3 +52,4 @@
 - [!] **[DATA→BACKEND]** EDD label-source-4 (DATA-23) stubbed against `BACKEND.md` §5 — needs real `POST /alerts/{id}/disposition`.
 - [!] **[DATA→DATABASE]** ClickHouse events DDL + object-store buckets (`datasets`, `feature-snapshots`) + retention tiering — DATA uses local fallback meanwhile (DATA-5/25).
 - [x] **[DATA→PLATFORM]** Kafka/Redis/MinIO runtime + schema-registry hosting — **RESOLVED by PLATFORM-1/2** (`make core-up` brings real Kafka/Redis/MinIO/Postgres/ClickHouse/Flink/schema-registry). DATA can swap its in-memory fallbacks. *Open:* topic-name convergence (`hawkeye.*` vs DATA's `events.raw/signals`) — see CONTEXT.md log.
+- [~] **[FRONTEND→BACKEND]** Existing route bodies are ALREADY finalised in `backend/openapi.json` (FE: align `[FE-proposed]` types to it; I invented no fields). Genuinely net-new routes FE needs that BACKEND does not yet expose: `GET /cases`, `GET /cases/{id}`, `POST /cases/{id}/{status,assign,notes}`, `GET /reports/ews-coverage`, `GET /reports/kris`. FE renders on MSW meanwhile (`VITE_USE_MOCKS`). See CONTEXT.md newest entry.

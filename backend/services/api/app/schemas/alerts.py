@@ -8,7 +8,7 @@ perimeter — raw PII never appears in an alert.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.common import AlertStatus, ContributingLayer, ReasonSource, Severity
 
@@ -59,6 +59,17 @@ class Alert(BaseModel):
     @classmethod
     def _clamp_score(cls, v: int) -> int:
         return max(0, min(100, int(v)))
+
+    @model_validator(mode="after")
+    def _require_contestable(self) -> "Alert":
+        # Part 29.2 (explainability-as-a-right) + Part 16 (natural justice): every alert MUST
+        # carry >=1 reason code so the accused can contest it. A reason-code-less alert is an
+        # un-justified accusation and is refused at construction — it can never be served.
+        if not self.reason_codes:
+            raise ValueError(
+                "alert must carry at least one reason_code to be contestable (Part 29.2 / Part 16)"
+            )
+        return self
 
     @staticmethod
     def example() -> dict:

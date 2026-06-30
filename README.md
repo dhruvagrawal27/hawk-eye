@@ -1,5 +1,8 @@
 # Hawk-Eye — Real-Time Insider & Privileged-User Fraud Detection
 
+> 👉 **New here / non-technical? Start with [`GETTING_STARTED.md`](GETTING_STARTED.md)** — a plain-English guide
+> to what this is, how to run it in 2 minutes, how it works, and a glossary of every term.
+
 A production-shaped, on-prem, **alert-only** insider-fraud detection platform for a public-sector bank, built local-first on **synthetic data**. Source of truth for *what* to build: [`Insider_Fraud_Detection_Implementation_Blueprint (2).md`](Insider_Fraud_Detection_Implementation_Blueprint%20(2).md) (34 parts). Source of truth for *how / in what order*: [`BUILD_PLAN.md`](BUILD_PLAN.md) (6 workstreams → 149 tasks).
 
 ## Golden rules (every laptop, every task)

@@ -1,0 +1,5 @@
+Alert {{ a.alert_id }} on entity {{ a.entity_id }} fired at risk {{ a.risk_score }}/100 ({{ a.severity }}{% if a.confidence is not none %}, confidence {{ a.confidence }}{% endif %}).
+Contributing layers: {{ a.contributing_layers | join(", ") if a.contributing_layers else "n/a" }}.
+Evidence:{% for r in a.reason_codes %} {{ r.detail or r.code or r.feature }}{% if r.contribution %} (contribution {{ r.contribution }}){% endif %}.{% endfor %}
+Recommended checks: verify the beneficiary is a legitimate independently-onboarded payee; confirm maker-checker independence; obtain justification for any off-hours activity; review prior activity for this entity.
+(AI-generated · advisory only · not a decision.)
