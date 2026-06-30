@@ -144,3 +144,78 @@ None of this changes our **correctness** (RBAC, alert-only, contracts, explainab
 ---
 
 *Study basis: `hawkeye-idea` prototype (32 components, d3+zustand) · our `frontend/` (82 components, Radix+CVA) · 2025–2026 field research (Bloomberg density, Neo4j Bloom / Linkurious graph UX, SOC dashboards, Radix dark systems, OKLCH viz, explainable-AI UI). Recommendations are mapped to our existing stack — keep the rigor, add the soul.*
+
+---
+---
+
+# PART 2 — Making it 10× More Useful for a PSB (Union Bank of India)
+
+> **Appended (additive — nothing above changed).** Part 1 makes the app *look* world-class. Part 2 makes it *worth deploying at a public-sector bank* — grounded in current (2024–2026) RBI / NPCI / I4C / FIU mandates and the live Indian fraud landscape. Research-backed: 71 capability findings across RBI-regulatory, PSB-ops, fraud-landscape, capability-gaps, and our-code-status streams (32 rated **must-have**).
+
+## 2.0 The one insight that unlocks 10×
+
+We built **insider-first** (privileged-user / employee fraud — the PNB-style scam, maker-checker collusion, ghost loans). But **~90% of a PSB's 2025–26 fraud pain — and almost every *new* RBI/I4C mandate — is customer & payment-channel fraud**: mule accounts, UPI/AePS scams, digital-arrest, account takeover. **The 10× move is to add a *customer/account-entity axis* alongside the insider axis, reusing the exact same L0→L6 stack.** Our event model, rules engine, UEBA, GBDT, sequence, graph, fusion, dashboard, EWS/CRILC/FMR generators, governance and audit **all transfer** — we re-point them at customer accounts + payment events and add the India-specific integrations. **It's a scope expansion, not a rebuild.**
+
+## 2.1 Must-have to even deploy at a PSB (regulatory — non-negotiable)
+
+| Capability | Driver (2024–2026) | Our status | What to add |
+|---|---|---|---|
+| **RBI Master Directions on Fraud Risk Management 2024** — full RFA lifecycle | DOS.CO.FMG.SEC.7/2024-25 (15 Jul 2024); SBI v. Rajesh Agarwal (SC 2023) | PARTIAL | RFA **state machine** (flag→RFA-tag→7-day CRILC/RBI report→~180-day classification) with timers; **SCBMF board pack** generator; staff-accountability case workflow (6-month clock) |
+| **EWS integrated with CBS** (borrower/credit, not just insiders) | RBI MD 2024 — EWS/RFA chapter | PARTIAL | Standard **~40-signal RBI EWS indicator library** (LC/BG devolvement, fund routing, turnover fall…) wired to L1/L3; a **CBS borrower-trigger adapter** (SCAFFOLD); per-trigger remediation SLA |
+| **CRILC + Central Fraud Registry (CFR)** | RBI MD 2024 (3-cr / 7-day / 180-day) | PARTIAL | **CFR screening service** — check beneficiaries/borrowers against CFR *before* disbursement & as an EWS signal (currently MISSING); 7-day RFA→CRILC timer |
+| **FMR automated generation + submission** | RBI MD 2024 (FMR returns) | PARTIAL | Populate from the confirmed-fraud **case lifecycle** + recovery fields + quarterly periodization; **balance-sheet reconciliation** hooks; submission channel (SCAFFOLD) |
+| **FIU-IND STR/CTR/CCR/CBWTR via FINnet 2.0 (FINGate 2.0)** | PMLA 2002; FINnet 2.0 (STR ≤7 days) | **MISSING** | A whole **AML reporting module** — STR auto-draft (7-day clock), CTR/CCR/CBWTR generators, FINnet-2.0 XML/schema validator + submit. We have **zero** AML reporting today |
+| **Automated regulatory submission** (not just generation) | RBI MD 2024; CRILC; CFR/CKYCR | PARTIAL | Submission adapters (RBI fraud portal, CRILC, CFR, CKYCR) with **ack/retry/audit** — generating a report ≠ compliance; timely *submission* is the duty |
+| **Mule-account detection + MuleHunter.AI** | RBIH MuleHunter.AI (Dec 2024); **MHA directive: ALL FIs integrate by Dec 2026** (26 banks live Dec 2025) | **MISSING** | Customer-side mule module (below) + MuleHunter.AI consumption adapter |
+| **DoT Financial Fraud Risk Indicator (FRI)** | RBI advisory **30 Jun 2025** — all SCBs integrate FRI (prevented ~₹660 cr in 6 mo) | **MISSING** | DoT **DIP/FRI connector** (SCAFFOLD); normalize FRI tier into L0 as a high-weight feature → L6 fusion + EDD reason codes + the decision engine |
+| **I4C / NCRP / 1930 / CFCFRMS golden-hour freeze** | MHA/I4C SOP **2 Jan 2026** (liens within hours); 1930 helpline | **MISSING** | CFCFRMS intake connector + **golden-hour freeze queue** (SLA countdown) + one-click **human-confirmed lien/hold** against CBS + reverse status reporting + Money Restoration Module |
+| **AePS Touchpoint-Operator (ATO) monitoring** | RBI AePS-ATO Due-Diligence Directions (27 Jun 2025, **in force 1 Jan 2026**) | **MISSING** | Mandated **ongoing ATO transaction monitoring** + location profiling (below) |
+| **RBI FREE-AI + Model Risk Mgmt (MRMF) — kill-switch** | RBI FREE-AI report (13 Aug 2025); draft MRMF 2026 | PARTIAL | Model **kill-switch** per model; **7-dimension validation** artifacts (explainability/hallucination/bias/overfit/spurious-corr/output-variability/data-risk); risk-tier metadata in the registry |
+| **RBI Authentication Directions 2025 (eff. 1 Apr 2026)** — real-time risk-based monitoring + outlier confirmation | RBI Authentication Mechanisms for Digital Payment Transactions Directions 2025 | **MISSING** | Real-time pre-debit scoring + **outlier pre-confirmation gate** (below) |
+
+## 2.2 The big new detection capabilities (the product expansion)
+
+1. **Mule-account network scoring (customer accounts).** Port the **~19 MuleHunter behaviours** into L1 rules + L2 UEBA + **re-point L5 graph at customer accounts** (today `ml/layers/l5/graph_build.py` makes the *employee* the primary node — tuned for maker-checker rings, not mule chains). Signals: rapid pass-through ratio, fan-in/fan-out degree, dormant→active, many-to-one beneficiary, new-account high-velocity, structuring. *This is the single highest-impact new detector for a PSB.*
+2. **Real-time payment-transaction scoring (UPI / IMPS / NEFT / RTGS).** A **customer-payment L0 event** (payer/payee/VPA/device) + a fast-lane scorer reusing L1+L2+L3: new-payee→high-value latency, amount-vs-personal-baseline, velocity/burst, odd-hour, device/SIM-swap+payment correlation, beneficiary-cooling-period breach. (UPI fraud rose ~85% FY24; India ran 228 B UPI txns / ₹300 T in 2025.)
+3. **AePS / BC / micro-ATM monitoring (PSB-critical, rural).** Model the **BC operator as a first-class actor — exactly like an employee, so our insider UEBA (L2) + reversal-clustering (L1) transfer directly**: per-terminal velocity, unique-Aadhaar-per-device, geo-mismatch (customer vs outlet), biometric-failure clustering, withdrawal-only patterns; extend L5 to ATO↔customer collusion rings. (RBI logged a **+340% AePS-fraud spike**, >₹1,200 cr.)
+4. **Device / endpoint risk telemetry.** Add a device block to the customer L0 event: app-integrity, **screen-share active, remote-access detected, accessibility-abuse, SIM-changed, device-binding-age, root/emulator** → L1 rules + L2 features. (Malicious-APK + screen-share dominate 2025; ATO via malware+SIM-swap +310% YoY.)
+5. **Digital-arrest / social-engineering victim detection.** Victim-side behavioral detector: **change-point on the customer's transfer baseline**, FD-break-then-transfer, loan-against-deposit-then-transfer, panic-pattern (rapid drain to new payees). (₹2,140 cr lost to digital-arrest in 18 mo; **Supreme Court Feb 2026 directed banks to build a flag-and-act mechanism**.)
+
+## 2.3 The real-time decision layer — reconciling "alert-only" with RBI's "interdiction" expectation
+
+The tension to resolve cleanly: RBI now expects banks to **decline/hold/step-up suspicious transactions in real time** (FRI advisory; Authentication Directions) — *not* only post-hoc alerts. Yet our **alert-only / natural-justice** stance is *also* RBI-required (SBI v. Rajesh Agarwal — never auto-*classify* a person as a fraudster without a hearing).
+
+**Resolution — add an `L6.5` decision-policy engine** that emits, per *transaction*: `{ ALLOW · STEP_UP (re-auth/2FA) · HOLD_FOR_REVIEW (time-boxed pending queue) · SOFT_DECLINE_WITH_CUSTOMER_CONFIRM }`. This is **transaction friction** — reversible, customer-confirmable, time-boxed — which is *categorically different* from **classifying a person as a fraudster** (still human + show-cause + the existing EDD/RFA lifecycle). This single addition makes us compliant with the new real-time directives **without** violating natural justice, and it's fully defensible to an RBI inspector. *Highest-value architectural addition in Part 2.*
+
+## 2.4 Customer-facing loop
+
+- **Outlier pre-confirmation gate** (RBI FRM "prior confirmation for outlier transactions") wired to the real-time scorer.
+- **Two-way fraud alerts** (SMS/app: confirm / pause / "not me") — **vernacular/multilingual** (Hindi + regional), essential for a PSB's rural base.
+- **EBT zero-liability dispute workflow** (RBI Limiting Liability): 5-working-day reporting window capture, liability computation (bank-negligence→zero; third-party + timely report→zero), re-credit timers.
+- **MNRL hook**: when an account's registered mobile appears on the **Mobile Number Revocation List**, raise enhanced-monitoring / possible-mule.
+
+## 2.5 Consortium / cross-bank intelligence (our single-bank graph can't see the whole mule chain)
+
+Add connectors (SCAFFOLD until creds): **RBI DPIP** negative-registry (mandated API integration + mule reporting), **NPCI federated risk-scoring** (combine our score with NPCI device/txn profiling in real time), **I4C Suspect Registry** (24.67 lakh mule accounts flagged), **CFR**, **MNRL**. Extend L5 to consume **cross-bank edges/labels** so a mule chain visible to the consortium lights up in our graph.
+
+## 2.6 Union-Bank-of-India-specific realities
+
+- **Merged Finacle CBS silos** (Andhra + Corporation merged into Union, 2020): **dedupe CIF across ex-Union/Andhra/Corporation** to compute true CRILC aggregate-exposure, a unified customer master for CFR screening, and a complete mule graph. *We have `data/mdm/entity_resolution.py` for employees — extend it to the customer master.*
+- **PMJDY / DBT mule hosting**: PSBs hold the **largest no-frills/Jan-Dhan base** that fraudsters recruit as mules, often opened via **BC/AePS in Tier-2/3 towns** — exactly MuleHunter's target segment.
+- **DBT / government-scheme disbursement fraud** (ghost beneficiaries, duplicated Aadhaar, diversion) — a slow-lane typology to add.
+- **Vernacular** complaints, narratives, and customer alerts (the TEE-LLM gateway already drafts narratives — add language packs).
+- **On-prem / India data-residency**: we already **HAVE** this (OPA/Conftest residency gates, Vault/HSM, retention windows) — the one axis where we're ahead of most vendors.
+
+## 2.7 The 10× roadmap (phased, additive — reuses L0–L6 + dashboard + governance)
+
+- **Phase A — Regulatory unlock (must-have):** RFA lifecycle state machine + submission channels (FMR/CRILC/CFR/**FIU STR-CTR**) + **FRI/DPIP/MuleHunter** connectors (SCAFFOLD) + **golden-hour freeze queue** + model **kill-switch** + 7-dim model validation. *Without these a PSB cannot deploy.*
+- **Phase B — Customer/payment axis (the scope 10×):** customer/account L0 events + **real-time UPI/IMPS scorer** + **mule-account network scoring** + **AePS/BC monitoring** + the **L6.5 decision engine** (hold/step-up/soft-decline).
+- **Phase C — Customer loop + intelligence:** outlier pre-confirmation + EBT zero-liability workflow + vernacular two-way alerts + consortium feeds (DPIP/NPCI/I4C) + device/endpoint telemetry + digital-arrest detector + CIMS/KYC-due trackers.
+
+## 2.8 Honest framing
+
+Almost all of this **reuses what we already built** — the same L0→L6 funnel, dashboard, RBAC, tokenization, WORM audit, and governance — applied to a **customer/payment axis** plus an **India-integration layer**. The external connectors (DPIP, FRI, MuleHunter, CFCFRMS, FINnet 2.0, NPCI, CFR) are **SCAFFOLD until the bank provides credentials/connectivity** — the exact pattern as our existing CBS/SWIFT/PAM connectors. **Alert-only is preserved**; the new decision engine adds reversible *transaction* friction, distinct from *person* classification. The net effect: from "an excellent insider-fraud prototype" to "**a deployable, RBI-aligned, customer-and-insider fraud platform a PSB like Union Bank can actually run.**"
+
+---
+
+*Part 2 basis: live web research (Jun 2026) — RBI Master Directions on Fraud Risk Management 2024; RBI FREE-AI report (Aug 2025) + draft MRMF 2026; RBIH MuleHunter.AI; RBI DPIP; DoT FRI advisory (30 Jun 2025); RBI AePS Touchpoint-Operator Directions (in force 1 Jan 2026); RBI Authentication Directions 2025 (eff. 1 Apr 2026); MHA/I4C CFCFRMS-NCRP-1930 SOP (2 Jan 2026); FIU-IND FINnet 2.0; NPCI 2025 UPI FRM; Supreme Court digital-arrest directive (Feb 2026); Union Bank of India CBS/merger context. Status mapped against our actual `ml/`, `backend/regulatory/`, and `data/` code.*
