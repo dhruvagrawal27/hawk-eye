@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListDatasetBuckets",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketVersioning"],
+      "Resource": ["arn:aws:s3:::datasets", "arn:aws:s3:::feature-snapshots"]
+    },
+    {
+      "Sid": "ReadWriteDatasetsAndFeatureSnapshots",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:GetObjectVersion"],
+      "Resource": ["arn:aws:s3:::datasets/*", "arn:aws:s3:::feature-snapshots/*"]
+    },
+    {
+      "Sid": "NoAccessToModelsOrAudit",
+      "Effect": "Deny",
+      "Action": ["s3:*"],
+      "Resource": ["arn:aws:s3:::models", "arn:aws:s3:::models/*", "arn:aws:s3:::audit-archive", "arn:aws:s3:::audit-archive/*"]
+    }
+  ]
+}
