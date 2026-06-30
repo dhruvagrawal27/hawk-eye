@@ -11,9 +11,10 @@ The default inventory enumerates exactly the models the blueprint Part 7 + Part 
 :class:`ModelInventory` lets callers add/override entries and reconcile against a live
 :class:`ml.mlops.registry.ModelRegistry`.
 """
+
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
 # Risk tiers, highest impact first. Scoring > narrative LLM (blueprint Part 27).
@@ -39,12 +40,16 @@ class InventoryEntry:
     data: str
     version: str = "0.1.0"
     validation_status: str = "not_started"
-    decides: bool = True  # True = influences an investigation decision; False = explains only
+    decides: bool = (
+        True  # True = influences an investigation decision; False = explains only
+    )
     review_frequency: str = "quarterly"
 
     def __post_init__(self) -> None:
         if self.risk_tier not in RISK_TIERS:
-            raise ValueError(f"risk_tier must be one of {RISK_TIERS}, got {self.risk_tier!r}")
+            raise ValueError(
+                f"risk_tier must be one of {RISK_TIERS}, got {self.risk_tier!r}"
+            )
         if self.validation_status not in VALIDATION_STATUSES:
             raise ValueError(
                 f"validation_status must be one of {VALIDATION_STATUSES}, got {self.validation_status!r}"
@@ -126,7 +131,9 @@ class ModelInventory:
     entries and ``reconcile`` versions + validation status against a live registry.
     """
 
-    def __init__(self, entries: Optional[list[InventoryEntry]] = None, *, defaults: bool = True) -> None:
+    def __init__(
+        self, entries: Optional[list[InventoryEntry]] = None, *, defaults: bool = True
+    ) -> None:
         self._entries: dict[str, InventoryEntry] = {}
         if defaults:
             for e in _DEFAULT_ENTRIES:
@@ -144,7 +151,9 @@ class ModelInventory:
 
     def update_status(self, model_id: str, status: str) -> InventoryEntry:
         if status not in VALIDATION_STATUSES:
-            raise ValueError(f"status must be one of {VALIDATION_STATUSES}, got {status!r}")
+            raise ValueError(
+                f"status must be one of {VALIDATION_STATUSES}, got {status!r}"
+            )
         e = self._entries[model_id]
         e.validation_status = status
         return e

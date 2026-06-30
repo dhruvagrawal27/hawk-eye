@@ -16,6 +16,7 @@ ALERT-ONLY + HONEST EVAL: shadow and canary never auto-block anyone, and the gat
 metric is computed on a held-out time split (never point-adjusted). No heavy model
 library is imported here, so this loads in any process.
 """
+
 from __future__ import annotations
 
 import time
@@ -293,7 +294,9 @@ class PromotionManager:
         prior_m = float(metric(y, _proba(prior_champion_model, X_live)))
         new_m = float(metric(y, _proba(new_champion_model, X_live)))
         regression = prior_m - new_m
-        rolled_back = bool(np.isfinite(regression) and regression > self.rollback_tolerance)
+        rolled_back = bool(
+            np.isfinite(regression) and regression > self.rollback_tolerance
+        )
         rolled_to = None
         if rolled_back and prior_version is not None:
             self.registry.promote(name, prior_version, reviewer="auto-rollback")

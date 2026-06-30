@@ -16,6 +16,7 @@ blueprint's mitigations:
 ALERT-ONLY: extraction detection raises a flag for a human; it does not auto-ban.
 Secrets (API tokens) come from ``os.environ`` / the caller — never hardcoded.
 """
+
 from __future__ import annotations
 
 import time
@@ -40,12 +41,16 @@ class InferenceDenied(RuntimeError):
 class BandedScore:
     """The ONLY thing an external caller may receive: a coarse band, no raw number."""
 
-    band: str            # low | medium | high | critical
-    band_index: int      # 0..3 (ordinal, still coarse)
+    band: str  # low | medium | high | critical
+    band_index: int  # 0..3 (ordinal, still coarse)
     model_version: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        return {"band": self.band, "band_index": self.band_index, "model_version": self.model_version}
+        return {
+            "band": self.band,
+            "band_index": self.band_index,
+            "model_version": self.model_version,
+        }
 
 
 _BAND_ORDER = (Severity.LOW, Severity.MEDIUM, Severity.HIGH, Severity.CRITICAL)
@@ -58,7 +63,9 @@ def band_score(score: float, *, model_version: str = "") -> BandedScore:
     attacker cannot read the fine-grained signal they need.
     """
     sev = severity_from_score(float(score) * 100.0)
-    return BandedScore(band=sev.value, band_index=_BAND_ORDER.index(sev), model_version=model_version)
+    return BandedScore(
+        band=sev.value, band_index=_BAND_ORDER.index(sev), model_version=model_version
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -104,9 +111,13 @@ class ExtractionMonitor:
         self.dup_ratio_thresh = float(dup_ratio_thresh)
         self.dup_atol = float(dup_atol)
         self._times: dict[str, deque[float]] = defaultdict(deque)
-        self._recent_vecs: dict[str, deque[np.ndarray]] = defaultdict(lambda: deque(maxlen=256))
+        self._recent_vecs: dict[str, deque[np.ndarray]] = defaultdict(
+            lambda: deque(maxlen=256)
+        )
 
-    def observe(self, principal: str, features: Sequence[float], *, now: Optional[float] = None) -> ExtractionAlert:
+    def observe(
+        self, principal: str, features: Sequence[float], *, now: Optional[float] = None
+    ) -> ExtractionAlert:
         now = time.time() if now is None else now
         vec = np.asarray(list(features), dtype=float).ravel()
 
@@ -118,7 +129,8 @@ class ExtractionMonitor:
         recent = self._recent_vecs[principal]
         # Count how many recent vectors are near-duplicates of this one (boundary sweeping).
         n_dup = sum(
-            1 for v in recent
+            1
+            for v in recent
             if v.shape == vec.shape and np.allclose(v, vec, atol=self.dup_atol)
         )
         recent.append(vec)
@@ -126,12 +138,19 @@ class ExtractionMonitor:
 
         reasons: list[str] = []
         if len(times) > self.max_queries:
-            reasons.append(f"volume: {len(times)} queries in {self.window_seconds:.0f}s window")
+            reasons.append(
+                f"volume: {len(times)} queries in {self.window_seconds:.0f}s window"
+            )
         if dup_ratio >= self.dup_ratio_thresh and len(recent) >= 5:
-            reasons.append(f"boundary-probing: {dup_ratio:.2f} near-duplicate query ratio")
+            reasons.append(
+                f"boundary-probing: {dup_ratio:.2f} near-duplicate query ratio"
+            )
         return ExtractionAlert(
-            principal=str(principal), suspected=bool(reasons),
-            n_queries=len(times), duplicate_ratio=dup_ratio, reasons=reasons,
+            principal=str(principal),
+            suspected=bool(reasons),
+            n_queries=len(times),
+            duplicate_ratio=dup_ratio,
+            reasons=reasons,
         )
 
 
@@ -191,7 +210,9 @@ class InternalInferenceAPI:
         scope = self._authenticate(token)
 
         if not self._limiter.allow(principal, now=now):
-            raise InferenceDenied(f"rate limited: principal {principal!r} exceeded quota")
+            raise InferenceDenied(
+                f"rate limited: principal {principal!r} exceeded quota"
+            )
 
         alert = self._monitor.observe(principal, features, now=now)
         if alert.suspected:

@@ -18,6 +18,7 @@ written into DATABASE's ``models`` bucket layout via :class:`ml.adapters.ModelSt
 Nothing here imports a heavy model library, so it loads in any process (torch OR
 LightGBM) without the macOS dual-libomp hazard.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -68,7 +69,9 @@ class ModelRecord:
     seed: int = GLOBAL_SEED
     backend: str = "local"
     artifact_path: Optional[str] = None
-    parent_version: Optional[str] = None  # the champion a challenger was registered against
+    parent_version: Optional[str] = (
+        None  # the champion a challenger was registered against
+    )
     ts: float = 0.0
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -112,7 +115,9 @@ class ModelRegistry:
         self.root = root or DEFAULT_REGISTRY_ROOT
         os.makedirs(self.root, exist_ok=True)
         self.model_store = model_store or ModelStore(root=os.path.dirname(self.root))
-        self.use_mlflow = HAS_MLFLOW if use_mlflow is None else (use_mlflow and HAS_MLFLOW)
+        self.use_mlflow = (
+            HAS_MLFLOW if use_mlflow is None else (use_mlflow and HAS_MLFLOW)
+        )
         self.backend = "mlflow" if self.use_mlflow else "local"
         self._log_path = os.path.join(self.root, "models.jsonl")
         self._stage_path = os.path.join(self.root, "stages.json")
@@ -176,7 +181,9 @@ class ModelRegistry:
 
         if model is not None:
             try:
-                rec.artifact_path = self.model_store.save_model(model, meta=rec.to_dict())
+                rec.artifact_path = self.model_store.save_model(
+                    model, meta=rec.to_dict()
+                )
             except Exception:
                 rec.artifact_path = None
 
@@ -215,7 +222,9 @@ class ModelRegistry:
                 entry["champion"] = None
         self._save_stages(idx)
 
-    def promote(self, name: str, version: str, *, reviewer: Optional[str] = None) -> ModelRecord:
+    def promote(
+        self, name: str, version: str, *, reviewer: Optional[str] = None
+    ) -> ModelRecord:
         """Promote a registered challenger version to champion (archives the old champion)."""
         idx = self._load_stages()
         entry = idx.get(name)
@@ -282,7 +291,9 @@ class ModelRegistry:
     def get(self, name: str, version: str) -> Optional[ModelRecord]:
         return self._latest(name, version)
 
-    def _register_mlflow(self, rec: ModelRecord) -> None:  # pragma: no cover - mlflow optional path
+    def _register_mlflow(
+        self, rec: ModelRecord
+    ) -> None:  # pragma: no cover - mlflow optional path
         mlflow = optional_import("mlflow")
         if mlflow is None:
             return

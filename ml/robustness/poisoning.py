@@ -18,17 +18,16 @@ has been taught the fraud is normal. The blueprint's mitigations, made concrete:
 
 ALERT-ONLY: these raise reports/flags for a human; they never auto-delete production data.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
-
-from ml.config.seeds import GLOBAL_SEED
 
 
 # --------------------------------------------------------------------------- #
@@ -60,7 +59,11 @@ class TrainSetAnomalyCheck:
     def robust_z(self, rows: pd.DataFrame) -> pd.DataFrame:
         if self._med is None or self._mad is None:
             raise RuntimeError("TrainSetAnomalyCheck must be fit first")
-        r = rows.reindex(columns=self._cols).select_dtypes(include=[np.number]).astype(float)
+        r = (
+            rows.reindex(columns=self._cols)
+            .select_dtypes(include=[np.number])
+            .astype(float)
+        )
         return (r - self._med).abs() / self._mad
 
     def check(self, rows: pd.DataFrame) -> pd.Series:
@@ -147,7 +150,9 @@ def detect_low_and_slow_poisoning(
     if peer_series_by_entity:
         drifts = []
         for _pid, pser in peer_series_by_entity.items():
-            _, pmag = _change_point(np.asarray(pd.Series(pser).astype(float).to_numpy()), min_seg=min_seg)
+            _, pmag = _change_point(
+                np.asarray(pd.Series(pser).astype(float).to_numpy()), min_seg=min_seg
+            )
             drifts.append(pmag)
         if drifts:
             peer_drift = float(np.median(drifts))
@@ -158,7 +163,11 @@ def detect_low_and_slow_poisoning(
     suspected = bool(
         cp is not None
         and mag > drift_thresh
-        and (peer_drift <= 1e-9 and mag > drift_thresh or mag >= peer_anchor_ratio * max(peer_drift, 1e-9))
+        and (
+            peer_drift <= 1e-9
+            and mag > drift_thresh
+            or mag >= peer_anchor_ratio * max(peer_drift, 1e-9)
+        )
         and excess > 0.0
     )
     detail = (
@@ -166,8 +175,13 @@ def detect_low_and_slow_poisoning(
         f"(excess {excess:.4f})"
     )
     return PoisoningReport(
-        entity_id=str(entity_id), poisoning_suspected=suspected, change_point=cp,
-        drift_magnitude=mag, peer_drift=peer_drift, peer_anchored_excess=excess, detail=detail,
+        entity_id=str(entity_id),
+        poisoning_suspected=suspected,
+        change_point=cp,
+        drift_magnitude=mag,
+        peer_drift=peer_drift,
+        peer_anchored_excess=excess,
+        detail=detail,
     )
 
 
@@ -235,7 +249,9 @@ class ImmutableLabelAudit:
 
     @staticmethod
     def _hash(index: int, payload: dict[str, Any], prev_hash: str) -> str:
-        blob = json.dumps({"i": index, "p": payload, "prev": prev_hash}, sort_keys=True, default=str)
+        blob = json.dumps(
+            {"i": index, "p": payload, "prev": prev_hash}, sort_keys=True, default=str
+        )
         return hashlib.sha256(blob.encode()).hexdigest()
 
     def append(self, event_id: str, is_fraud: bool, **meta: Any) -> str:
@@ -243,7 +259,9 @@ class ImmutableLabelAudit:
         idx = len(self._chain)
         payload = {"event_id": str(event_id), "is_fraud": bool(is_fraud), **meta}
         h = self._hash(idx, payload, prev)
-        self._chain.append(_LabelLink(index=idx, payload=payload, prev_hash=prev, this_hash=h))
+        self._chain.append(
+            _LabelLink(index=idx, payload=payload, prev_hash=prev, this_hash=h)
+        )
         return h
 
     def head(self) -> str:
@@ -289,8 +307,16 @@ class ProvenanceLedger:
             blob = df.to_csv(index=True).encode()
         return hashlib.sha256(blob).hexdigest()
 
-    def record(self, batch_id: str, df: pd.DataFrame, *, source: str, actor: str,
-               ts: Optional[str] = None, **meta: Any) -> dict[str, Any]:
+    def record(
+        self,
+        batch_id: str,
+        df: pd.DataFrame,
+        *,
+        source: str,
+        actor: str,
+        ts: Optional[str] = None,
+        **meta: Any,
+    ) -> dict[str, Any]:
         rec = {
             "batch_id": str(batch_id),
             "n_rows": int(len(df)),

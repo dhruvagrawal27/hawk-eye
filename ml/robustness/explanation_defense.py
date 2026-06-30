@@ -12,10 +12,11 @@ cites facts absent from the raw evidence is flagged.
 
 ALERT-ONLY: a flagged explanation is surfaced for human review; nothing blocks.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable
 
 from ml.base import ReasonCode
 
@@ -105,7 +106,11 @@ def cross_check_explanation(
     contradicts: list[str] = []
     for rule in fired:
         rule_evidence = raw_evidence.get(rule)
-        strong = rule_evidence is None or (not _is_number(rule_evidence)) or abs(float(rule_evidence)) > raw_atol
+        strong = (
+            rule_evidence is None
+            or (not _is_number(rule_evidence))
+            or abs(float(rule_evidence)) > raw_atol
+        )
         if not strong:
             continue
         # Does the explanation reference this rule (by code or by an associated feature)?
@@ -116,7 +121,7 @@ def cross_check_explanation(
     # An explanation whose TOP-WEIGHTED feature is unsupported while a real rule is omitted
     # is the canonical manipulation -> explicit contradiction.
     if feats and unsupported:
-        top = max(feats, key=feats.get)
+        top = max(feats, key=lambda k: feats[k])
         if top in unsupported and missing_dominant:
             contradicts.append(
                 f"top driver {top!r} is unsupported by raw evidence while fired rule(s) "
@@ -124,13 +129,20 @@ def cross_check_explanation(
             )
 
     consistent = not (unsupported or missing_dominant or contradicts)
-    detail = "explanation consistent with rules + raw evidence" if consistent else (
-        f"unsupported={unsupported}; missing_dominant_rules={missing_dominant}; "
-        f"contradicts={contradicts}"
+    detail = (
+        "explanation consistent with rules + raw evidence"
+        if consistent
+        else (
+            f"unsupported={unsupported}; missing_dominant_rules={missing_dominant}; "
+            f"contradicts={contradicts}"
+        )
     )
     return ExplanationCheck(
-        consistent=consistent, contradicts_rules=contradicts,
-        unsupported_features=unsupported, missing_dominant_rules=missing_dominant, detail=detail,
+        consistent=consistent,
+        contradicts_rules=contradicts,
+        unsupported_features=unsupported,
+        missing_dominant_rules=missing_dominant,
+        detail=detail,
     )
 
 
@@ -158,11 +170,16 @@ class ExplanationConsistencyDefense:
         raw_evidence: dict[str, Any],
     ) -> ExplanationCheck:
         return cross_check_explanation(
-            explanation, fired_rules=fired_rules, raw_evidence=raw_evidence, raw_atol=self.raw_atol
+            explanation,
+            fired_rules=fired_rules,
+            raw_evidence=raw_evidence,
+            raw_atol=self.raw_atol,
         )
 
     @staticmethod
-    def provenance_reason_codes(fired_rules: Iterable[str], raw_evidence: dict[str, Any]) -> list[ReasonCode]:
+    def provenance_reason_codes(
+        fired_rules: Iterable[str], raw_evidence: dict[str, Any]
+    ) -> list[ReasonCode]:
         """Trustworthy rule-provenance reason codes (the interpretable fallback)."""
         out: list[ReasonCode] = []
         for rule in fired_rules:

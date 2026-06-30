@@ -4,9 +4,10 @@ ML owns the narrate() gateway + this router; BACKEND mounts it. Until BACKEND ex
 ``create_app()`` gives a standalone app the ML tests drive directly.
 Response shape: {narrative, provider, tee_attested, attestation_id, model}.
 """
+
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from ml._optional import require
 from ml.narrative.gateway import narrate
@@ -41,7 +42,9 @@ def get_router():
     router = APIRouter(prefix="/api/v1", tags=["narratives"])
 
     @router.post("/narratives/{alert_id}")
-    def post_narrative(alert_id: str, alert_ctx: dict = Body(default_factory=dict)) -> dict:  # noqa: ANN001
+    def post_narrative(
+        alert_id: str, alert_ctx: dict = Body(default_factory=dict)
+    ) -> dict:  # noqa: ANN001
         return _response(alert_id, alert_ctx)
 
     return router

@@ -14,15 +14,16 @@ Baselines (all ``BaseDetector`` -> ``score_samples`` in [0,1]):
 
 Heavy imports (torch) live INSIDE methods so the module always imports.
 """
+
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
-from ml._optional import HAS_TORCH, require
+from ml._optional import HAS_TORCH
 from ml.base import BaseDetector, ReasonCode, normalize_scores
-from ml.layers.l4.windows import WindowSet, build_windows
+from ml.layers.l4.windows import WindowSet
 
 
 # --------------------------------------------------------------------------- #
@@ -72,10 +73,12 @@ class _WindowedBase(BaseDetector):
 class WindowedPCADetector(_WindowedBase):
     """PCA over flattened windows; anomaly = reconstruction error (blueprint §20.4)."""
 
-    def __init__(self, n_components: int = 8, window: int = 20, version: str = "0.1.0") -> None:
+    def __init__(
+        self, n_components: int = 8, window: int = 20, version: str = "0.1.0"
+    ) -> None:
         super().__init__(name="l4_windowed_pca", version=version, window=window)
         self.n_components = int(n_components)
-        self._pca = None
+        self._pca: Any = None
 
     def fit(self, X, y=None) -> "WindowedPCADetector":
         from sklearn.decomposition import PCA
@@ -84,7 +87,14 @@ class WindowedPCADetector(_WindowedBase):
         if flat.shape[0] == 0:
             self._fitted = True
             return self
-        k = max(1, min(self.n_components, flat.shape[1], flat.shape[0] - 1 if flat.shape[0] > 1 else 1))
+        k = max(
+            1,
+            min(
+                self.n_components,
+                flat.shape[1],
+                flat.shape[0] - 1 if flat.shape[0] > 1 else 1,
+            ),
+        )
         self._pca = PCA(n_components=k, random_state=1405)
         self._pca.fit(flat)
         self._fitted = True
@@ -106,17 +116,27 @@ class WindowedPCADetector(_WindowedBase):
             return [[] for _ in range(flat.shape[0])]
         recon = self._pca.inverse_transform(self._pca.transform(flat))
         n_feat = ws.X.shape[2]
-        per = ((flat - recon) ** 2).reshape(flat.shape[0], self.window, n_feat).mean(axis=1)
+        per = (
+            ((flat - recon) ** 2)
+            .reshape(flat.shape[0], self.window, n_feat)
+            .mean(axis=1)
+        )
         names = ws.feature_names or [f"f{i}" for i in range(n_feat)]
         out: list[list[ReasonCode]] = []
         for row in per:
             idx = np.argsort(-row)[:top_k]
-            out.append([
-                ReasonCode(source="attention", feature=names[i],
-                           detail="window reconstruction error",
-                           contribution=float(row[i]))
-                for i in idx if row[i] > 0
-            ])
+            out.append(
+                [
+                    ReasonCode(
+                        source="attention",
+                        feature=names[i],
+                        detail="window reconstruction error",
+                        contribution=float(row[i]),
+                    )
+                    for i in idx
+                    if row[i] > 0
+                ]
+            )
         return out
 
 
@@ -126,10 +146,12 @@ class WindowedPCADetector(_WindowedBase):
 class WindowedIsolationForestDetector(_WindowedBase):
     """IsolationForest over flattened windows (blueprint §20.2/§20.4 params)."""
 
-    def __init__(self, n_estimators: int = 150, window: int = 20, version: str = "0.1.0") -> None:
+    def __init__(
+        self, n_estimators: int = 150, window: int = 20, version: str = "0.1.0"
+    ) -> None:
         super().__init__(name="l4_windowed_iforest", version=version, window=window)
         self.n_estimators = int(n_estimators)
-        self._if = None
+        self._if: Any = None
 
     def fit(self, X, y=None) -> "WindowedIsolationForestDetector":
         from sklearn.ensemble import IsolationForest
@@ -187,7 +209,10 @@ class MatrixProfileDetector(_WindowedBase):
         # nearest-neighbour distance to the training set (the matrix-profile value).
         # (n_q, n_train) pairwise — fine for the small windowed sets L4 handles.
         d = np.sqrt(((q[:, None, :] - self._train[None, :, :]) ** 2).sum(axis=2))
-        same = np.allclose(q.shape, self._train.shape) and q.shape[0] == self._train.shape[0]
+        same = (
+            np.allclose(q.shape, self._train.shape)
+            and q.shape[0] == self._train.shape[0]
+        )
         if same and np.allclose(q, self._train):
             np.fill_diagonal(d, np.inf)  # exclude self-match (the trivial discord rule)
         nn = d.min(axis=1)
@@ -202,18 +227,25 @@ class ConvAutoencoderBaseline(_WindowedBase):
     """Small autoencoder over windows. Uses a tiny 1-D conv AE under torch; falls back
     to a PCA-reconstruction surrogate when torch is absent (module still imports)."""
 
-    def __init__(self, latent_dim: int = 8, window: int = 20, epochs: int = 8,
-                 version: str = "0.1.0") -> None:
+    def __init__(
+        self,
+        latent_dim: int = 8,
+        window: int = 20,
+        epochs: int = 8,
+        version: str = "0.1.0",
+    ) -> None:
         super().__init__(name="l4_conv_ae", version=version, window=window)
         self.latent_dim = int(latent_dim)
         self.epochs = int(epochs)
-        self._model = None
+        self._model: Any = None
         self._fallback: Optional[WindowedPCADetector] = None
 
     def fit(self, X, y=None) -> "ConvAutoencoderBaseline":
         flat, ws = self._coerce(X)
         if not HAS_TORCH:
-            self._fallback = WindowedPCADetector(n_components=self.latent_dim, window=self.window)
+            self._fallback = WindowedPCADetector(
+                n_components=self.latent_dim, window=self.window
+            )
             self._fallback.fit(X)
             self._fitted = True
             return self

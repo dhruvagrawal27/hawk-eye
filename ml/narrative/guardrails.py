@@ -5,6 +5,7 @@ de-anonymisation; and — the load-bearing check — the narrative is GROUNDED a
 structured reason codes: if it introduces a fact (a number or an identifier token) not
 present in the evidence, it is flagged/rejected. Plus a simple rate limiter.
 """
+
 from __future__ import annotations
 
 import re
@@ -17,7 +18,19 @@ AI_GENERATED_LABEL = "AI-generated · advisory only · not a decision"
 
 # Identifier tokens use the known Hawk-Eye entity prefixes only, so generic hyphenated
 # words like "AI-generated" or "maker-checker" are NOT mistaken for identifiers.
-_ID_PREFIXES = ("EMP", "ACCT", "BEN", "RNG", "WS", "BR", "PG", "VEN", "DEV", "SESS", "ACC")
+_ID_PREFIXES = (
+    "EMP",
+    "ACCT",
+    "BEN",
+    "RNG",
+    "WS",
+    "BR",
+    "PG",
+    "VEN",
+    "DEV",
+    "SESS",
+    "ACC",
+)
 _TOKEN_RE = re.compile(r"\b(?:" + "|".join(_ID_PREFIXES) + r")-[A-Za-z0-9]+\b")
 # Numbers with optional grouping separators / decimals (48,00,000 or 4800000 or 0.82).
 _NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
@@ -42,7 +55,14 @@ def _collect_facts(text: str) -> tuple[set[str], set[str]]:
 def _evidence_text(alert_ctx: dict[str, Any]) -> str:
     """Flatten the alert context + reason codes into a single evidence string."""
     parts: list[str] = []
-    for key in ("alert_id", "entity_id", "risk_score", "severity", "confidence", "exposure_inr"):
+    for key in (
+        "alert_id",
+        "entity_id",
+        "risk_score",
+        "severity",
+        "confidence",
+        "exposure_inr",
+    ):
         if alert_ctx.get(key) is not None:
             parts.append(str(alert_ctx[key]))
     for rc in alert_ctx.get("reason_codes", []) or []:
@@ -68,7 +88,9 @@ class GroundingResult:
         }
 
 
-def check_grounding(narrative: str, alert_ctx: dict[str, Any], *, number_tolerance: bool = True) -> GroundingResult:
+def check_grounding(
+    narrative: str, alert_ctx: dict[str, Any], *, number_tolerance: bool = True
+) -> GroundingResult:
     """Flag identifier tokens / numbers in the narrative that are not in the evidence.
 
     A small allow-list of generic numbers (clock-ish small ints, percentages) is tolerated
@@ -82,13 +104,20 @@ def check_grounding(narrative: str, alert_ctx: dict[str, Any], *, number_toleran
     for n in sorted(nar_numbers):
         if n in ev_numbers:  # exact (comma-normalised) match to an evidence number
             continue
-        if number_tolerance and len(n.replace(".", "")) <= 2:  # small generic ints (hours, counts, %)
+        if (
+            number_tolerance and len(n.replace(".", "")) <= 2
+        ):  # small generic ints (hours, counts, %)
             continue
-        if number_tolerance and n in _TOLERATED_SCALE:  # risk-out-of-100 style scale numbers
+        if (
+            number_tolerance and n in _TOLERATED_SCALE
+        ):  # risk-out-of-100 style scale numbers
             continue
         bad_numbers.append(n)
-    return GroundingResult(grounded=not (bad_tokens or bad_numbers),
-                           ungrounded_tokens=bad_tokens, ungrounded_numbers=bad_numbers)
+    return GroundingResult(
+        grounded=not (bad_tokens or bad_numbers),
+        ungrounded_tokens=bad_tokens,
+        ungrounded_numbers=bad_numbers,
+    )
 
 
 def label_ai_generated(response: dict[str, Any]) -> dict[str, Any]:

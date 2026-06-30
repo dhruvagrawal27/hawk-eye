@@ -16,6 +16,7 @@ blueprint's four mitigations, made concrete here:
 
 ALERT-ONLY: every output here is an advisory flag for a human; nothing blocks.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -69,7 +70,9 @@ class HiddenThreshold:
         self.base_threshold = float(base_threshold)
         self.jitter = float(jitter)
         # Secret never hardcoded: prefer env, else a process-local random secret.
-        self._secret = secret or os.environ.get("HAWKEYE_THRESHOLD_SECRET") or os.urandom(16).hex()
+        self._secret = (
+            secret or os.environ.get("HAWKEYE_THRESHOLD_SECRET") or os.urandom(16).hex()
+        )
         self.epoch = int(epoch)
 
     def _offset(self) -> float:
@@ -109,7 +112,9 @@ class RandomizedReviewSampler:
         self.rate = float(rate)
         self._rng = np.random.default_rng(seed)
 
-    def sample_below_threshold(self, entity_ids: Sequence[str], flagged: Sequence[bool]) -> list[str]:
+    def sample_below_threshold(
+        self, entity_ids: Sequence[str], flagged: Sequence[bool]
+    ) -> list[str]:
         """Return below-threshold entity ids randomly drawn for extra review."""
         out: list[str] = []
         for eid, is_flagged in zip(entity_ids, flagged):
@@ -139,7 +144,9 @@ class EnsembleVerdict:
         return {
             "entity_id": self.entity_id,
             "flagged": self.flagged,
-            "detector_scores": {k: round(float(v), 6) for k, v in self.detector_scores.items()},
+            "detector_scores": {
+                k: round(float(v), 6) for k, v in self.detector_scores.items()
+            },
             "detectors_fired": list(self.detectors_fired),
             "reason_codes": [rc.to_dict() for rc in self.reason_codes],
         }
@@ -212,18 +219,27 @@ class DiverseEnsembleDefense:
                 dscores[name] = sc
                 if self._thresholds[name].exceeds(sc):
                     fired.append(name)
-                    rcs.append(ReasonCode(
-                        source="rule",
-                        code=f"ensemble:{name}",
-                        detail=f"{name} detector flagged entity (diverse-ensemble evasion guard)",
-                    ))
-            verdicts.append(EnsembleVerdict(
-                entity_id=str(eid), flagged=bool(fired),
-                detector_scores=dscores, detectors_fired=fired, reason_codes=rcs,
-            ))
+                    rcs.append(
+                        ReasonCode(
+                            source="rule",
+                            code=f"ensemble:{name}",
+                            detail=f"{name} detector flagged entity (diverse-ensemble evasion guard)",
+                        )
+                    )
+            verdicts.append(
+                EnsembleVerdict(
+                    entity_id=str(eid),
+                    flagged=bool(fired),
+                    detector_scores=dscores,
+                    detectors_fired=fired,
+                    reason_codes=rcs,
+                )
+            )
         return verdicts
 
-    def evaluate_one(self, entity_features: pd.DataFrame, entity_id: str) -> EnsembleVerdict:
+    def evaluate_one(
+        self, entity_features: pd.DataFrame, entity_id: str
+    ) -> EnsembleVerdict:
         for v in self.evaluate(entity_features):
             if v.entity_id == str(entity_id):
                 return v

@@ -22,6 +22,7 @@ threshold to the clean, peer-consistent prefix), which is what makes the guard
 Stays torch-free unless an AutoEncoder member is explicitly passed (default ensemble is
 IsolationForest + ECOD + AutoEncoder; callers that must avoid torch pass detectors=...).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -44,7 +45,10 @@ def time_decay_weights(ts: pd.Series, halflife_days: float = 30.0) -> np.ndarray
         return np.ones(len(ts))
     newest = t.max()
     age_days = (newest - t).dt.total_seconds().to_numpy() / 86400.0
-    age_days = np.nan_to_num(age_days, nan=age_days[~np.isnan(age_days)].max() if np.isnan(age_days).any() else 0.0)
+    age_days = np.nan_to_num(
+        age_days,
+        nan=age_days[~np.isnan(age_days)].max() if np.isnan(age_days).any() else 0.0,
+    )
     lam = np.log(2.0) / max(halflife_days, 1e-6)
     return np.exp(-lam * age_days)
 
@@ -118,9 +122,15 @@ class LowAndSlowPoisoningGuard:
         else:
             peer = pd.Series("__global__", index=df.index)
 
-        work = pd.DataFrame({"emp": emp.to_numpy(), "peer": peer.to_numpy(),
-                             "val": val.to_numpy(), "ts": ts.to_numpy()},
-                            index=df.index)
+        work = pd.DataFrame(
+            {
+                "emp": emp.to_numpy(),
+                "peer": peer.to_numpy(),
+                "val": val.to_numpy(),
+                "ts": ts.to_numpy(),
+            },
+            index=df.index,
+        )
 
         # Peer-group baseline (anchor): each entity is judged relative to its peers.
         peer_mean = work.groupby("peer")["val"].transform("mean")
@@ -145,7 +155,9 @@ class LowAndSlowPoisoningGuard:
             drift = float((recent["val"].mean() - pm) / ps)
             peer_drift[e] = drift
 
-            is_poisoned = cp_mag >= self.change_threshold and drift >= self.peer_drift_threshold
+            is_poisoned = (
+                cp_mag >= self.change_threshold and drift >= self.peer_drift_threshold
+            )
             if is_poisoned:
                 poisoned.append(e)
                 # Exclude the poisoned tail (post-change-point) from the clean baseline.
@@ -155,8 +167,14 @@ class LowAndSlowPoisoningGuard:
 
         # how much the 99th-pctile threshold would have inflated if we trusted poisoned rows
         full_thr = float(np.percentile(work["val"], 99)) if len(work) else 0.0
-        clean_thr = float(np.percentile(work.loc[clean_mask, "val"], 99)) if clean_mask.any() else full_thr
-        drift_pct = float((full_thr - clean_thr) / clean_thr * 100.0) if clean_thr > 0 else 0.0
+        clean_thr = (
+            float(np.percentile(work.loc[clean_mask, "val"], 99))
+            if clean_mask.any()
+            else full_thr
+        )
+        drift_pct = (
+            float((full_thr - clean_thr) / clean_thr * 100.0) if clean_thr > 0 else 0.0
+        )
 
         return PoisoningGuardResult(
             poisoned_entities=poisoned,

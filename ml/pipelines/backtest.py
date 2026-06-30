@@ -11,6 +11,7 @@ investigations lead actually cares about:
 
 Honest by construction: backtests replay in TIME ORDER and never point-adjust.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -34,10 +35,10 @@ class BacktestResult:
     precision_at_k: float
     recall_at_k: float
     k: int
-    detection_lift: float           # candidate TPs@K / baseline TPs@K
-    extra_true_positives: int       # candidate TPs@K - baseline TPs@K
-    false_positives: int            # FPs in the alerting set (>= threshold)
-    fp_cost: float                  # FPs × per-investigation cost
+    detection_lift: float  # candidate TPs@K / baseline TPs@K
+    extra_true_positives: int  # candidate TPs@K - baseline TPs@K
+    false_positives: int  # FPs in the alerting set (>= threshold)
+    fp_cost: float  # FPs × per-investigation cost
     n_events: int = 0
     metrics: dict[str, float] = field(default_factory=dict)
 
@@ -89,7 +90,11 @@ def backtest(
 
     tp_cand = _tp_at_k(yv, s, k)
     tp_base = _tp_at_k(yv, base, k)
-    lift = float(tp_cand / tp_base) if tp_base > 0 else (float(tp_cand) if tp_cand > 0 else 1.0)
+    lift = (
+        float(tp_cand / tp_base)
+        if tp_base > 0
+        else (float(tp_cand) if tp_cand > 0 else 1.0)
+    )
 
     # FP cost at the operating threshold.
     alerted = s >= threshold
@@ -125,8 +130,14 @@ def compare_candidates(
 ) -> list[BacktestResult]:
     """Backtest several candidates against a shared random baseline; sort by detection lift."""
     results = [
-        backtest(y, sc, model_version=name, k=k, threshold=threshold,
-                 fp_cost_per_case=fp_cost_per_case)
+        backtest(
+            y,
+            sc,
+            model_version=name,
+            k=k,
+            threshold=threshold,
+            fp_cost_per_case=fp_cost_per_case,
+        )
         for name, sc in candidates.items()
     ]
     return sorted(results, key=lambda r: r.detection_lift, reverse=True)

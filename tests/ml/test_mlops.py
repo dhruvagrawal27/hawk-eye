@@ -14,6 +14,7 @@ REAL assertions against the acceptance criteria:
 ENV: this file uses only numpy/pandas/sklearn (NO torch, NO LightGBM), so there is no macOS
 dual-libomp hazard. We set KMP_DUPLICATE_LIB_OK defensively anyway.
 """
+
 import os
 
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
@@ -35,7 +36,6 @@ from ml.mlops import (
     data_drift_report,
     default_inventory,
     ks_statistic,
-    model_signature,
     population_stability_index,
     rolling_precision_recall,
     shadow_evaluate,
@@ -53,7 +53,6 @@ from ml.mlops.governance import (
 )
 from ml.mlops.promotion import load_verified
 from ml.mlops.registry import STAGE_CHALLENGER, STAGE_CHAMPION
-
 
 # --------------------------------------------------------------------------- #
 # fixtures                                                                     #
@@ -85,9 +84,13 @@ class _NoiseModel:
     """
 
     def __init__(self, y_train, *, n_train, n_shadow):
-        noise_tr = pd.DataFrame({"noise": np.random.default_rng(0).normal(size=n_train)})
+        noise_tr = pd.DataFrame(
+            {"noise": np.random.default_rng(0).normal(size=n_train)}
+        )
         self._m = LogisticRegression(max_iter=500).fit(noise_tr, y_train)
-        self._shadow = pd.DataFrame({"noise": np.random.default_rng(1).normal(size=n_shadow)})
+        self._shadow = pd.DataFrame(
+            {"noise": np.random.default_rng(1).normal(size=n_shadow)}
+        )
 
     def predict_proba(self, _X):
         return self._m.predict_proba(self._shadow)[:, 1]
@@ -138,12 +141,26 @@ def test_incomplete_registration_rejected(registry):
 
 
 def test_champion_challenger_layout(registry):
-    registry.register(name="m", version="1.0.0", layer="L3", training_data_hash="h1",
-                      feature_names=FEATURES, metrics={"auprc": 0.6}, approving_reviewer="r",
-                      stage=STAGE_CHAMPION)
-    registry.register(name="m", version="1.1.0", layer="L3", training_data_hash="h2",
-                      feature_names=FEATURES, metrics={"auprc": 0.65}, approving_reviewer="r",
-                      stage=STAGE_CHALLENGER)
+    registry.register(
+        name="m",
+        version="1.0.0",
+        layer="L3",
+        training_data_hash="h1",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.6},
+        approving_reviewer="r",
+        stage=STAGE_CHAMPION,
+    )
+    registry.register(
+        name="m",
+        version="1.1.0",
+        layer="L3",
+        training_data_hash="h2",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.65},
+        approving_reviewer="r",
+        stage=STAGE_CHALLENGER,
+    )
     assert registry.champion("m").version == "1.0.0"
     assert [c.version for c in registry.challengers("m")] == ["1.1.0"]
 
@@ -171,24 +188,50 @@ def test_inventory_lists_all_layers_with_risk_tier():
 
 
 def test_inventory_reconcile_flags_version_drift(registry):
-    registry.register(name="l3", version="2.0.0", layer="L3", training_data_hash="h",
-                      feature_names=FEATURES, metrics={"auprc": 0.6}, approving_reviewer="r",
-                      stage=STAGE_CHAMPION)
+    registry.register(
+        name="l3",
+        version="2.0.0",
+        layer="L3",
+        training_data_hash="h",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.6},
+        approving_reviewer="r",
+        stage=STAGE_CHAMPION,
+    )
     inv = ModelInventory(
-        [InventoryEntry(model_id="l3_supervised", layer="L3", owner="o", purpose="p",
-                        risk_tier="tier-1-critical", data="d", version="1.0.0")],
+        [
+            InventoryEntry(
+                model_id="l3_supervised",
+                layer="L3",
+                owner="o",
+                purpose="p",
+                risk_tier="tier-1-critical",
+                data="d",
+                version="1.0.0",
+            )
+        ],
         defaults=False,
     )
     mismatches = inv.reconcile(registry)
-    assert any(m["layer"] == "L3" and m["registry_champion_version"] == "2.0.0" for m in mismatches)
+    assert any(
+        m["layer"] == "L3" and m["registry_champion_version"] == "2.0.0"
+        for m in mismatches
+    )
 
 
 # --------------------------------------------------------------------------- #
 # ML-21: signature verification, shadow gating, auto-rollback                  #
 # --------------------------------------------------------------------------- #
 def test_signature_verify_and_reject_on_load(registry):
-    registry.register(name="m", version="1.0.0", layer="L3", training_data_hash="h",
-                      feature_names=FEATURES, metrics={"auprc": 0.6}, approving_reviewer="r")
+    registry.register(
+        name="m",
+        version="1.0.0",
+        layer="L3",
+        training_data_hash="h",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.6},
+        approving_reviewer="r",
+    )
     rec = registry.get("m", "1.0.0")
     assert verify_signature(rec, FEATURES)
     # correct schema loads
@@ -204,19 +247,36 @@ def test_challenger_promotes_only_after_beating_champion_in_shadow(registry):
     Xtr, ytr = X.iloc[:300], y.iloc[:300]
     Xsh, ysh = X.iloc[300:], y.iloc[300:]  # time-split shadow slice
 
-    challenger = _fit(Xtr, ytr, C=1.0)   # uses informative features -> strong
-    champion = _NoiseModel(ytr, n_train=len(Xtr), n_shadow=len(Xsh))  # noise-only -> weak
+    challenger = _fit(Xtr, ytr, C=1.0)  # uses informative features -> strong
+    champion = _NoiseModel(
+        ytr, n_train=len(Xtr), n_shadow=len(Xsh)
+    )  # noise-only -> weak
 
-    registry.register(name="m", version="1.0.0", layer="L3", training_data_hash="h0",
-                      feature_names=FEATURES, metrics={"auprc": 0.5}, approving_reviewer="r",
-                      stage=STAGE_CHAMPION)
-    registry.register(name="m", version="2.0.0", layer="L3", training_data_hash="h1",
-                      feature_names=FEATURES, metrics={"auprc": 0.6}, approving_reviewer="r",
-                      stage=STAGE_CHALLENGER)
+    registry.register(
+        name="m",
+        version="1.0.0",
+        layer="L3",
+        training_data_hash="h0",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.5},
+        approving_reviewer="r",
+        stage=STAGE_CHAMPION,
+    )
+    registry.register(
+        name="m",
+        version="2.0.0",
+        layer="L3",
+        training_data_hash="h1",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.6},
+        approving_reviewer="r",
+        stage=STAGE_CHALLENGER,
+    )
 
     mgr = PromotionManager(registry)
-    dec = mgr.evaluate_and_promote("m", "2.0.0", challenger, champion, Xsh, ysh, FEATURES,
-                                   reviewer="approver")
+    dec = mgr.evaluate_and_promote(
+        "m", "2.0.0", challenger, champion, Xsh, ysh, FEATURES, reviewer="approver"
+    )
     assert dec.signature_ok
     assert dec.shadow.beats_champion
     assert dec.promoted
@@ -228,16 +288,34 @@ def test_weaker_challenger_does_not_promote(registry):
     Xtr, ytr = X.iloc[:300], y.iloc[:300]
     Xsh, ysh = X.iloc[300:], y.iloc[300:]
     champion = _fit(Xtr, ytr, C=1.0)  # informative features -> strong
-    challenger = _NoiseModel(ytr, n_train=len(Xtr), n_shadow=len(Xsh))  # noise-only -> weaker
+    challenger = _NoiseModel(
+        ytr, n_train=len(Xtr), n_shadow=len(Xsh)
+    )  # noise-only -> weaker
 
-    registry.register(name="m", version="1.0.0", layer="L3", training_data_hash="h",
-                      feature_names=FEATURES, metrics={"auprc": 0.6}, approving_reviewer="r",
-                      stage=STAGE_CHAMPION)
-    registry.register(name="m", version="2.0.0", layer="L3", training_data_hash="h2",
-                      feature_names=FEATURES, metrics={"auprc": 0.5}, approving_reviewer="r",
-                      stage=STAGE_CHALLENGER)
+    registry.register(
+        name="m",
+        version="1.0.0",
+        layer="L3",
+        training_data_hash="h",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.6},
+        approving_reviewer="r",
+        stage=STAGE_CHAMPION,
+    )
+    registry.register(
+        name="m",
+        version="2.0.0",
+        layer="L3",
+        training_data_hash="h2",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.5},
+        approving_reviewer="r",
+        stage=STAGE_CHALLENGER,
+    )
     mgr = PromotionManager(registry)
-    dec = mgr.evaluate_and_promote("m", "2.0.0", challenger, champion, Xsh, ysh, FEATURES)
+    dec = mgr.evaluate_and_promote(
+        "m", "2.0.0", challenger, champion, Xsh, ysh, FEATURES
+    )
     assert not dec.shadow.beats_champion
     assert not dec.promoted
     assert registry.champion("m").version == "1.0.0"  # champion unchanged
@@ -247,12 +325,26 @@ def test_bad_signature_blocks_promotion(registry):
     X, y = _make_xy(seed=3)
     champ = _fit(X, y)
     chal = _fit(X, y, C=2.0)
-    registry.register(name="m", version="1.0.0", layer="L3", training_data_hash="h",
-                      feature_names=FEATURES, metrics={"auprc": 0.6}, approving_reviewer="r",
-                      stage=STAGE_CHAMPION)
-    registry.register(name="m", version="2.0.0", layer="L3", training_data_hash="h2",
-                      feature_names=FEATURES, metrics={"auprc": 0.6}, approving_reviewer="r",
-                      stage=STAGE_CHALLENGER)
+    registry.register(
+        name="m",
+        version="1.0.0",
+        layer="L3",
+        training_data_hash="h",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.6},
+        approving_reviewer="r",
+        stage=STAGE_CHAMPION,
+    )
+    registry.register(
+        name="m",
+        version="2.0.0",
+        layer="L3",
+        training_data_hash="h2",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.6},
+        approving_reviewer="r",
+        stage=STAGE_CHALLENGER,
+    )
     mgr = PromotionManager(registry)
     # live feature schema does NOT match registered signature -> reject, never promote
     dec = mgr.evaluate_and_promote("m", "2.0.0", chal, champ, X, y, FEATURES + ["leak"])
@@ -271,11 +363,25 @@ def test_metric_regression_triggers_auto_rollback(registry):
             rng = np.random.default_rng(99)
             return rng.random(len(Xin))
 
-    registry.register(name="m", version="1.0.0", layer="L3", training_data_hash="h",
-                      feature_names=FEATURES, metrics={"auprc": 0.7}, approving_reviewer="r",
-                      stage=STAGE_CHAMPION)
-    registry.register(name="m", version="2.0.0", layer="L3", training_data_hash="h2",
-                      feature_names=FEATURES, metrics={"auprc": 0.7}, approving_reviewer="r")
+    registry.register(
+        name="m",
+        version="1.0.0",
+        layer="L3",
+        training_data_hash="h",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.7},
+        approving_reviewer="r",
+        stage=STAGE_CHAMPION,
+    )
+    registry.register(
+        name="m",
+        version="2.0.0",
+        layer="L3",
+        training_data_hash="h2",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.7},
+        approving_reviewer="r",
+    )
     registry.promote("m", "2.0.0", reviewer="r")  # new champion deployed
     assert registry.champion("m").version == "2.0.0"
 
@@ -295,7 +401,7 @@ def test_psi_and_ks_detect_shift():
     same = rng.normal(0, 1, 1000)
     shifted = rng.normal(3, 1, 1000)
 
-    assert population_stability_index(ref, same) < 0.1   # stable
+    assert population_stability_index(ref, same) < 0.1  # stable
     assert population_stability_index(ref, shifted) > 0.25  # significant shift
 
     _, p_same = ks_statistic(ref, same)
@@ -336,7 +442,7 @@ def test_concept_drift_rolling_precision_recall_triggers_retrain():
     good_true = [1, 0] * 50
     good_pred = [1, 0] * 50  # perfect
     bad_true = [1, 0] * 50
-    bad_pred = [0, 1] * 50   # inverted -> precision collapses
+    bad_pred = [0, 1] * 50  # inverted -> precision collapses
     y_true = good_true + bad_true
     y_pred = good_pred + bad_pred
 
@@ -367,7 +473,9 @@ def test_threshold_tunes_to_daily_budget():
     assert 0.0 <= result.chosen.precision <= 1.0
     assert result.chosen.mean_time_to_disposition_hours > 0
     assert result.chosen.precision_at_k >= 0.0
-    assert np.isfinite(result.chosen.alert_to_true_ratio) or result.chosen.alert_to_true_ratio == float("inf")
+    assert np.isfinite(
+        result.chosen.alert_to_true_ratio
+    ) or result.chosen.alert_to_true_ratio == float("inf")
 
     # a tiny budget forces a more conservative (>=) threshold than a generous budget
     tight = ThresholdGovernor(daily_budget=5, horizon_days=1.0).tune(y, scores)
@@ -380,12 +488,20 @@ def test_threshold_tunes_to_daily_budget():
 # --------------------------------------------------------------------------- #
 def test_model_card_has_all_sections(registry):
     X, y = _make_xy(seed=6)
-    rec = registry.register(name="l3_supervised", version="1.0.0", layer="L3",
-                            training_data_hash="abc123", feature_names=FEATURES,
-                            metrics={"auprc": 0.72, "recall_at_k": 0.55}, approving_reviewer="val@bank")
+    rec = registry.register(
+        name="l3_supervised",
+        version="1.0.0",
+        layer="L3",
+        training_data_hash="abc123",
+        feature_names=FEATURES,
+        metrics={"auprc": 0.72, "recall_at_k": 0.55},
+        approving_reviewer="val@bank",
+    )
     entry = default_inventory().get("l3_supervised")
     # real fairness metrics for the card
-    protected = pd.DataFrame({"department": np.where(np.arange(len(y)) % 2 == 0, "A", "B")})
+    protected = pd.DataFrame(
+        {"department": np.where(np.arange(len(y)) % 2 == 0, "A", "B")}
+    )
     from ml.fairness import fairness_metrics_dict
 
     fairness = fairness_metrics_dict(y, (X["amount_z"] > 0).astype(int), protected)
@@ -399,13 +515,22 @@ def test_model_card_has_all_sections(registry):
     assert card.limitations and card.known_failure_modes
     assert "attributes" in card.fairness  # real fairness section wired in
     md = card.to_markdown()
-    for section in ("Intended use", "Training data", "Features", "Metrics",
-                    "Limitations", "Known failure modes", "Fairness results"):
+    for section in (
+        "Intended use",
+        "Training data",
+        "Features",
+        "Metrics",
+        "Limitations",
+        "Known failure modes",
+        "Fairness results",
+    ):
         assert section in md
 
 
 def test_risk_tiering_scoring_outranks_narrative():
-    fusion = assess_risk_tier(model_id="l6", layer="L6", decides=True, blocks_or_final=True)
+    fusion = assess_risk_tier(
+        model_id="l6", layer="L6", decides=True, blocks_or_final=True
+    )
     llm = assess_risk_tier(model_id="llm", layer="LLM", decides=False)
     assert fusion.risk_tier == "tier-1-critical"
     assert llm.risk_tier == "tier-3-moderate"
@@ -418,8 +543,13 @@ def test_risk_tiering_scoring_outranks_narrative():
 # ML-23: change -> validation -> approval -> deploy GATE                       #
 # --------------------------------------------------------------------------- #
 def test_change_workflow_gates_deploy():
-    cr = ChangeRequest(change_id="C1", model_id="l3", model_version="2.0.0",
-                       author="dev@bank", risk_tier="tier-1-critical")
+    cr = ChangeRequest(
+        change_id="C1",
+        model_id="l3",
+        model_version="2.0.0",
+        author="dev@bank",
+        risk_tier="tier-1-critical",
+    )
     # cannot deploy straight away
     assert not cr.can_deploy()
     with pytest.raises(DeploymentGateError):
@@ -441,8 +571,14 @@ def test_change_workflow_gates_deploy():
 
 
 def test_change_workflow_blocks_without_shadow():
-    cr = ChangeRequest(change_id="C2", model_id="l3", model_version="2.0.0",
-                       author="dev", risk_tier="tier-1-critical", requires_shadow=True)
+    cr = ChangeRequest(
+        change_id="C2",
+        model_id="l3",
+        model_version="2.0.0",
+        author="dev",
+        risk_tier="tier-1-critical",
+        requires_shadow=True,
+    )
     cr.validate(passed=True, model_card_complete=True, shadow_passed=False)
     assert cr.stage == Stage.REJECTED  # shadow missing -> not validated
     assert "shadow" in " ".join(cr.deployment_blockers()).lower()
@@ -467,11 +603,16 @@ def test_monitoring_consolidates_and_recommends_retrain():
 
     mon = ModelMonitor("l3_supervised")
     report = mon.run(
-        reference_features=ref, current_features=cur,
-        disposition_y_true=y_true, disposition_y_pred=y_pred,
-        reference_scores=risk[:150], current_scores=risk[150:],
-        realized_fraud=realized, risk_scores=risk,
-        rolling_window=100, alert_threshold=0.5,
+        reference_features=ref,
+        current_features=cur,
+        disposition_y_true=y_true,
+        disposition_y_pred=y_pred,
+        reference_scores=risk[:150],
+        current_scores=risk[150:],
+        realized_fraud=realized,
+        risk_scores=risk,
+        rolling_window=100,
+        alert_threshold=0.5,
     )
     assert report.data_drift is not None
     assert report.concept_drift is not None
@@ -488,13 +629,18 @@ def test_monitoring_consolidates_and_recommends_retrain():
 def test_validation_report_real_fairness_and_simulated_signoff():
     X, y = _make_xy(seed=8)
     y_pred = (X["amount_z"] > 0).astype(int)
-    protected = pd.DataFrame({
-        "department": np.where(np.arange(len(y)) % 2 == 0, "trade", "retail"),
-        "gender": np.where(np.arange(len(y)) % 3 == 0, "F", "M"),
-    })
+    protected = pd.DataFrame(
+        {
+            "department": np.where(np.arange(len(y)) % 2 == 0, "trade", "retail"),
+            "gender": np.where(np.arange(len(y)) % 3 == 0, "F", "M"),
+        }
+    )
     report = build_validation_report(
-        model_id="l3_supervised", model_version="l3_supervised@1.0.0",
-        y_true=y, y_pred=y_pred, protected=protected,
+        model_id="l3_supervised",
+        model_version="l3_supervised@1.0.0",
+        y_true=y,
+        y_pred=y_pred,
+        protected=protected,
         performance_summary={"auprc": 0.7},
     )
     d = report.to_dict()
@@ -512,7 +658,10 @@ def test_validation_report_real_fairness_and_simulated_signoff():
     assert d["independent_signoff"]["simulated"] is True
     assert "SIMULATED" in d["independent_signoff"]["disclaimer"].upper()
     assert d["independent_signoff"]["verdict"] in (
-        "approved", "approved_with_conditions", "rejected")
+        "approved",
+        "approved_with_conditions",
+        "rejected",
+    )
 
     # deterministic seeding: same version -> same reviewer
     s1 = simulate_signoff("l3_supervised@1.0.0", any_fairness_breach=False)

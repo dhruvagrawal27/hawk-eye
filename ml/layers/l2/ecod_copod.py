@@ -8,6 +8,7 @@ construction). COPOD's fallback reuses the same per-feature tail engine (COPOD d
 mainly by modelling the empirical copula; the tail-aggregation here is a faithful
 parameter-free stand-in).
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -115,7 +116,9 @@ def _per_feature_tail(train: np.ndarray, query: np.ndarray) -> np.ndarray:
     return out
 
 
-def _top_k_reasons(per_feat: np.ndarray, names: list[str], top_k: int) -> list[list[ReasonCode]]:
+def _top_k_reasons(
+    per_feat: np.ndarray, names: list[str], top_k: int
+) -> list[list[ReasonCode]]:
     reasons: list[list[ReasonCode]] = []
     for row in per_feat:
         total = float(row.sum()) or 1.0

@@ -8,6 +8,7 @@ attention map. Compact (1 layer, tiny dim, few epochs).
 
 torch import lives inside the methods; ``fit`` raises ``require('torch')`` if absent.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -32,8 +33,13 @@ class AnomalyTransformer(BaseDetector):
 
     layer = "L4"
 
-    def __init__(self, d_model: int = 16, window: int = 20, epochs: int = 10,
-                 version: str = "0.1.0") -> None:
+    def __init__(
+        self,
+        d_model: int = 16,
+        window: int = 20,
+        epochs: int = 10,
+        version: str = "0.1.0",
+    ) -> None:
         super().__init__(name="l4_anomaly_transformer", version=version)
         self.d_model = int(d_model)
         self.window = int(window)
@@ -42,23 +48,24 @@ class AnomalyTransformer(BaseDetector):
         self._c = 0
 
     def _build(self):
-        import torch
         from torch import nn
 
-        d_model, c, w = self.d_model, self._c, self.window
+        d_model, c = self.d_model, self._c
 
         class _AT(nn.Module):
             def __init__(self) -> None:
                 super().__init__()
                 self.inp = nn.Linear(c, d_model)
-                self.attn = nn.MultiheadAttention(d_model, num_heads=2,
-                                                  batch_first=True, dropout=0.0)
+                self.attn = nn.MultiheadAttention(
+                    d_model, num_heads=2, batch_first=True, dropout=0.0
+                )
                 self.out = nn.Linear(d_model, c)
 
             def forward(self, x):
                 h = self.inp(x)
-                a, w_attn = self.attn(h, h, h, need_weights=True,
-                                      average_attn_weights=True)
+                a, w_attn = self.attn(
+                    h, h, h, need_weights=True, average_attn_weights=True
+                )
                 recon = self.out(a)
                 return recon, w_attn  # w_attn: (n, w, w)
 
@@ -87,7 +94,9 @@ class AnomalyTransformer(BaseDetector):
         for _ in range(self.epochs):
             recon, _ = model(t)
             loss = mse(recon, t)
-            opt.zero_grad(); loss.backward(); opt.step()
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
         model.eval()
         self._model = model
         self._fitted = True

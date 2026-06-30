@@ -4,6 +4,7 @@
 # and the EDD labeled-disposition store until DATABASE provides MinIO/Postgres/ClickHouse.
 # Swap the backends without changing callers.
 """
+
 from __future__ import annotations
 
 import json
@@ -40,8 +41,18 @@ class ModelStore:
         path = os.path.join(d, "model.joblib")
         model.save(path)
         with open(os.path.join(d, "meta.json"), "w") as fh:
-            json.dump({"name": model.name, "version": model.version, "layer": model.layer,
-                       "saved_ts": time.time(), **(meta or {})}, fh, indent=2, default=str)
+            json.dump(
+                {
+                    "name": model.name,
+                    "version": model.version,
+                    "layer": model.layer,
+                    "saved_ts": time.time(),
+                    **(meta or {}),
+                },
+                fh,
+                indent=2,
+                default=str,
+            )
         return path
 
     def load_model(self, name: str, version: str) -> BaseModel:
@@ -85,12 +96,16 @@ class LabelStore:
     OUTCOMES = ("fraud", "false_positive", "inconclusive")
 
     def __init__(self, path: Optional[str] = None) -> None:
-        self.path = path or os.path.join(DEFAULT_ARTIFACT_ROOT, "labels", "dispositions.jsonl")
+        self.path = path or os.path.join(
+            DEFAULT_ARTIFACT_ROOT, "labels", "dispositions.jsonl"
+        )
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
 
     def add_disposition(self, d: Disposition) -> None:
         if d.outcome not in self.OUTCOMES:
-            raise ValueError(f"outcome must be one of {self.OUTCOMES}, got {d.outcome!r}")
+            raise ValueError(
+                f"outcome must be one of {self.OUTCOMES}, got {d.outcome!r}"
+            )
         if not d.ts:
             d.ts = time.time()
         with open(self.path, "a") as fh:
@@ -113,6 +128,16 @@ class LabelStore:
         for d in self.dispositions():
             is_fraud = d.outcome == "fraud"
             for eid in d.event_ids:
-                rows.append({"event_id": eid, "is_fraud": is_fraud, "actor_id": d.entity_id,
-                             "label_source": "edd", "confidence": 1.0 if d.outcome != "inconclusive" else 0.5})
-        return pd.DataFrame(rows, columns=["event_id", "is_fraud", "actor_id", "label_source", "confidence"])
+                rows.append(
+                    {
+                        "event_id": eid,
+                        "is_fraud": is_fraud,
+                        "actor_id": d.entity_id,
+                        "label_source": "edd",
+                        "confidence": 1.0 if d.outcome != "inconclusive" else 0.5,
+                    }
+                )
+        return pd.DataFrame(
+            rows,
+            columns=["event_id", "is_fraud", "actor_id", "label_source", "confidence"],
+        )

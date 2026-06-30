@@ -15,6 +15,7 @@
 Governance PROCESS mocks (board policy/committees/DPIA) are PLATFORM's, not here.
 Pure-Python (no heavy imports), so everything loads in any process.
 """
+
 from __future__ import annotations
 
 import os
@@ -47,7 +48,9 @@ from ml.mlops.governance.validation_report import (
     simulate_signoff,
 )
 
-VALIDATION_SCOPE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "validation_scope.md")
+VALIDATION_SCOPE_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "validation_scope.md"
+)
 
 __all__ = [
     # model card

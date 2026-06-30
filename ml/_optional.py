@@ -12,6 +12,7 @@ Usage::
     torch = optional_import("torch")          # -> module or None
     lgb = require("lightgbm")                  # -> module, else informative ImportError
 """
+
 from __future__ import annotations
 
 import importlib
@@ -103,13 +104,27 @@ def require(name: str, *, reason: str = "") -> ModuleType:
 # every heavy lib at once. That keeps torch and LightGBM from being co-loaded into a process
 # that only needs one of them — the macOS dual-libomp segfault trigger.
 _FLAG_TO_LIB = {
-    "HAS_PYOD": "pyod", "HAS_LIGHTGBM": "lightgbm", "HAS_XGBOOST": "xgboost",
-    "HAS_CATBOOST": "catboost", "HAS_SHAP": "shap", "HAS_TORCH": "torch",
-    "HAS_TORCH_GEOMETRIC": "torch_geometric", "HAS_MLFLOW": "mlflow", "HAS_EVIDENTLY": "evidently",
-    "HAS_FAIRLEARN": "fairlearn", "HAS_FEATURETOOLS": "featuretools", "HAS_ONNXRUNTIME": "onnxruntime",
-    "HAS_ONNX": "onnx", "HAS_SKL2ONNX": "skl2onnx", "HAS_ONNXMLTOOLS": "onnxmltools",
-    "HAS_OPENAI": "openai", "HAS_JINJA2": "jinja2", "HAS_FASTAPI": "fastapi",
-    "HAS_NETWORKX": "networkx", "HAS_PYGOD": "pygod", "HAS_DICE_ML": "dice_ml",
+    "HAS_PYOD": "pyod",
+    "HAS_LIGHTGBM": "lightgbm",
+    "HAS_XGBOOST": "xgboost",
+    "HAS_CATBOOST": "catboost",
+    "HAS_SHAP": "shap",
+    "HAS_TORCH": "torch",
+    "HAS_TORCH_GEOMETRIC": "torch_geometric",
+    "HAS_MLFLOW": "mlflow",
+    "HAS_EVIDENTLY": "evidently",
+    "HAS_FAIRLEARN": "fairlearn",
+    "HAS_FEATURETOOLS": "featuretools",
+    "HAS_ONNXRUNTIME": "onnxruntime",
+    "HAS_ONNX": "onnx",
+    "HAS_SKL2ONNX": "skl2onnx",
+    "HAS_ONNXMLTOOLS": "onnxmltools",
+    "HAS_OPENAI": "openai",
+    "HAS_JINJA2": "jinja2",
+    "HAS_FASTAPI": "fastapi",
+    "HAS_NETWORKX": "networkx",
+    "HAS_PYGOD": "pygod",
+    "HAS_DICE_ML": "dice_ml",
 }
 
 

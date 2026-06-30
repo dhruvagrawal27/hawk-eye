@@ -9,6 +9,7 @@ client later changes nothing for callers.
 ALERT-ONLY + reconstructability: each re-score is persisted through
 :class:`ml.pipelines.repro.ScoreLedger` with its feature vector + model_version.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -29,8 +30,12 @@ class ClickHouseSource:
     matching the shape a real ClickHouse client would return.
     """
 
-    def __init__(self, source: Optional[FeatureSource] = None,
-                 events: Optional[pd.DataFrame] = None, ts_col: str = "ts") -> None:
+    def __init__(
+        self,
+        source: Optional[FeatureSource] = None,
+        events: Optional[pd.DataFrame] = None,
+        ts_col: str = "ts",
+    ) -> None:
         self.ts_col = ts_col
         if events is not None:
             self._events = events
@@ -39,7 +44,9 @@ class ClickHouseSource:
         else:
             raise ValueError("provide a FeatureSource or an events DataFrame")
 
-    def query_window(self, start: Optional[str] = None, end: Optional[str] = None) -> pd.DataFrame:
+    def query_window(
+        self, start: Optional[str] = None, end: Optional[str] = None
+    ) -> pd.DataFrame:
         df = self._events
         if self.ts_col not in df.columns:
             return df.copy()

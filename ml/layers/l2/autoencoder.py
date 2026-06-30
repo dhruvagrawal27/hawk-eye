@@ -12,6 +12,7 @@ low-rank subspace and reconstruct; the residual is the reconstruction error.
 ``ReasonCode(source="shap", feature=<col>, contribution=<err share>)`` for the top_k
 worst features (defence-in-depth, cross-checkable against rules + raw evidence).
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -130,7 +131,9 @@ class AutoEncoderDetector(BaseDetector):
                 vloss = float(loss_fn(net(xv), xv).item())
             if vloss < best_val - 1e-6:
                 best_val = vloss
-                best_state = {k: v.detach().clone() for k, v in net.state_dict().items()}
+                best_state = {
+                    k: v.detach().clone() for k, v in net.state_dict().items()
+                }
                 bad = 0
             else:
                 bad += 1

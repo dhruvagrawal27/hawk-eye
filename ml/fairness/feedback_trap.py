@@ -14,6 +14,7 @@ audit the dispositions).
 It is a *monitor*: it raises an alert with reason codes + narrative (Part 29.2). It never
 edits labels or blocks anyone automatically.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -64,7 +65,9 @@ class FeedbackTrapResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "attribute": self.attribute,
-            "group_confirmation": {g: gc.to_dict() for g, gc in self.group_confirmation.items()},
+            "group_confirmation": {
+                g: gc.to_dict() for g, gc in self.group_confirmation.items()
+            },
             "confirmation_ratio": round(self.confirmation_ratio, 4),
             "confirmation_gap": round(self.confirmation_gap, 4),
             "disproportionate": self.disproportionate,
@@ -81,12 +84,23 @@ def _confirmed_mask(dispositions: Iterable[Any]) -> np.ndarray:
     Accepts bools/0-1 ints, or strings ('confirmed'/'fraud'/'true_positive' -> 1;
     'cleared'/'false_positive'/'benign' -> 0).
     """
-    confirmed_words = {"confirmed", "fraud", "true_positive", "tp", "sar", "escalated", "1", "true"}
+    confirmed_words = {
+        "confirmed",
+        "fraud",
+        "true_positive",
+        "tp",
+        "sar",
+        "escalated",
+        "1",
+        "true",
+    }
     out = []
     for d in dispositions:
         if isinstance(d, (bool, np.bool_)):
             out.append(int(bool(d)))
-        elif isinstance(d, (int, float, np.integer, np.floating)) and not isinstance(d, bool):
+        elif isinstance(d, (int, float, np.integer, np.floating)) and not isinstance(
+            d, bool
+        ):
             out.append(int(d >= 0.5))
         else:
             out.append(1 if str(d).strip().lower() in confirmed_words else 0)
@@ -114,8 +128,9 @@ def analyze_attribute(
         n = int(mask.sum())
         c = int(conf[mask].sum())
         rate = float(c / n) if n else 0.0
-        gconf[str(g)] = GroupConfirmation(group=str(g), n_dispositioned=n, n_confirmed=c,
-                                          confirmation_rate=rate)
+        gconf[str(g)] = GroupConfirmation(
+            group=str(g), n_dispositioned=n, n_confirmed=c, confirmation_rate=rate
+        )
         if n >= min_group:
             rates.append(rate)
 
@@ -144,8 +159,11 @@ def analyze_attribute(
                 return {"narrative": _render(ctx), "provider": "template"}
 
         over = max(gconf.values(), key=lambda gc: gc.confirmation_rate)
-        under = min((gc for gc in gconf.values() if gc.n_dispositioned >= min_group),
-                    key=lambda gc: gc.confirmation_rate, default=over)
+        under = min(
+            (gc for gc in gconf.values() if gc.n_dispositioned >= min_group),
+            key=lambda gc: gc.confirmation_rate,
+            default=over,
+        )
         rc = ReasonCode(
             source="rule",
             code=f"fairness.feedback_trap.{attribute}",
@@ -175,8 +193,11 @@ def suggest_correction(result: FeedbackTrapResult) -> dict[str, Any]:
     retrained on, no longer over-represents the over-confirmed group. Pure suggestion — the
     caller (training pipeline / governance) decides whether to apply it.
     """
-    rates = {g: gc.confirmation_rate for g, gc in result.group_confirmation.items()
-             if gc.n_dispositioned > 0}
+    rates = {
+        g: gc.confirmation_rate
+        for g, gc in result.group_confirmation.items()
+        if gc.n_dispositioned > 0
+    }
     if not rates:
         return {"method": "reweight", "weights": {}, "note": "no dispositioned samples"}
     target = float(np.mean(list(rates.values())))
@@ -202,21 +223,33 @@ def detect_feedback_trap(
     """Run the feedback-trap monitor across every protected attribute in ``protected``."""
     from ml.fairness.metrics import PROTECTED_ATTRIBUTES, _bin_if_continuous
 
-    attrs = list(attributes) if attributes is not None else [
-        c for c in protected.columns if c in PROTECTED_ATTRIBUTES or c in protected.columns
-    ]
+    attrs = (
+        list(attributes)
+        if attributes is not None
+        else [
+            c
+            for c in protected.columns
+            if c in PROTECTED_ATTRIBUTES or c in protected.columns
+        ]
+    )
     out: dict[str, FeedbackTrapResult] = {}
     for attr in attrs:
         if attr not in protected.columns:
             continue
         groups = _bin_if_continuous(protected[attr], attr)
         out[attr] = analyze_attribute(
-            dispositions, groups, attribute=attr, ratio_floor=ratio_floor,
-            min_group=min_group, narrator=narrator,
+            dispositions,
+            groups,
+            attribute=attr,
+            ratio_floor=ratio_floor,
+            min_group=min_group,
+            narrator=narrator,
         )
     return out
 
 
-def feedback_trap_alerts(results: dict[str, FeedbackTrapResult]) -> list[dict[str, Any]]:
+def feedback_trap_alerts(
+    results: dict[str, FeedbackTrapResult],
+) -> list[dict[str, Any]]:
     """Collect only the attributes where disproportionate confirmation was detected."""
     return [r.to_dict() for r in results.values() if r.disproportionate]

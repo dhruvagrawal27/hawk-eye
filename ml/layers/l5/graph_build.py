@@ -18,6 +18,7 @@ Two public surfaces:
 ``networkx`` is used when present (centrality), else a pure-numpy adjacency path.
 The module ALWAYS imports — heavy imports stay inside methods.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -31,7 +32,13 @@ from ml._optional import optional_import
 # Node types in the typed graph.
 NODE_TYPES = ("employee", "account", "beneficiary", "device", "vendor")
 # Edge (relation) types.
-EDGE_TYPES = ("transaction", "access", "shared_device", "shared_account", "shared_beneficiary")
+EDGE_TYPES = (
+    "transaction",
+    "access",
+    "shared_device",
+    "shared_account",
+    "shared_beneficiary",
+)
 
 EMP = "actor.employee_id"
 
@@ -61,7 +68,9 @@ class EntityGraph:
         if not node_id:
             return
         if node_type not in NODE_TYPES:
-            raise ValueError(f"node_type must be one of {NODE_TYPES}, got {node_type!r}")
+            raise ValueError(
+                f"node_type must be one of {NODE_TYPES}, got {node_type!r}"
+            )
         # Employees keep their type; never downgrade an employee node.
         if node_id not in self.nodes or self.nodes[node_id] == node_type:
             self.nodes.setdefault(node_id, node_type)
@@ -70,7 +79,9 @@ class EntityGraph:
         if not src or not dst or src == dst:
             return
         if edge_type not in EDGE_TYPES:
-            raise ValueError(f"edge_type must be one of {EDGE_TYPES}, got {edge_type!r}")
+            raise ValueError(
+                f"edge_type must be one of {EDGE_TYPES}, got {edge_type!r}"
+            )
         a, b = (src, dst) if src <= dst else (dst, src)
         key = (a, b, edge_type)
         if key not in self._edge_set:
@@ -101,12 +112,18 @@ class EntityGraph:
             a = acct.iat[i]
             if a:
                 self.add_node(a, "account")
-                self.add_edge(e, a, "access" if layer.iat[i] == "database" else "transaction")
+                self.add_edge(
+                    e, a, "access" if layer.iat[i] == "database" else "transaction"
+                )
 
             b = bene.iat[i]
             if b:
                 # A beneficiary that looks like a vendor payout is typed as a vendor.
-                ntype = "vendor" if str(b).upper().startswith(("VEND", "VND", "VEN-")) else "beneficiary"
+                ntype = (
+                    "vendor"
+                    if str(b).upper().startswith(("VEND", "VND", "VEN-"))
+                    else "beneficiary"
+                )
                 self.add_node(b, ntype)
                 self.add_edge(e, b, "transaction")
 
@@ -118,7 +135,9 @@ class EntityGraph:
             c = cust.iat[i]
             if c and c != a:
                 self.add_node(c, "account")
-                self.add_edge(e, c, "access" if verb.iat[i].startswith("db_") else "transaction")
+                self.add_edge(
+                    e, c, "access" if verb.iat[i].startswith("db_") else "transaction"
+                )
 
         # Shared-attribute edges: employees that share a device / account / beneficiary
         # are linked (typed) — the classic collusion / mule signal.
@@ -127,7 +146,9 @@ class EntityGraph:
         self._add_shared_edges(df, bene, "beneficiary", "shared_beneficiary")
         return self
 
-    def _add_shared_edges(self, df: pd.DataFrame, attr: pd.Series, _kind: str, edge_type: str) -> None:
+    def _add_shared_edges(
+        self, df: pd.DataFrame, attr: pd.Series, _kind: str, edge_type: str
+    ) -> None:
         emp = _s(df, EMP)
         tmp = pd.DataFrame({"emp": emp.values, "attr": attr.values})
         tmp = tmp[(tmp["attr"].str.len() > 0) & (tmp["emp"].str.len() > 0)]
@@ -160,13 +181,19 @@ class EntityGraph:
 
     def node_list(self) -> list[str]:
         """All node ids with employees FIRST (in employee order), then others sorted."""
-        others = sorted(n for n in self.nodes if self.nodes[n] != "employee" or n not in self.employees)
+        others = sorted(
+            n
+            for n in self.nodes
+            if self.nodes[n] != "employee" or n not in self.employees
+        )
         # employees in insertion order, then any non-employee nodes
         emp_set = set(self.employees)
         rest = [n for n in others if n not in emp_set]
         return list(self.employees) + rest
 
-    def adjacency(self, nodes: Optional[list[str]] = None) -> tuple[np.ndarray, list[str]]:
+    def adjacency(
+        self, nodes: Optional[list[str]] = None
+    ) -> tuple[np.ndarray, list[str]]:
         """Dense symmetric 0/1 adjacency over ``nodes`` (default: :meth:`node_list`)."""
         nodes = nodes or self.node_list()
         idx = {n: i for i, n in enumerate(nodes)}
@@ -220,7 +247,9 @@ def _row_normalize(A: np.ndarray) -> np.ndarray:
     return A / deg
 
 
-def _centrality(A: np.ndarray, nodes: list[str], graph: Optional[EntityGraph]) -> np.ndarray:
+def _centrality(
+    A: np.ndarray, nodes: list[str], graph: Optional[EntityGraph]
+) -> np.ndarray:
     """Eigenvector centrality (networkx if a graph is supplied, else power iteration)."""
     nx = optional_import("networkx")
     if graph is not None and nx is not None:
@@ -281,17 +310,21 @@ def k_hop_aggregates(
     out["graph_degree"] = deg
     out["graph_centrality"] = _centrality(A, nodes, graph)
     if shared_counts is not None:
-        out["graph_shared_attr_count"] = shared_counts.reindex(node_features.index).fillna(0.0).to_numpy()
+        out["graph_shared_attr_count"] = (
+            shared_counts.reindex(node_features.index).fillna(0.0).to_numpy()
+        )
     elif graph is not None:
         sc = graph.shared_attribute_counts(nodes)
-        out["graph_shared_attr_count"] = sc.reindex(node_features.index).fillna(0.0).to_numpy()
+        out["graph_shared_attr_count"] = (
+            sc.reindex(node_features.index).fillna(0.0).to_numpy()
+        )
     else:
         out["graph_shared_attr_count"] = 0.0
 
     if k == 0:
         return out
 
-    An = _row_normalize(A)        # for mean
+    An = _row_normalize(A)  # for mean
     reach = (A > 0).astype(float)  # 1-hop reachability
 
     # Accumulate the per-hop aggregate columns and concat ONCE at the end. Building them

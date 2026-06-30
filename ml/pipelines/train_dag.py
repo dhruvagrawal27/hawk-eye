@@ -14,6 +14,7 @@ An Airflow-DAG factory (:func:`make_airflow_dag`) is provided too, guarded by
 ``optional_import('airflow')`` — it is SCAFFOLD when airflow is absent (logged + returns
 None) so the module always imports.
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,11 +45,13 @@ def _seed_for_layer(layer: str, seed: int) -> None:
     import random
 
     import os as _os
+
     _os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
     if layer not in _TORCH_FREE_SEED_LAYERS:
         from ml.config.seeds import seed_everything
+
         seed_everything(seed)
 
 
@@ -77,7 +80,15 @@ class DAGRunResult:
 class TrainingDAG:
     """Ordered pull -> features -> train -> validate -> calibrate -> register -> shadow."""
 
-    STEPS = ("pull", "build_features", "train", "validate", "calibrate", "register", "shadow_deploy")
+    STEPS = (
+        "pull",
+        "build_features",
+        "train",
+        "validate",
+        "calibrate",
+        "register",
+        "shadow_deploy",
+    )
 
     def __init__(
         self,
@@ -114,7 +125,11 @@ class TrainingDAG:
         events = ctx["events"]
         if layer == "L3":
             X, y = self.source.supervised_xy()
-            ts = events.set_index("event_id")["ts"].reindex(X.index) if "event_id" in events.columns else None
+            ts = (
+                events.set_index("event_id")["ts"].reindex(X.index)
+                if "event_id" in events.columns
+                else None
+            )
             ctx["X"], ctx["y"], ctx["ts"] = X, y, ts
             ctx["feature_names"] = [str(c) for c in X.columns]
         elif layer in ("L2", "L5"):
@@ -162,14 +177,19 @@ class TrainingDAG:
     def register(self, ctx: dict) -> None:
         res = ctx["result"]
         artifact = _artifact_of(res)
-        model_version = getattr(artifact, "model_version", f"{self.layer.lower()}@0.1.0")
+        model_version = getattr(
+            artifact, "model_version", f"{self.layer.lower()}@0.1.0"
+        )
         run = repro.RunRecord(
             run_id=f"{self.layer.lower()}-{int(time.time()*1000)}",
             layer=self.layer,
             model_version=str(model_version),
             params={"seed": self.seed, **self.trainer_kwargs},
-            metrics={k: float(v) for k, v in ctx["metrics"].items()
-                     if isinstance(v, (int, float)) and np.isfinite(v)},
+            metrics={
+                k: float(v)
+                for k, v in ctx["metrics"].items()
+                if isinstance(v, (int, float)) and np.isfinite(v)
+            },
             dataset_hash=ctx.get("dataset_hash"),
             feature_hash=repro.feature_hash(ctx.get("feature_names", [])),
             feature_names=ctx.get("feature_names", []),
@@ -186,7 +206,9 @@ class TrainingDAG:
         # Shadow = register the challenger so it can score live traffic WITHOUT emitting
         # alerts (handled by ml.pipelines.inference.shadow). Here we just flag it.
         ctx["shadow_deployed"] = True
-        log.info("shadow-deployed %s challenger %s", self.layer, ctx["run"].model_version)
+        log.info(
+            "shadow-deployed %s challenger %s", self.layer, ctx["run"].model_version
+        )
 
     # ------------------------------------------------------------------ #
     def run(self) -> DAGRunResult:
@@ -233,7 +255,11 @@ class TrainingDAG:
         l3_scorer = LightGBMScorer(n_estimators=200, use_scale_pos_weight=True)
         l3_scorer.fit(Xe_s, ye_s)
         ev = self.source.events()
-        emp = ev.set_index("event_id")["actor.employee_id"] if "event_id" in ev.columns else None
+        emp = (
+            ev.set_index("event_id")["actor.employee_id"]
+            if "event_id" in ev.columns
+            else None
+        )
         p_event = pd.Series(l3_scorer.predict_proba(Xe), index=Xe.index)
         if emp is not None:
             emp = emp.reindex(Xe.index)
@@ -242,14 +268,22 @@ class TrainingDAG:
         else:
             l3 = np.zeros(len(ef))
 
-        rule = (ef.get("n_export", pd.Series(0.0, index=ef.index)).to_numpy() > 0).astype(float) \
-            if "n_export" in ef.columns else np.zeros(len(ef))
+        rule = (
+            (ef.get("n_export", pd.Series(0.0, index=ef.index)).to_numpy() > 0).astype(
+                float
+            )
+            if "n_export" in ef.columns
+            else np.zeros(len(ef))
+        )
 
-        scores = pd.DataFrame({
-            "L1_rule": rule,
-            "L2_unsupervised": l2,
-            "L3_gbdt": l3,
-        }, index=ef.index)
+        scores = pd.DataFrame(
+            {
+                "L1_rule": rule,
+                "L2_unsupervised": l2,
+                "L3_gbdt": l3,
+            },
+            index=ef.index,
+        )
         return scores, np.asarray(ey).astype(int).ravel()
 
 
@@ -272,7 +306,9 @@ def make_airflow_dag(
     airflow = optional_import("airflow")
     if airflow is None:
         # SCAFFOLD: airflow not installed on the ML venv.
-        log.info("airflow not installed; make_airflow_dag is SCAFFOLD (use TrainingDAG directly)")
+        log.info(
+            "airflow not installed; make_airflow_dag is SCAFFOLD (use TrainingDAG directly)"
+        )
         return None
 
     from airflow import DAG  # pragma: no cover - airflow not on reference venv
@@ -288,9 +324,12 @@ def make_airflow_dag(
             if step == TrainingDAG.STEPS[-1]:
                 return dag.run().to_dict()
             return {"step": step}
+
         return _run
 
-    with DAG(dag_id=dag_id, schedule=schedule, start_date=None, catchup=False) as dag:  # pragma: no cover
+    with DAG(
+        dag_id=dag_id, schedule=schedule, start_date=None, catchup=False
+    ) as dag:  # pragma: no cover
         prev = None
         for step in TrainingDAG.STEPS:
             task = PythonOperator(task_id=step, python_callable=_make_task(step))

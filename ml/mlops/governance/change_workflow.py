@@ -12,6 +12,7 @@ shadow-tested. The whole trail is auditable.
 
 Pure-Python (no heavy imports), so it loads in any process.
 """
+
 from __future__ import annotations
 
 import time
@@ -45,7 +46,12 @@ class GateEvent:
     ts: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"stage": self.stage, "actor": self.actor, "note": self.note, "ts": self.ts}
+        return {
+            "stage": self.stage,
+            "actor": self.actor,
+            "note": self.note,
+            "ts": self.ts,
+        }
 
 
 @dataclass
@@ -68,23 +74,50 @@ class ChangeRequest:
 
     def __post_init__(self) -> None:
         if not self.history:
-            self.history.append(GateEvent(stage=Stage.CHANGE_REQUESTED.value, actor=self.author,
-                                          note="change requested"))
+            self.history.append(
+                GateEvent(
+                    stage=Stage.CHANGE_REQUESTED.value,
+                    actor=self.author,
+                    note="change requested",
+                )
+            )
 
     # --- gates --------------------------------------------------------- #
-    def validate(self, *, passed: bool, model_card_complete: bool, shadow_passed: bool = False,
-                 actor: str = "validator", note: str = "") -> "ChangeRequest":
+    def validate(
+        self,
+        *,
+        passed: bool,
+        model_card_complete: bool,
+        shadow_passed: bool = False,
+        actor: str = "validator",
+        note: str = "",
+    ) -> "ChangeRequest":
         """Record the (independent) validation outcome. Advances to VALIDATED iff passed."""
         self.validation_passed = passed
         self.model_card_complete = model_card_complete
         self.shadow_passed = shadow_passed
-        if passed and model_card_complete and (shadow_passed or not self.requires_shadow):
+        if (
+            passed
+            and model_card_complete
+            and (shadow_passed or not self.requires_shadow)
+        ):
             self.stage = Stage.VALIDATED
-            self.history.append(GateEvent(stage=Stage.VALIDATED.value, actor=actor, note=note or "validation passed"))
+            self.history.append(
+                GateEvent(
+                    stage=Stage.VALIDATED.value,
+                    actor=actor,
+                    note=note or "validation passed",
+                )
+            )
         else:
             self.stage = Stage.REJECTED
-            self.history.append(GateEvent(stage=Stage.REJECTED.value, actor=actor,
-                                          note=note or "validation failed / card incomplete / shadow missing"))
+            self.history.append(
+                GateEvent(
+                    stage=Stage.REJECTED.value,
+                    actor=actor,
+                    note=note or "validation failed / card incomplete / shadow missing",
+                )
+            )
         return self
 
     def approve(self, *, approver: str, note: str = "") -> "ChangeRequest":
@@ -100,7 +133,11 @@ class ChangeRequest:
             )
         self.approver = approver
         self.stage = Stage.APPROVED
-        self.history.append(GateEvent(stage=Stage.APPROVED.value, actor=approver, note=note or "approved"))
+        self.history.append(
+            GateEvent(
+                stage=Stage.APPROVED.value, actor=approver, note=note or "approved"
+            )
+        )
         return self
 
     # --- deploy gate --------------------------------------------------- #
@@ -115,7 +152,9 @@ class ChangeRequest:
             blockers.append("challenger has not passed shadow evaluation")
         if self.stage != Stage.APPROVED:
             blockers.append(f"not yet approved (stage={self.stage.value})")
-        if self.requires_independent_signoff and (not self.approver or self.approver == self.author):
+        if self.requires_independent_signoff and (
+            not self.approver or self.approver == self.author
+        ):
             blockers.append("missing independent approver sign-off")
         return blockers
 
@@ -130,13 +169,17 @@ class ChangeRequest:
                 f"deployment of {self.model_id}@{self.model_version} BLOCKED: {'; '.join(blockers)}"
             )
         self.stage = Stage.DEPLOYED
-        self.history.append(GateEvent(stage=Stage.DEPLOYED.value, actor=actor, note=note or "deployed"))
+        self.history.append(
+            GateEvent(stage=Stage.DEPLOYED.value, actor=actor, note=note or "deployed")
+        )
         return self
 
     def retire(self, *, actor: str = "owner", note: str = "") -> "ChangeRequest":
         """Governed retirement (Part 27)."""
         self.stage = Stage.RETIRED
-        self.history.append(GateEvent(stage=Stage.RETIRED.value, actor=actor, note=note or "retired"))
+        self.history.append(
+            GateEvent(stage=Stage.RETIRED.value, actor=actor, note=note or "retired")
+        )
         return self
 
     def to_dict(self) -> dict[str, Any]:

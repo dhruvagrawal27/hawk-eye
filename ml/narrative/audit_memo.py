@@ -4,6 +4,7 @@ Every narrative — LLM or template — writes a memo so the provenance of every
 AI-written word is auditable: ``provider, tee_attested, attestation_id, model,
 prompt_hash, ts``.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -14,7 +15,9 @@ from dataclasses import asdict, dataclass
 from typing import Optional
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DEFAULT_AUDIT_PATH = os.path.join(REPO_ROOT, "ml", "_artifacts", "narratives", "audit_memos.jsonl")
+DEFAULT_AUDIT_PATH = os.path.join(
+    REPO_ROOT, "ml", "_artifacts", "narratives", "audit_memos.jsonl"
+)
 
 
 @dataclass

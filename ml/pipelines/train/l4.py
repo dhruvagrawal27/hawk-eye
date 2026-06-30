@@ -7,10 +7,11 @@ split by time; point-adjust is never used.
 By default this trains only the simple baselines (torch-free). A deep model may be passed
 in; its scores are gated against the best baseline before it is "kept".
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -67,7 +68,7 @@ def train_l4(
     y = ws.y
 
     base_ap = {name: average_precision(y, s) for name, s in base_scores.items()}
-    best_baseline = max(base_ap, key=base_ap.get) if base_ap else ""
+    best_baseline = max(base_ap, key=lambda k: base_ap[k]) if base_ap else ""
 
     metrics: dict[str, float] = {f"baseline_ap_{k}": v for k, v in base_ap.items()}
     metrics["best_baseline_ap"] = base_ap.get(best_baseline, float("nan"))
@@ -100,12 +101,16 @@ def train_l4(
     )
 
 
-def _align_labels_to_events(events: pd.DataFrame, labels: Optional[pd.Series]) -> Optional[pd.Series]:
+def _align_labels_to_events(
+    events: pd.DataFrame, labels: Optional[pd.Series]
+) -> Optional[pd.Series]:
     """Return a 0/1 label Series aligned to ``events.index`` (handles event_id-keyed labels)."""
     if labels is None:
         return None
-    labels = pd.Series(np.asarray(labels).astype(int).ravel(),
-                       index=getattr(labels, "index", events.index))
+    labels = pd.Series(
+        np.asarray(labels).astype(int).ravel(),
+        index=getattr(labels, "index", events.index),
+    )
     # already aligned to events.index -> keep
     if labels.index.equals(events.index):
         return labels

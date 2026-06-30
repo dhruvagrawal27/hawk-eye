@@ -13,6 +13,7 @@ Pure pandas/numpy + ml.fairness -> no heavy model, no torch.
 
 Run: .mlvenv/bin/python -m pytest tests/ml/test_fairness_gate.py -q
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -88,7 +89,9 @@ def test_biased_scorer_fails_the_gate(population):
     branch_alert = next(a for a in alerts if a["attribute"] == "branch")
     assert "disparate_impact" in branch_alert["breaches"]
     assert branch_alert["reason_codes"], "fairness alert must carry reason codes"
-    assert branch_alert["narrative"], "fairness alert must carry a contestable narrative"
+    assert branch_alert[
+        "narrative"
+    ], "fairness alert must carry a contestable narrative"
 
 
 # --------------------------------------------------------------------------- #
@@ -101,7 +104,10 @@ def test_even_handed_scorer_passes_the_gate(population):
 
     report = fairness_gate(y_true, y_pred, protected)  # must NOT raise
     assert report["any_breach"] is False
-    assert report["attributes"]["branch"]["disparate_impact_ratio"] >= DISPARATE_IMPACT_FLOOR
+    assert (
+        report["attributes"]["branch"]["disparate_impact_ratio"]
+        >= DISPARATE_IMPACT_FLOOR
+    )
 
 
 # --------------------------------------------------------------------------- #

@@ -18,6 +18,7 @@ so a reviewer can never mistake the simulated approval for a genuine one.
 HONEST EVAL: fairness metrics are computed on supplied (time-split) data; nothing here
 point-adjusts. No heavy model library is imported, so this loads in any process.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -71,7 +72,9 @@ def _seed_from_version(model_version: str) -> int:
     return int(hashlib.sha256(model_version.encode()).hexdigest(), 16)
 
 
-def simulate_signoff(model_version: str, *, any_fairness_breach: bool) -> SimulatedSignoff:
+def simulate_signoff(
+    model_version: str, *, any_fairness_breach: bool
+) -> SimulatedSignoff:
     """Deterministically derive a SIMULATED sign-off seeded to the model version.
 
     If the REAL fairness metrics show a breach, the simulated verdict downgrades to
@@ -112,7 +115,9 @@ class ValidationReport:
     @property
     def fairness_is_real(self) -> bool:
         # The fairness block comes straight from ml.fairness.fairness_metrics_dict.
-        return "attributes" in self.fairness and "disparate_impact_floor" in self.fairness
+        return (
+            "attributes" in self.fairness and "disparate_impact_floor" in self.fairness
+        )
 
     @property
     def signoff_is_simulated(self) -> bool:
@@ -124,7 +129,9 @@ class ValidationReport:
             "model_version": self.model_version,
             "conceptual_soundness": self.conceptual_soundness,
             "data_assessment": self.data_assessment,
-            "performance_summary": {k: round(float(v), 6) for k, v in self.performance_summary.items()},
+            "performance_summary": {
+                k: round(float(v), 6) for k, v in self.performance_summary.items()
+            },
             "fairness": self.fairness,  # REAL
             "fairness_is_real": self.fairness_is_real,
             "independent_signoff": self.signoff.to_dict(),  # MOCK (labelled simulated)
@@ -150,8 +157,12 @@ def build_validation_report(
     disparate-impact / equalized-odds / equal-opportunity / demographic-parity numbers).
     The sign-off is SIMULATED and deterministically seeded to ``model_version``.
     """
-    fairness = fairness_metrics_dict(y_true, y_pred, protected, gap_threshold=gap_threshold)
-    signoff = simulate_signoff(model_version, any_fairness_breach=bool(fairness.get("any_breach")))
+    fairness = fairness_metrics_dict(
+        y_true, y_pred, protected, gap_threshold=gap_threshold
+    )
+    signoff = simulate_signoff(
+        model_version, any_fairness_breach=bool(fairness.get("any_breach"))
+    )
     return ValidationReport(
         model_id=model_id,
         model_version=model_version,

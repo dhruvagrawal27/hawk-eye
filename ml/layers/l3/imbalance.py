@@ -7,9 +7,9 @@ three tree scorers so they all share one definition of "how we handle imbalance"
 
 pandas-3.0-safe (no ``np.issubdtype`` on Series dtypes). No heavy deps at module import.
 """
+
 from __future__ import annotations
 
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -84,10 +84,18 @@ def negative_subsample(
     neg_pos = np.flatnonzero(yarr == 0)
     n_keep_neg = min(neg_pos.size, int(round(ratio * pos_pos.size)))
     rng = np.random.default_rng(seed)
-    kept_neg = rng.choice(neg_pos, size=n_keep_neg, replace=False) if n_keep_neg > 0 else np.array([], dtype=int)
+    kept_neg = (
+        rng.choice(neg_pos, size=n_keep_neg, replace=False)
+        if n_keep_neg > 0
+        else np.array([], dtype=int)
+    )
     kept = np.sort(np.concatenate([pos_pos, kept_neg])).astype(int)
 
-    X_sub = X.iloc[kept] if isinstance(X, (pd.DataFrame, pd.Series)) else np.asarray(X)[kept]
+    X_sub = (
+        X.iloc[kept]
+        if isinstance(X, (pd.DataFrame, pd.Series))
+        else np.asarray(X)[kept]
+    )
     if isinstance(y, pd.Series):
         y_sub = y.iloc[kept]
     else:
@@ -123,11 +131,18 @@ def focal_loss_objective(gamma: float = 2.0, alpha: float = 0.25):
         # d/dz of -a*(1-pt)^gamma*log(pt). Standard derivation (sign per class via (p - y)).
         term = (1.0 - pt) ** gamma
         # gradient
-        g = a * term * (
-            gamma * pt * np.log(pt) + pt - 1.0
-        ) * np.where(y == 1, 1.0, -1.0) * -1.0
-        grad = a * (p - y) * ((1.0 - pt) ** (gamma - 1.0)) * (
-            (1.0 - pt) - gamma * pt * np.log(pt)
+        g = (
+            a
+            * term
+            * (gamma * pt * np.log(pt) + pt - 1.0)
+            * np.where(y == 1, 1.0, -1.0)
+            * -1.0
+        )
+        grad = (
+            a
+            * (p - y)
+            * ((1.0 - pt) ** (gamma - 1.0))
+            * ((1.0 - pt) - gamma * pt * np.log(pt))
         )
         # hessian: use a stable positive approximation (focal weight * p*(1-p)).
         hess = a * term * p * (1.0 - p)

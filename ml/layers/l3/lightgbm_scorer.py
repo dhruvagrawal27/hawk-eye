@@ -14,14 +14,15 @@ always returns real probabilities in [0,1].
 Live reason codes come from plain TreeSHAP (``treeshap.tree_shap_reason_codes``); NO
 interaction values on the hot path (blueprint Part 18/20.6).
 """
+
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
 
-from ml._optional import HAS_LIGHTGBM, optional_import
+from ml._optional import HAS_LIGHTGBM, require
 from ml.base import BaseScorer, ReasonCode
 from ml.layers.l3 import imbalance
 
@@ -64,7 +65,7 @@ class LightGBMScorer(BaseScorer):
         self.valid_frac = float(valid_frac)
         self.random_state = int(random_state)
 
-        self._model = None
+        self._model: Any = None
         self._backend = "lightgbm" if HAS_LIGHTGBM else "sklearn"
         self._feature_names: list[str] = []
         self.best_iteration_: Optional[int] = None
@@ -91,7 +92,7 @@ class LightGBMScorer(BaseScorer):
             params["is_unbalance"] = True
         return params
 
-    def fit(self, X, y) -> "LightGBMScorer":
+    def fit(self, X, y) -> "LightGBMScorer":  # type: ignore[override]  # intentional: supervised fit requires y
         X = _as_frame(X)
         self._feature_names = [str(c) for c in X.columns]
         yarr = imbalance._as_label_array(y)
@@ -116,13 +117,12 @@ class LightGBMScorer(BaseScorer):
         return X.iloc[tr], yarr[tr], X.iloc[va], yarr[va]
 
     def _fit_lightgbm(self, X: pd.DataFrame, yarr: np.ndarray) -> None:
-        lgb = optional_import("lightgbm")
+        lgb = require("lightgbm")
         params = self._params(yarr)
         # average_precision is the blueprint's primary metric; fall back to auc if unsupported.
         metric = "average_precision"
         X_tr, y_tr, X_va, y_va = self._split_valid(X, yarr)
         self._model = lgb.LGBMClassifier(**params)
-        fit_kwargs: dict = {}
         if X_va is not None:
             try:
                 self._model.set_params(metric=metric)

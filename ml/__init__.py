@@ -16,4 +16,6 @@ dtype) so the code runs on both pandas 2.3.x and 3.0.x (see CONTEXT.md 2026-06-3
 
 __version__ = "0.1.0"
 
-GLOBAL_SEED = 1405  # matches DATA's SimConfig.seed for reproducible cross-workstream runs
+GLOBAL_SEED = (
+    1405  # matches DATA's SimConfig.seed for reproducible cross-workstream runs
+)

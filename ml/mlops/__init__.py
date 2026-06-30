@@ -19,6 +19,7 @@ Submodules import only pandas/numpy/sklearn (+ optional MLflow/Evidently/Fairlea
 ``ml._optional`` guards) — NO torch or LightGBM — so importing ``ml.mlops`` is safe in any
 process (no macOS dual-libomp hazard).
 """
+
 from __future__ import annotations
 
 from ml.mlops.drift import (

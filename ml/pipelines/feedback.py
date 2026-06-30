@@ -7,6 +7,7 @@ champion and the retrained challenger that is COMPARABLE (same held-out eval).
 
 ALERT-ONLY + HONEST EVAL hold throughout: retrains are time-split and never point-adjust.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -145,16 +146,24 @@ def scheduled_retrain(
     df["__ts__"] = np.asarray(ts)
     tr, te = temporal_split(df, "__ts__", test_frac=test_frac)
     feat_cols = [c for c in X.columns]
-    Xtr, Xte = tr[feat_cols].reset_index(drop=True), te[feat_cols].reset_index(drop=True)
+    Xtr, Xte = tr[feat_cols].reset_index(drop=True), te[feat_cols].reset_index(
+        drop=True
+    )
     ytr_new = tr["__y__"].astype(int).reset_index(drop=True)
     yte = te["__y__"].astype(int).reset_index(drop=True)
 
     def _fit(yv: pd.Series) -> CalibratedScorer:
-        Xs, ys = negative_subsample(Xtr, yv, ratio=5.0, seed=seed) if int(yv.sum()) >= 2 else (Xtr, yv)
+        Xs, ys = (
+            negative_subsample(Xtr, yv, ratio=5.0, seed=seed)
+            if int(yv.sum()) >= 2
+            else (Xtr, yv)
+        )
         Xs = Xs.sort_index().reset_index(drop=True)
         ys = ys.sort_index().reset_index(drop=True)
-        sc = CalibratedScorer(LightGBMScorer(n_estimators=n_estimators, use_scale_pos_weight=True),
-                              method="isotonic")
+        sc = CalibratedScorer(
+            LightGBMScorer(n_estimators=n_estimators, use_scale_pos_weight=True),
+            method="isotonic",
+        )
         sc.fit(Xs, ys)
         return sc
 
@@ -170,7 +179,9 @@ def scheduled_retrain(
     else:
         champ_ap = chal_ap = float("nan")
 
-    promote = bool(np.isfinite(chal_ap) and np.isfinite(champ_ap) and chal_ap >= champ_ap)
+    promote = bool(
+        np.isfinite(chal_ap) and np.isfinite(champ_ap) and chal_ap >= champ_ap
+    )
     return RetrainResult(
         challenger=challenger,
         champion_auprc=champ_ap,

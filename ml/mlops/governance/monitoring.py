@@ -12,6 +12,7 @@ Produces a consolidated health report + a retrain recommendation (reusing the ML
 :class:`RetrainTrigger`). ALERT-ONLY + HONEST EVAL throughout. No heavy model library is
 imported, so this loads in any process.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -96,7 +97,10 @@ def outcome_analysis(
 
 
 def score_stability(
-    reference_scores: Iterable[float], current_scores: Iterable[float], *, threshold: float = 0.25
+    reference_scores: Iterable[float],
+    current_scores: Iterable[float],
+    *,
+    threshold: float = 0.25,
 ) -> StabilityReport:
     """PSI on the SCORE distribution (a stable model keeps a stable output distribution)."""
     psi = population_stability_index(reference_scores, current_scores)
@@ -132,7 +136,9 @@ class MonitoringReport:
 class ModelMonitor:
     """Run the four-dimension MRM monitoring pass and recommend a retrain when warranted."""
 
-    def __init__(self, model_id: str, *, trigger: Optional[RetrainTrigger] = None) -> None:
+    def __init__(
+        self, model_id: str, *, trigger: Optional[RetrainTrigger] = None
+    ) -> None:
         self.model_id = model_id
         self.trigger = trigger or RetrainTrigger()
 
@@ -158,11 +164,15 @@ class ModelMonitor:
         if reference_features is not None and current_features is not None:
             ddr = data_drift_report(reference_features, current_features)
         if disposition_y_true is not None and disposition_y_pred is not None:
-            cdr = rolling_precision_recall(disposition_y_true, disposition_y_pred, window=rolling_window)
+            cdr = rolling_precision_recall(
+                disposition_y_true, disposition_y_pred, window=rolling_window
+            )
         if reference_scores is not None and current_scores is not None:
             stab = score_stability(reference_scores, current_scores)
         if realized_fraud is not None and risk_scores is not None:
-            outc = outcome_analysis(realized_fraud, risk_scores, alert_threshold=alert_threshold)
+            outc = outcome_analysis(
+                realized_fraud, risk_scores, alert_threshold=alert_threshold
+            )
 
         signal = self.trigger.evaluate(data_drift=ddr, concept_drift=cdr)
         healthy = not signal.triggered and (stab is None or stab.stable)

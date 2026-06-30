@@ -5,6 +5,7 @@
 # provider, then to the deterministic template — the UI never breaks. Keys are read
 # from os.environ and NEVER hardcoded (golden rule #2).
 """
+
 from __future__ import annotations
 
 import os
@@ -72,10 +73,15 @@ class LLMProvider:
                     ],
                 )
                 return ProviderResult(
-                    text=r.choices[0].message.content or "", provider=self.name, model=self.model, tee=self.tee
+                    text=r.choices[0].message.content or "",
+                    provider=self.name,
+                    model=self.model,
+                    tee=self.tee,
                 )
             except Exception as exc:  # pragma: no cover - needs live API
                 last = exc
                 if attempt < self.max_retries:
                     time.sleep(0.2 * (attempt + 1))
-        raise RuntimeError(f"{self.name} failed after {self.max_retries + 1} attempts: {last}")
+        raise RuntimeError(
+            f"{self.name} failed after {self.max_retries + 1} attempts: {last}"
+        )

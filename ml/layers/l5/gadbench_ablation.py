@@ -8,6 +8,7 @@ This is the harness behind the acceptance assert ``AUPRC_2hop >= AUPRC_0hop``.
 Evaluation is HONEST: a TIME-AWARE / entity-disjoint split (never random, never
 point-adjusted) and AUPRC (average precision) as the headline metric.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -19,7 +20,9 @@ from ml.eval import average_precision, precision_at_k
 from ml.layers.l5.graph_build import EntityGraph, k_hop_aggregates
 
 
-def _split_indices(n: int, y: np.ndarray, test_frac: float, seed: int) -> tuple[np.ndarray, np.ndarray]:
+def _split_indices(
+    n: int, y: np.ndarray, test_frac: float, seed: int
+) -> tuple[np.ndarray, np.ndarray]:
     """Stratified holdout that guarantees positives on BOTH sides (tiny-graph safe)."""
     rng = np.random.default_rng(seed)
     pos = np.flatnonzero(y == 1)
@@ -42,22 +45,32 @@ def _split_indices(n: int, y: np.ndarray, test_frac: float, seed: int) -> tuple[
 
 def _fit_predict_hist(Xtr, ytr, Xte) -> np.ndarray:
     """Booster used by the ablation: prefers LightGBM, else sklearn HistGB (always there)."""
-    from ml._optional import HAS_LIGHTGBM, optional_import
+    from ml._optional import HAS_LIGHTGBM, require
 
     n_pos = max(1, int(ytr.sum()))
     spw = max(1.0, (len(ytr) - n_pos) / n_pos)
     if HAS_LIGHTGBM:
-        lgb = optional_import("lightgbm")
+        lgb = require("lightgbm")
         m = lgb.LGBMClassifier(
-            objective="binary", n_estimators=200, num_leaves=31, learning_rate=0.05,
-            min_child_samples=5, scale_pos_weight=spw, n_jobs=1, verbosity=-1, random_state=1405,
+            objective="binary",
+            n_estimators=200,
+            num_leaves=31,
+            learning_rate=0.05,
+            min_child_samples=5,
+            scale_pos_weight=spw,
+            n_jobs=1,
+            verbosity=-1,
+            random_state=1405,
         )
     else:
         from sklearn.ensemble import HistGradientBoostingClassifier
 
         m = HistGradientBoostingClassifier(
-            max_iter=200, learning_rate=0.05, max_depth=6,
-            class_weight="balanced", random_state=1405,
+            max_iter=200,
+            learning_rate=0.05,
+            max_depth=6,
+            class_weight="balanced",
+            random_state=1405,
         )
     m.fit(Xtr, ytr)
     return np.clip(m.predict_proba(Xte)[:, 1], 0.0, 1.0)
@@ -84,7 +97,9 @@ def ablation_0_to_2_hops(
     A = np.asarray(adjacency, dtype=float)
     n = len(X_nodes)
     if len(y) != n or A.shape[0] != n:
-        raise ValueError("X_nodes, adjacency and y must share the same row order/length")
+        raise ValueError(
+            "X_nodes, adjacency and y must share the same row order/length"
+        )
 
     train, test = _split_indices(n, y, test_frac, seed)
     yte = y[test]

@@ -8,6 +8,7 @@ peer-relative baseline hook (fairness + evasion resistance, §19.2/§29).
 Library of choice is **PyOD**; every detector degrades to a numpy/sklearn fallback so
 the module always imports. Defaults match Part 20.2 EXACTLY.
 """
+
 from __future__ import annotations
 
 from ml.layers.l2.autoencoder import AutoEncoderDetector

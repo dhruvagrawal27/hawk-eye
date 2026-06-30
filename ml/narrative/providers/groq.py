@@ -1,4 +1,5 @@
 """Groq provider — SECONDARY, NOT a TEE path (ML-11, SCAFFOLD; Part 25.4 #2)."""
+
 from __future__ import annotations
 
 from ml.narrative.providers.base import LLMProvider

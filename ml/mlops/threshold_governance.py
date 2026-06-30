@@ -13,6 +13,7 @@ ALERT-ONLY: tuning a threshold changes WHICH alerts surface, never auto-blocks a
 HONEST EVAL: precision@k / alert-to-true are computed on labelled, time-split data.
 No heavy model library is imported, so this loads in any process.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -48,12 +49,16 @@ class ThresholdPoint:
             "recall": round(self.recall, 4),
             "precision_at_k": round(self.precision_at_k, 4),
             "alert_to_true_ratio": round(self.alert_to_true_ratio, 4),
-            "mean_time_to_disposition_hours": round(self.mean_time_to_disposition_hours, 3),
+            "mean_time_to_disposition_hours": round(
+                self.mean_time_to_disposition_hours, 3
+            ),
             "within_budget": self.within_budget,
         }
 
 
-def _confusion_at(y_true: np.ndarray, scores: np.ndarray, thr: float) -> tuple[int, float, float, float]:
+def _confusion_at(
+    y_true: np.ndarray, scores: np.ndarray, thr: float
+) -> tuple[int, float, float, float]:
     """Return (#alerts, precision, recall, alert-to-true ratio) at a flag threshold."""
     flagged = scores >= thr
     n_alerts = int(flagged.sum())
@@ -109,14 +114,20 @@ class ThresholdGovernor:
         self.analyst_hours_per_day = max(analyst_hours_per_day, 1e-9)
         self.k = k
 
-    def _point(self, y_true: np.ndarray, scores: np.ndarray, thr: float) -> ThresholdPoint:
+    def _point(
+        self, y_true: np.ndarray, scores: np.ndarray, thr: float
+    ) -> ThresholdPoint:
         n = len(scores)
         n_alerts, precision, recall, atr = _confusion_at(y_true, scores, thr)
         alert_rate = n_alerts / n if n else 0.0
         expected_daily = n_alerts / self.horizon_days
         # MTTD: how long the day's queue takes to clear given analyst capacity.
-        capacity_per_day = (self.analyst_hours_per_day * 60.0) / max(self.minutes_per_case, 1e-9)
-        backlog_factor = expected_daily / capacity_per_day if capacity_per_day > 0 else 0.0
+        capacity_per_day = (self.analyst_hours_per_day * 60.0) / max(
+            self.minutes_per_case, 1e-9
+        )
+        backlog_factor = (
+            expected_daily / capacity_per_day if capacity_per_day > 0 else 0.0
+        )
         # base handling time + queue wait (grows with backlog beyond capacity).
         mttd_hours = (self.minutes_per_case / 60.0) * (1.0 + max(0.0, backlog_factor))
         # precision@k among flagged (k bounded by alerts raised).
@@ -136,7 +147,11 @@ class ThresholdGovernor:
         )
 
     def sweep(
-        self, y_true: Iterable[Any], scores: Iterable[float], *, grid: Optional[Iterable[float]] = None
+        self,
+        y_true: Iterable[Any],
+        scores: Iterable[float],
+        *,
+        grid: Optional[Iterable[float]] = None,
     ) -> list[ThresholdPoint]:
         yt = (np.asarray(list(y_true), dtype=float) >= 0.5).astype(int)
         sc = np.asarray(list(scores), dtype=float)
@@ -146,7 +161,11 @@ class ThresholdGovernor:
         return [self._point(yt, sc, float(t)) for t in grid]
 
     def tune(
-        self, y_true: Iterable[Any], scores: Iterable[float], *, grid: Optional[Iterable[float]] = None
+        self,
+        y_true: Iterable[Any],
+        scores: Iterable[float],
+        *,
+        grid: Optional[Iterable[float]] = None,
     ) -> ThresholdGovernanceResult:
         """Choose the threshold that maximises precision while staying within the daily budget.
 
@@ -160,7 +179,9 @@ class ThresholdGovernor:
             raise ValueError("no scores to tune a threshold over")
         within = [p for p in points if p.within_budget]
         if within:
-            chosen = max(within, key=lambda p: (p.precision, p.recall, -p.expected_daily_alerts))
+            chosen = max(
+                within, key=lambda p: (p.precision, p.recall, -p.expected_daily_alerts)
+            )
         else:
             chosen = max(points, key=lambda p: p.threshold)
         return ThresholdGovernanceResult(

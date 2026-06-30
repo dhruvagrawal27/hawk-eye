@@ -16,6 +16,7 @@ features / metrics / reviewer) plus an :class:`ml.mlops.inventory.InventoryEntry
 
 Pure-Python (no heavy imports), so it loads in any process.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -128,8 +129,13 @@ class ModelCard:
         }
 
     def to_markdown(self) -> str:
-        feats = ", ".join(self.features[:40]) + (" ..." if len(self.features) > 40 else "")
-        metrics = "\n".join(f"- **{k}**: {v:.4f}" for k, v in self.metrics.items()) or "- (none)"
+        feats = ", ".join(self.features[:40]) + (
+            " ..." if len(self.features) > 40 else ""
+        )
+        metrics = (
+            "\n".join(f"- **{k}**: {v:.4f}" for k, v in self.metrics.items())
+            or "- (none)"
+        )
         lims = "\n".join(f"- {x}" for x in self.limitations) or "- (none)"
         fails = "\n".join(f"- {x}" for x in self.known_failure_modes) or "- (none)"
         fair = self.fairness or {}
@@ -171,9 +177,13 @@ def generate_model_card(
     ``fairness`` is the dict from ``ml.fairness.fairness_metrics_dict`` (real DI/EO metrics).
     """
     layer = record.layer or entry.layer
-    failure_modes = list(_KNOWN_FAILURE_MODES.get(layer, [])) + list(extra_failure_modes or [])
+    failure_modes = list(_KNOWN_FAILURE_MODES.get(layer, [])) + list(
+        extra_failure_modes or []
+    )
     if not failure_modes:
-        failure_modes = ["Generic ML failure modes apply (drift, decay, distribution shift)."]
+        failure_modes = [
+            "Generic ML failure modes apply (drift, decay, distribution shift)."
+        ]
     limitations = list(_GENERIC_LIMITATIONS) + list(extra_limitations or [])
     out_of_scope = (
         "Not for automated blocking/account-freezing of any individual; not a determination "

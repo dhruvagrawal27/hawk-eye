@@ -1,4 +1,5 @@
 """ML-8 strategy tests: imbalance, PU/semi-supervised, transfer learning (Part 5.3-5.5, 20.3)."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -59,9 +60,13 @@ def test_pu_classifier_recovers_positives():
     pu = PUClassifier(seed=0).fit(X.to_numpy(), s.to_numpy())
     scores = pu.predict_proba_pu(X.to_numpy())
     # hidden positives should still score above random / above reliable negatives
-    assert E.average_precision(y.to_numpy(), scores) > E.average_precision(y.to_numpy(), np.random.default_rng(1).random(len(y)))
+    assert E.average_precision(y.to_numpy(), scores) > E.average_precision(
+        y.to_numpy(), np.random.default_rng(1).random(len(y))
+    )
     rn = pu.reliable_negatives(X.to_numpy(), quantile=0.2)
-    assert y.to_numpy()[rn].mean() < y.to_numpy().mean()  # reliable negatives are mostly true negatives
+    assert (
+        y.to_numpy()[rn].mean() < y.to_numpy().mean()
+    )  # reliable negatives are mostly true negatives
 
 
 def test_self_training_uses_unlabeled():
@@ -71,21 +76,28 @@ def test_self_training_uses_unlabeled():
     rng = np.random.default_rng(0)
     unl = rng.choice(len(y), int(len(y) * 0.7), replace=False)
     y_semi.iloc[unl] = -1
-    st = SelfTrainingClassifier(threshold=0.9, max_iter=3, seed=0).fit(X.to_numpy(), y_semi.to_numpy())
+    st = SelfTrainingClassifier(threshold=0.9, max_iter=3, seed=0).fit(
+        X.to_numpy(), y_semi.to_numpy()
+    )
     assert st.n_pseudolabels_ >= 0
     scores = st.predict_proba(X.to_numpy())
     assert E.average_precision(y.to_numpy(), scores) > 0.1
 
 
 def test_transfer_pretrain_finetune_runs_and_beats_random():
-    Xs, _ = _toy(n=800, pos=80, seed=1)       # source (unlabeled pretrain)
-    Xt, yt = _toy(n=300, pos=24, seed=2)        # target (labeled fine-tune)
-    enc = TransferEncoder(emb_dim=6, hidden=16, seed=0).pretrain(Xs.to_numpy(), epochs=15)
+    Xs, _ = _toy(n=800, pos=80, seed=1)  # source (unlabeled pretrain)
+    Xt, yt = _toy(n=300, pos=24, seed=2)  # target (labeled fine-tune)
+    enc = TransferEncoder(emb_dim=6, hidden=16, seed=0).pretrain(
+        Xs.to_numpy(), epochs=15
+    )
     enc.finetune(Xt.to_numpy(), yt.to_numpy())
     proba = enc.predict_proba(Xt.to_numpy())
     assert proba.min() >= 0 and proba.max() <= 1
     ap_transfer = E.average_precision(yt.to_numpy(), proba)
-    ap_scratch = E.average_precision(yt.to_numpy(), from_scratch_baseline(Xt.to_numpy(), yt.to_numpy())(Xt.to_numpy()))
+    ap_scratch = E.average_precision(
+        yt.to_numpy(),
+        from_scratch_baseline(Xt.to_numpy(), yt.to_numpy())(Xt.to_numpy()),
+    )
     assert ap_transfer > 0.3  # transfer encoder learns a usable representation
     # transfer is at least competitive with from-scratch (within tolerance; deep nets are stochastic)
     assert ap_transfer >= ap_scratch - 0.25

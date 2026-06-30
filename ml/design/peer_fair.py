@@ -4,6 +4,7 @@ Scoring against an entity's PEER GROUP (not an absolute threshold) is the load-b
 fairness + evasion-resistance primitive: it normalises out role/branch/department base
 rates so "anomalous for your peers" — not "high in absolute terms" — drives the score.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -13,7 +14,11 @@ import pandas as pd
 
 
 def peer_relative_scores(
-    scores: pd.Series, peer_groups: pd.Series, *, min_group: int = 3, fallback_global: bool = True
+    scores: pd.Series,
+    peer_groups: pd.Series,
+    *,
+    min_group: int = 3,
+    fallback_global: bool = True,
 ) -> pd.Series:
     """Z-score each entity's score within its peer group (robust to tiny groups).
 
@@ -54,11 +59,21 @@ class PeerRelativeScorer:
         return peer_relative_unit(scores, pg, min_group=self.min_group)
 
 
-def peer_group_from_features(entity_features: pd.DataFrame, events: Optional[pd.DataFrame] = None) -> pd.Series:
+def peer_group_from_features(
+    entity_features: pd.DataFrame, events: Optional[pd.DataFrame] = None
+) -> pd.Series:
     """Best-effort peer group per employee: prefer DATA's actor.peer_group, else by dept/role."""
-    if events is not None and "actor.peer_group" in events.columns and "actor.employee_id" in events.columns:
-        pg = (events[["actor.employee_id", "actor.peer_group"]]
-              .dropna().drop_duplicates("actor.employee_id")
-              .set_index("actor.employee_id")["actor.peer_group"].astype(str))
+    if (
+        events is not None
+        and "actor.peer_group" in events.columns
+        and "actor.employee_id" in events.columns
+    ):
+        pg = (
+            events[["actor.employee_id", "actor.peer_group"]]
+            .dropna()
+            .drop_duplicates("actor.employee_id")
+            .set_index("actor.employee_id")["actor.peer_group"]
+            .astype(str)
+        )
         return pg.reindex(entity_features.index).fillna("__global__")
     return pd.Series("__global__", index=entity_features.index, name="peer_group")

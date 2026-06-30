@@ -3,9 +3,9 @@
 Isotonic calibration maps the meta-learner probability to a real fraud probability, so the
 0-100 score is operationally meaningful (the alert threshold is set against analyst capacity).
 """
+
 from __future__ import annotations
 
-from typing import Optional
 
 import numpy as np
 from sklearn.isotonic import IsotonicRegression
@@ -27,7 +27,9 @@ class RiskCalibrator:
         p = np.asarray(proba, dtype=float).ravel()
         yv = np.asarray(y).astype(int).ravel()
         if self.method == "isotonic":
-            self._cal = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit(p, yv)
+            self._cal = IsotonicRegression(
+                out_of_bounds="clip", y_min=0.0, y_max=1.0
+            ).fit(p, yv)
         else:
             self._cal = LogisticRegression(max_iter=1000).fit(p.reshape(-1, 1), yv)
         return self

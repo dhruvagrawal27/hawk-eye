@@ -10,6 +10,7 @@ contract; we produce payloads that match it).
 * ``BaseDetector``-> unsupervised layers (L2, L4-unsupervised): score_samples -> [0,1]
 * ``BaseScorer``  -> supervised layers (L3, L5, L6): predict_proba -> [0,1]
 """
+
 from __future__ import annotations
 
 import pickle
@@ -25,6 +26,7 @@ try:  # joblib ships with scikit-learn; fall back to pickle if somehow absent
 
     _dump, _load = joblib.dump, joblib.load
 except Exception:  # pragma: no cover
+
     def _dump(obj: Any, path: str) -> None:
         with open(path, "wb") as fh:
             pickle.dump(obj, fh)
@@ -57,7 +59,9 @@ class ReasonCode:
 
     def __post_init__(self) -> None:
         if self.source not in REASON_SOURCES:
-            raise ValueError(f"reason source must be one of {REASON_SOURCES}, got {self.source!r}")
+            raise ValueError(
+                f"reason source must be one of {REASON_SOURCES}, got {self.source!r}"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {"source": self.source}

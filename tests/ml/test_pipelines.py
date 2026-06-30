@@ -19,6 +19,7 @@ in this process, so LightGBM and torch are never co-loaded. KMP guard set defens
 
 Run: .mlvenv/bin/python -m pytest tests/ml/test_pipelines.py -q
 """
+
 from __future__ import annotations
 
 import os
@@ -97,12 +98,21 @@ def fitted_l2(data_source):
 # ML-14: layer-parameterized training DAG                                      #
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("layer", ["L2", "L3", "L5", "L6"])
-def test_dag_runs_end_to_end_and_registers_calibrated(layer, data_source, local_tracker):
+def test_dag_runs_end_to_end_and_registers_calibrated(
+    layer, data_source, local_tracker
+):
     """DAG runs end-to-end for a layer param and registers a calibrated artifact."""
     dag = TrainingDAG(layer, source=data_source, tracker=local_tracker, shadow=True)
     # the ordered steps are exactly the blueprint pipeline
-    assert dag.STEPS == ("pull", "build_features", "train", "validate",
-                         "calibrate", "register", "shadow_deploy")
+    assert dag.STEPS == (
+        "pull",
+        "build_features",
+        "train",
+        "validate",
+        "calibrate",
+        "register",
+        "shadow_deploy",
+    )
     res = dag.run()
 
     assert res.layer == layer
@@ -154,22 +164,34 @@ def _poison_events(seed: int = 0) -> tuple[pd.DataFrame, str]:
         emp = f"EMP-{emp_i:04d}"
         for d in range(30):
             amt = max(0.0, rng.normal(1000, 100))
-            rows.append({"actor.employee_id": emp, "actor.peer_group": "PG-ops",
-                         "object.amount": amt,
-                         "ts": (base + pd.Timedelta(days=d)).strftime("%Y-%m-%dT%H:%M:%SZ")})
+            rows.append(
+                {
+                    "actor.employee_id": emp,
+                    "actor.peer_group": "PG-ops",
+                    "object.amount": amt,
+                    "ts": (base + pd.Timedelta(days=d)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                }
+            )
     attacker = "EMP-9999"
     for d in range(30):
         amt = 1000 + (8000 - 1000) * (d / 29.0)  # gradual upward drift
-        rows.append({"actor.employee_id": attacker, "actor.peer_group": "PG-ops",
-                     "object.amount": amt,
-                     "ts": (base + pd.Timedelta(days=d)).strftime("%Y-%m-%dT%H:%M:%SZ")})
+        rows.append(
+            {
+                "actor.employee_id": attacker,
+                "actor.peer_group": "PG-ops",
+                "object.amount": amt,
+                "ts": (base + pd.Timedelta(days=d)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+        )
     return pd.DataFrame(rows), attacker
 
 
 def test_poisoning_guard_flags_gradual_shift_attacker():
     events, attacker = _poison_events()
     res = LowAndSlowPoisoningGuard().scan(events)
-    assert attacker in res.poisoned_entities, "guard must flag the low-and-slow attacker"
+    assert (
+        attacker in res.poisoned_entities
+    ), "guard must flag the low-and-slow attacker"
     # the change-point + peer-drift signals both fire for the attacker
     assert res.change_magnitude[attacker] >= 1.0
     assert res.peer_drift[attacker] >= 2.5
@@ -227,9 +249,11 @@ def _l4_baselines_and_windows():
     y = _align_labels_to_events(events, src.event_labels())
     ws = build_windows(events, labels=y, window=10)
     base = {}
-    for name, det in (("windowed_pca", WindowedPCADetector(window=10)),
-                      ("windowed_iforest", WindowedIsolationForestDetector(window=10)),
-                      ("matrix_profile", MatrixProfileDetector(window=10))):
+    for name, det in (
+        ("windowed_pca", WindowedPCADetector(window=10)),
+        ("windowed_iforest", WindowedIsolationForestDetector(window=10)),
+        ("matrix_profile", MatrixProfileDetector(window=10)),
+    ):
         det.fit(ws)
         base[name] = det.score_samples(ws)
     return ws, base
@@ -267,12 +291,14 @@ def test_l4_baselines_run_first_have_signal():
 # --------------------------------------------------------------------------- #
 def test_feedback_active_learning_surfaces_uncertain_and_high_value():
     """Uncertain AND high-value cases sort to the top of the labeling batch."""
-    X = pd.DataFrame({"amount": [10.0, 10.0, 5_000_000.0, 5_000_000.0]},
-                     index=["a", "b", "c", "d"])
+    X = pd.DataFrame(
+        {"amount": [10.0, 10.0, 5_000_000.0, 5_000_000.0]}, index=["a", "b", "c", "d"]
+    )
     # p=0.5 -> max uncertainty; p=0.99 -> low. c is uncertain + high value -> top.
     p = np.array([0.99, 0.01, 0.5, 0.99])
-    batch = feedback.select_for_labeling(X, p, value=X["amount"].to_numpy(),
-                                         batch_size=2, value_weight=0.5)
+    batch = feedback.select_for_labeling(
+        X, p, value=X["amount"].to_numpy(), batch_size=2, value_weight=0.5
+    )
     assert "c" in batch.entity_ids  # uncertain + high value
     # pure uncertainty ranks p=0.5 highest
     u = feedback.uncertainty(p)
@@ -291,8 +317,14 @@ def test_feedback_retrain_consumes_new_labels(data_source):
         store = LabelStore(path=os.path.join(d, "disp.jsonl"))
         # disposition flips three previously-benign events to fraud (new labels)
         benign_ids = [str(i) for i in X.index[y.to_numpy() == 0][:3]]
-        store.add_disposition(Disposition(alert_id="a1", entity_id="EMP-0001",
-                                          outcome="fraud", event_ids=benign_ids))
+        store.add_disposition(
+            Disposition(
+                alert_id="a1",
+                entity_id="EMP-0001",
+                outcome="fraud",
+                event_ids=benign_ids,
+            )
+        )
 
         merged, n_new = feedback.merge_disposition_labels(y, store)
         assert n_new == 3, "retrain must consume the 3 new EDD labels"
@@ -300,7 +332,9 @@ def test_feedback_retrain_consumes_new_labels(data_source):
 
         rr = feedback.scheduled_retrain(X, y, store, ts=ts, n_estimators=120)
         assert rr.n_new_labels == 3
-        assert rr.ab_comparable, "champion vs challenger must be comparable on a shared test"
+        assert (
+            rr.ab_comparable
+        ), "champion vs challenger must be comparable on a shared test"
         assert isinstance(rr.promote, bool)
 
 
@@ -339,7 +373,11 @@ def test_repro_hashes_are_deterministic(data_source):
 def test_sync_fastlane_scores_l2_and_l3_never_blocks(fitted_l2, fitted_l3, data_source):
     ens, Xpr = fitted_l2
     X_event, _ = data_source.supervised_xy()
-    emp = data_source.events().set_index("event_id")["actor.employee_id"].reindex(X_event.index)
+    emp = (
+        data_source.events()
+        .set_index("event_id")["actor.employee_id"]
+        .reindex(X_event.index)
+    )
 
     lane = SyncFastLane(ens, fitted_l3)
     scores = lane.score(X_entity=Xpr, X_event=X_event, event_entity=emp)
@@ -367,8 +405,14 @@ def test_schedules_sync_async_classification():
 # ML-18: async L4/L5 UPGRADE an existing alert (never block)                    #
 # --------------------------------------------------------------------------- #
 def test_async_upgrades_existing_alert_and_never_blocks():
-    alert = {"entity_id": "EMP-0001", "risk_score": 40, "severity": "medium",
-             "contributing_layers": ["L2_unsupervised"], "reason_codes": [], "status": "open"}
+    alert = {
+        "entity_id": "EMP-0001",
+        "risk_score": 40,
+        "severity": "medium",
+        "contributing_layers": ["L2_unsupervised"],
+        "reason_codes": [],
+        "status": "open",
+    }
     up = AsyncUpgrader(layer="L5").upgrade(alert, async_score=0.9)
 
     assert up.old_risk_score == 40
@@ -382,7 +426,12 @@ def test_async_upgrades_existing_alert_and_never_blocks():
 
 
 def test_async_never_lowers_an_alert():
-    alert = {"entity_id": "EMP-1", "risk_score": 80, "contributing_layers": [], "reason_codes": []}
+    alert = {
+        "entity_id": "EMP-1",
+        "risk_score": 80,
+        "contributing_layers": [],
+        "reason_codes": [],
+    }
     up = AsyncUpgrader(layer="L4").upgrade(alert, async_score=0.1)  # weak async signal
     assert up.new_risk_score == 80  # upgrade-only: never lowers the fast-lane floor
     assert up.blocked is False
@@ -414,7 +463,9 @@ def test_backfill_rescores_from_clickhouse_stub(fitted_l2, data_source):
     ch = ClickHouseSource(source=data_source)
 
     def feat(events):
-        return L2Ensemble.peer_relative_features(featurize.entity_level_features(events))
+        return L2Ensemble.peer_relative_features(
+            featurize.entity_level_features(events)
+        )
 
     with tempfile.TemporaryDirectory() as d:
         ledger = repro.ScoreLedger(path=os.path.join(d, "bf.jsonl"))
@@ -445,9 +496,9 @@ def test_backtest_yields_detection_lift_and_fp_cost(data_source):
     scores = y * 0.8 + rng.random(len(y)) * 0.2
 
     res = bt_mod.backtest(y, scores, k=50, threshold=0.5, fp_cost_per_case=1500.0)
-    assert res.detection_lift >= 1.0           # beats the random baseline
+    assert res.detection_lift >= 1.0  # beats the random baseline
     assert res.extra_true_positives >= 0
-    assert res.fp_cost >= 0.0                   # FP-cost estimate present
+    assert res.fp_cost >= 0.0  # FP-cost estimate present
     assert np.isfinite(res.auprc)
     d = res.to_dict()
     assert {"detection_lift", "fp_cost", "extra_true_positives"} <= set(d)

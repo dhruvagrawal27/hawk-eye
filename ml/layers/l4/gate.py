@@ -4,6 +4,7 @@ The L4 contract: a deep sequence model EARNS its place only if it beats the simp
 baselines under HONEST (non-point-adjust) evaluation. This gate uses range/affiliation
 -aware PR and VUS-PR from ``ml.eval`` — never point-adjust (assert it stays off).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -37,9 +38,9 @@ class GateResult:
 
 
 def keep_if_beats_baselines(
-    deep_scores: Sequence[float],
+    deep_scores: Sequence[float] | np.ndarray,
     baseline_scores,
-    y: Sequence[int],
+    y: Sequence[int] | np.ndarray,
     *,
     metric: str = "vus_pr",
     min_margin: float = 0.0,
@@ -56,26 +57,30 @@ def keep_if_beats_baselines(
     if metric not in ("vus_pr", "average_precision"):
         raise ValueError(f"unsupported gate metric {metric!r}")
 
-    y = np.asarray(y).astype(int).ravel()
+    yv = np.asarray(y).astype(int).ravel()
 
     def _metric(scores) -> float:
         scores = np.asarray(scores, dtype=float).ravel()
         if metric == "vus_pr":
-            return vus_pr(y, scores, max_buffer=max_buffer)
-        return average_precision(y, scores)
+            return vus_pr(yv, scores, max_buffer=max_buffer)
+        return average_precision(yv, scores)
 
     if isinstance(baseline_scores, dict):
         base_metrics = {k: _metric(v) for k, v in baseline_scores.items()}
-        base_aps = {k: average_precision(y, np.asarray(v, dtype=float).ravel())
-                    for k, v in baseline_scores.items()}
+        base_aps = {
+            k: average_precision(yv, np.asarray(v, dtype=float).ravel())
+            for k, v in baseline_scores.items()
+        }
         best_base = max(base_metrics.values()) if base_metrics else 0.0
         best_base_ap = max(base_aps.values()) if base_aps else 0.0
     else:
         best_base = _metric(baseline_scores)
-        best_base_ap = average_precision(y, np.asarray(baseline_scores, dtype=float).ravel())
+        best_base_ap = average_precision(
+            yv, np.asarray(baseline_scores, dtype=float).ravel()
+        )
 
     deep_m = _metric(deep_scores)
-    deep_ap = average_precision(y, np.asarray(deep_scores, dtype=float).ravel())
+    deep_ap = average_precision(yv, np.asarray(deep_scores, dtype=float).ravel())
     margin = deep_m - best_base
     return GateResult(
         keep=bool(margin > min_margin),

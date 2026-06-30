@@ -19,6 +19,7 @@ Validates the typed entity graph + graph-aware fraud scorers:
 The DEFAULT (XGB-Graph) path needs NO torch_geometric. Run:
     .mlvenv/bin/python -m pytest tests/ml/test_l5.py -q
 """
+
 from __future__ import annotations
 
 # --------------------------------------------------------------------------- #
@@ -75,17 +76,35 @@ def typed_events():
     every non-beneficiary edge type, plus a 3-way shared-device/account ring."""
     rows = [
         # employee -> account (application => transaction), device (access), beneficiary
-        {"actor.employee_id": "EMP-1", "object.account_id": "ACC-1", "context.device": "DEV-1",
-         "object.beneficiary_id": "BEN-1", "context.layer": "application",
-         "action.verb": "approve_payment", "linkage.customer_account": "ACC-9"},
+        {
+            "actor.employee_id": "EMP-1",
+            "object.account_id": "ACC-1",
+            "context.device": "DEV-1",
+            "object.beneficiary_id": "BEN-1",
+            "context.layer": "application",
+            "action.verb": "approve_payment",
+            "linkage.customer_account": "ACC-9",
+        },
         # employee -> database (=> access edge); VEND- beneficiary types as a vendor node
-        {"actor.employee_id": "EMP-2", "object.account_id": "ACC-1", "context.device": "DEV-1",
-         "object.beneficiary_id": "VEND-77", "context.layer": "database",
-         "action.verb": "db_select", "linkage.customer_account": "ACC-1"},
+        {
+            "actor.employee_id": "EMP-2",
+            "object.account_id": "ACC-1",
+            "context.device": "DEV-1",
+            "object.beneficiary_id": "VEND-77",
+            "context.layer": "database",
+            "action.verb": "db_select",
+            "linkage.customer_account": "ACC-1",
+        },
         # third employee shares DEV-1 and ACC-1 with the first two (collusion ring)
-        {"actor.employee_id": "EMP-3", "object.account_id": "ACC-1", "context.device": "DEV-1",
-         "object.beneficiary_id": "", "context.layer": "application",
-         "action.verb": "login", "linkage.customer_account": ""},
+        {
+            "actor.employee_id": "EMP-3",
+            "object.account_id": "ACC-1",
+            "context.device": "DEV-1",
+            "object.beneficiary_id": "",
+            "context.layer": "application",
+            "action.verb": "login",
+            "linkage.customer_account": "",
+        },
     ]
     return pd.DataFrame(rows)
 
@@ -129,11 +148,19 @@ def test_incremental_refresh_is_idempotent_then_grows(typed_events):
     assert g.n_edges == n_edges0
 
     # a genuinely new event folds in new nodes + edges (hourly cadence).
-    new = pd.DataFrame([
-        {"actor.employee_id": "EMP-4", "object.account_id": "ACC-2", "context.device": "DEV-2",
-         "object.beneficiary_id": "BEN-2", "context.layer": "application",
-         "action.verb": "approve_payment", "linkage.customer_account": ""},
-    ])
+    new = pd.DataFrame(
+        [
+            {
+                "actor.employee_id": "EMP-4",
+                "object.account_id": "ACC-2",
+                "context.device": "DEV-2",
+                "object.beneficiary_id": "BEN-2",
+                "context.layer": "application",
+                "action.verb": "approve_payment",
+                "linkage.customer_account": "",
+            },
+        ]
+    )
     g.incremental_refresh(new)
     assert "EMP-4" in g.nodes and g.nodes["EMP-4"] == "employee"
     assert "EMP-4" in g.employees
@@ -158,7 +185,9 @@ def test_adjacency_and_k_hop_aggregates_shapes(synth):
     agg0 = k_hop_aggregates(X_emp, A_emp, k=0, graph=g)
     agg2 = k_hop_aggregates(X_emp, A_emp, k=2, graph=g)
     # 0-hop carries structural columns only; 2-hop adds neighbour mean/sum/max rings.
-    assert {"graph_degree", "graph_centrality", "graph_shared_attr_count"} <= set(agg0.columns)
+    assert {"graph_degree", "graph_centrality", "graph_shared_attr_count"} <= set(
+        agg0.columns
+    )
     assert agg2.shape[1] > agg0.shape[1]
     assert len(agg2) == len(X_emp)
     assert np.isfinite(agg2.to_numpy()).all()
@@ -199,7 +228,9 @@ def test_xgb_graph_trains_scores_and_emits_graph_reason_codes(synth):
     assert all(isinstance(c, ReasonCode) for row in rcs for c in row)
     all_codes = [c for row in rcs for c in row]
     assert all(c.source in ("graph", "shap") for c in all_codes)
-    assert any(c.source == "graph" for c in all_codes), "expected k-hop graph reason codes"
+    assert any(
+        c.source == "graph" for c in all_codes
+    ), "expected k-hop graph reason codes"
 
 
 # --------------------------------------------------------------------------- #
@@ -256,9 +287,9 @@ def test_gadbench_0_to_2_hop_ablation_lift():
     # tiny toy graph the strict win is not guaranteed every seed; the lift is real here.
     assert auprc_2 >= auprc_0 - 1e-9, f"2-hop AUPRC {auprc_2:.3f} < 0-hop {auprc_0:.3f}"
     # this constructed graph is deliberately neighbourhood-driven, so we expect a clear win.
-    assert auprc_2 > auprc_0 + 0.1, (
-        f"expected a clear aggregation lift, got 0-hop={auprc_0:.3f} 2-hop={auprc_2:.3f}"
-    )
+    assert (
+        auprc_2 > auprc_0 + 0.1
+    ), f"expected a clear aggregation lift, got 0-hop={auprc_0:.3f} 2-hop={auprc_2:.3f}"
 
 
 # --------------------------------------------------------------------------- #

@@ -6,10 +6,19 @@
 * :mod:`backfill`       — ClickHouse-backfill re-scoring (ClickHouse source stubbed).
 * :mod:`shadow`         — shadow scoring (challenger scores live traffic, emits NO alerts).
 """
+
 from __future__ import annotations
 
-from ml.pipelines.inference.async_l4_l5 import AlertUpgrade, AsyncUpgrader, run_async_upgrade
-from ml.pipelines.inference.backfill import BackfillResult, ClickHouseSource, backfill_rescore
+from ml.pipelines.inference.async_l4_l5 import (
+    AlertUpgrade,
+    AsyncUpgrader,
+    run_async_upgrade,
+)
+from ml.pipelines.inference.backfill import (
+    BackfillResult,
+    ClickHouseSource,
+    backfill_rescore,
+)
 from ml.pipelines.inference.schedules import (
     ASYNC_LAYERS,
     BACKFILL_CADENCE_S,

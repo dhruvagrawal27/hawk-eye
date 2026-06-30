@@ -4,10 +4,11 @@ Fraud detection is a forecasting problem: splitting randomly leaks the future in
 past. These helpers split by **time** and by **entity**, and a guard rejects any split
 that is effectively random. pandas-3.0-safe (``pd.api.types``, never ``np.issubdtype``).
 """
+
 from __future__ import annotations
 
 import hashlib
-from typing import Iterator, Optional
+from typing import Iterator
 
 import numpy as np
 import pandas as pd
@@ -23,7 +24,9 @@ def _sortable_time(s: pd.Series) -> np.ndarray:
         return s.astype(str).to_numpy()
 
 
-def temporal_split(df: pd.DataFrame, ts_col: str, test_frac: float = 0.25) -> tuple[pd.DataFrame, pd.DataFrame]:
+def temporal_split(
+    df: pd.DataFrame, ts_col: str, test_frac: float = 0.25
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Train = past, test = future. Cut at the (1 - test_frac) quantile of time."""
     if ts_col not in df.columns:
         raise KeyError(f"ts_col {ts_col!r} not in {list(df.columns)}")
@@ -32,7 +35,9 @@ def temporal_split(df: pd.DataFrame, ts_col: str, test_frac: float = 0.25) -> tu
     order = _sortable_time(df[ts_col]).argsort(kind="stable")
     sorted_df = df.iloc[order].reset_index(drop=True)
     cut = max(1, min(int(round(len(sorted_df) * (1 - test_frac))), len(sorted_df) - 1))
-    return sorted_df.iloc[:cut].reset_index(drop=True), sorted_df.iloc[cut:].reset_index(drop=True)
+    return sorted_df.iloc[:cut].reset_index(drop=True), sorted_df.iloc[
+        cut:
+    ].reset_index(drop=True)
 
 
 def is_temporal_split(train: pd.DataFrame, test: pd.DataFrame, ts_col: str) -> bool:
@@ -42,7 +47,9 @@ def is_temporal_split(train: pd.DataFrame, test: pd.DataFrame, ts_col: str) -> b
     return _sortable_time(train[ts_col]).max() <= _sortable_time(test[ts_col]).min()
 
 
-def assert_not_random_split(train: pd.DataFrame, test: pd.DataFrame, ts_col: str, tol_frac: float = 0.02) -> None:
+def assert_not_random_split(
+    train: pd.DataFrame, test: pd.DataFrame, ts_col: str, tol_frac: float = 0.02
+) -> None:
     """Reject a split where >tol_frac of train rows are newer than the earliest test row."""
     tr = _sortable_time(train[ts_col])
     te = _sortable_time(test[ts_col])
@@ -73,7 +80,9 @@ def entity_disjoint_split(
     return df[~test_mask].reset_index(drop=True), df[test_mask].reset_index(drop=True)
 
 
-def is_entity_disjoint(train: pd.DataFrame, test: pd.DataFrame, entity_col: str) -> bool:
+def is_entity_disjoint(
+    train: pd.DataFrame, test: pd.DataFrame, entity_col: str
+) -> bool:
     a = set(train[entity_col].astype(str)) if not train.empty else set()
     b = set(test[entity_col].astype(str)) if not test.empty else set()
     return len(a & b) == 0

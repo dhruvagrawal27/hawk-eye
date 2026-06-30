@@ -7,10 +7,11 @@ and HOW OFTEN the model is reviewed (higher tier -> deeper + more frequent).
 
 This is pure-Python (no heavy imports), so it loads in any process.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from ml.mlops.inventory import (
     RISK_TIERS,
@@ -91,13 +92,19 @@ def assess_risk_tier(
     """
     if not decides:
         tier = TIER_MODERATE
-        rationale = "explains only; never drives an investigation decision (e.g. narrative LLM)"
+        rationale = (
+            "explains only; never drives an investigation decision (e.g. narrative LLM)"
+        )
     elif blocks_or_final or layer == "L6":
         tier = TIER_CRITICAL
-        rationale = "produces the final/headline risk score that drives the alert decision"
+        rationale = (
+            "produces the final/headline risk score that drives the alert decision"
+        )
     elif influences_investigation:
         tier = TIER_HIGH
-        rationale = "scoring model that materially influences whether a person is investigated"
+        rationale = (
+            "scoring model that materially influences whether a person is investigated"
+        )
     else:
         tier = TIER_MODERATE
         rationale = "secondary scoring signal with limited standalone impact"

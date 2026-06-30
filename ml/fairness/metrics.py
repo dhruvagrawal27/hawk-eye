@@ -18,6 +18,7 @@ and every breach carries reason codes + a narrative (ML-29.2) via :func:`fairnes
 ALERT-ONLY: a disparate-impact breach raises an *alert* (and can GATE a build per Part 31),
 it never auto-blocks a person or mutates a score here.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -49,28 +50,38 @@ DEFAULT_GAP_THRESHOLD = 0.1
 
 def _as_binary(arr: Iterable[Any]) -> np.ndarray:
     """Coerce predictions/labels to a 0/1 int array (threshold floats at 0.5)."""
-    a = np.asarray(list(arr), dtype=float).ravel()
+    a: np.ndarray = np.asarray(list(arr), dtype=float).ravel()
     if a.size and not np.array_equal(a, a.astype(int)):
         a = (a >= 0.5).astype(int)
     return a.astype(int)
 
 
-def _group_series(sensitive: Iterable[Any], index: Optional[pd.Index] = None) -> pd.Series:
-    s = sensitive if isinstance(sensitive, pd.Series) else pd.Series(list(sensitive), index=index)
+def _group_series(
+    sensitive: Iterable[Any], index: Optional[pd.Index] = None
+) -> pd.Series:
+    s = (
+        sensitive
+        if isinstance(sensitive, pd.Series)
+        else pd.Series(list(sensitive), index=index)
+    )
     return s.astype(str)
 
 
 # --------------------------------------------------------------------------- #
 # Per-group rate primitives (direct; Fairlearn-independent)                    #
 # --------------------------------------------------------------------------- #
-def selection_rates(y_pred: Iterable[Any], sensitive: Iterable[Any]) -> dict[str, float]:
+def selection_rates(
+    y_pred: Iterable[Any], sensitive: Iterable[Any]
+) -> dict[str, float]:
     """P(flagged=1) within each group — the basis for demographic parity + DI."""
     yp = pd.Series(_as_binary(y_pred))
     grp = _group_series(sensitive, index=yp.index)
     return {str(g): float(yp[grp.values == g].mean()) for g in pd.unique(grp)}
 
 
-def _rate_where(y_true: np.ndarray, y_pred: np.ndarray, mask: np.ndarray, cond: np.ndarray) -> Optional[float]:
+def _rate_where(
+    y_true: np.ndarray, y_pred: np.ndarray, mask: np.ndarray, cond: np.ndarray
+) -> Optional[float]:
     sel = mask & cond
     if not sel.any():
         return None
@@ -136,12 +147,16 @@ class FairnessMetric:
     def to_dict(self) -> dict[str, Any]:
         return {
             "attribute": self.attribute,
-            "demographic_parity_difference": round(self.demographic_parity_difference, 4),
+            "demographic_parity_difference": round(
+                self.demographic_parity_difference, 4
+            ),
             "disparate_impact_ratio": round(self.disparate_impact_ratio, 4),
             "equal_opportunity_difference": round(self.equal_opportunity_difference, 4),
             "equalized_odds_difference": round(self.equalized_odds_difference, 4),
             "disparate_impact_breach": self.disparate_impact_breach,
-            "selection_rates": {k: round(v, 4) for k, v in self.selection_rates.items()},
+            "selection_rates": {
+                k: round(v, 4) for k, v in self.selection_rates.items()
+            },
             "group_rates": self.group_rates,
             "backend": self.backend,
         }
@@ -175,11 +190,17 @@ def _fairlearn_metrics(
 
         sf = grp.to_numpy()
         out = {
-            "dp": float(demographic_parity_difference(y_true, y_pred, sensitive_features=sf)),
-            "eodds": float(equalized_odds_difference(y_true, y_pred, sensitive_features=sf)),
+            "dp": float(
+                demographic_parity_difference(y_true, y_pred, sensitive_features=sf)
+            ),
+            "eodds": float(
+                equalized_odds_difference(y_true, y_pred, sensitive_features=sf)
+            ),
         }
         try:
-            out["eo"] = float(equal_opportunity_difference(y_true, y_pred, sensitive_features=sf))
+            out["eo"] = float(
+                equal_opportunity_difference(y_true, y_pred, sensitive_features=sf)
+            )
         except Exception:
             out["eo"] = None  # type: ignore[assignment]
         return out
@@ -204,7 +225,9 @@ def compute_fairness_metric(
     # Direct computations (always correct, used as fallback + cross-check).
     dp_direct = _gap(sel.values())
     eo_direct = _gap(r["tpr"] for r in rates.values())
-    eodds_direct = max(_gap(r["tpr"] for r in rates.values()), _gap(r["fpr"] for r in rates.values()))
+    eodds_direct = max(
+        _gap(r["tpr"] for r in rates.values()), _gap(r["fpr"] for r in rates.values())
+    )
 
     fl = _fairlearn_metrics(yt, yp, grp)
     if fl is not None:
@@ -244,9 +267,11 @@ def compute_all_fairness_metrics(
     region, branch, department, tenure, age, seniority). Continuous attributes (age,
     tenure) are auto-binned into quantile bands before grouping.
     """
-    attrs = list(attributes) if attributes is not None else [
-        c for c in PROTECTED_ATTRIBUTES if c in protected.columns
-    ]
+    attrs = (
+        list(attributes)
+        if attributes is not None
+        else [c for c in PROTECTED_ATTRIBUTES if c in protected.columns]
+    )
     out: dict[str, FairnessMetric] = {}
     for attr in attrs:
         if attr not in protected.columns:
@@ -293,7 +318,9 @@ def fairness_metrics_dict(
           "gap_threshold": 0.1,
         }
     """
-    metrics = compute_all_fairness_metrics(y_true, y_pred, protected, attributes=attributes)
+    metrics = compute_all_fairness_metrics(
+        y_true, y_pred, protected, attributes=attributes
+    )
     breaches = {a: m.breaches(gap_threshold) for a, m in metrics.items()}
     breaches = {a: b for a, b in breaches.items() if b}
     return {
@@ -357,14 +384,16 @@ def fairness_alerts(
             "reason_codes": [rc.to_dict() for rc in rcs],
         }
         narr = narrator(ctx)
-        alerts.append({
-            "attribute": attr,
-            "breaches": kinds,
-            "reason_codes": [rc.to_dict() for rc in rcs],
-            "narrative": narr.get("narrative"),
-            "narrative_provider": narr.get("provider"),
-            "metric": m.to_dict(),
-        })
+        alerts.append(
+            {
+                "attribute": attr,
+                "breaches": kinds,
+                "reason_codes": [rc.to_dict() for rc in rcs],
+                "narrative": narr.get("narrative"),
+                "narrative_provider": narr.get("provider"),
+                "metric": m.to_dict(),
+            }
+        )
     return alerts
 
 
@@ -404,9 +433,15 @@ class FairnessMonitor:
             y_true, y_pred, protected, attributes=self.attributes
         )
         mdict = fairness_metrics_dict(
-            y_true, y_pred, protected, attributes=self.attributes, gap_threshold=self.gap_threshold
+            y_true,
+            y_pred,
+            protected,
+            attributes=self.attributes,
+            gap_threshold=self.gap_threshold,
         )
-        alerts = fairness_alerts(metrics, gap_threshold=self.gap_threshold, narrator=self.narrator)
+        alerts = fairness_alerts(
+            metrics, gap_threshold=self.gap_threshold, narrator=self.narrator
+        )
         record = {
             "batch_index": len(self._history),
             "metrics": mdict,
@@ -428,7 +463,9 @@ class FairnessMonitor:
     def newly_breached(self) -> list[str]:
         """Attributes that breached in the latest batch but not the prior one (regression)."""
         if len(self._history) < 2:
-            return list(self._history[-1]["metrics"]["breaches"]) if self._history else []
+            return (
+                list(self._history[-1]["metrics"]["breaches"]) if self._history else []
+            )
         prev = set(self._history[-2]["metrics"]["breaches"])
         cur = set(self._history[-1]["metrics"]["breaches"])
         return sorted(cur - prev)

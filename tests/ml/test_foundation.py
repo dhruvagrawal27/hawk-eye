@@ -2,10 +2,10 @@
 
 Blueprint refs: Part 8, Part 22.4 (seeds), Part 14, Part 20.0/20.4 (honest eval).
 """
+
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 
 from ml.base import Alert, ReasonCode, Severity, normalize_scores, severity_from_score
 from ml.config import GLOBAL_SEED, seed_everything, seeded_rng
@@ -22,21 +22,47 @@ def test_seed_is_reproducible():
 
 def test_reason_code_matches_backend_shape():
     assert ReasonCode("shap", feature="amount_z", contribution=0.31).to_dict() == {
-        "source": "shap", "feature": "amount_z", "contribution": 0.31
+        "source": "shap",
+        "feature": "amount_z",
+        "contribution": 0.31,
     }
     assert ReasonCode("rule", code="NEW_BENE", detail="x").to_dict() == {
-        "source": "rule", "code": "NEW_BENE", "detail": "x"
+        "source": "rule",
+        "code": "NEW_BENE",
+        "detail": "x",
     }
-    assert ReasonCode("graph", detail="ring RNG-12").to_dict() == {"source": "graph", "detail": "ring RNG-12"}
+    assert ReasonCode("graph", detail="ring RNG-12").to_dict() == {
+        "source": "graph",
+        "detail": "ring RNG-12",
+    }
 
 
 def test_alert_to_dict_matches_backend_keys():
-    a = Alert("alr_1", "EMP-1", 87, "high", 0.82, contributing_layers=["L2", "L3"],
-              reason_codes=[ReasonCode("rule", code="X", detail="y")], exposure_inr=4800000)
+    a = Alert(
+        "alr_1",
+        "EMP-1",
+        87,
+        "high",
+        0.82,
+        contributing_layers=["L2", "L3"],
+        reason_codes=[ReasonCode("rule", code="X", detail="y")],
+        exposure_inr=4800000,
+    )
     d = a.to_dict()
-    for key in ("alert_id", "entity_id", "risk_score", "severity", "confidence", "status",
-                "created_ts", "contributing_layers", "reason_codes", "exposure_inr",
-                "sla_due_ts", "pii_tokenized"):
+    for key in (
+        "alert_id",
+        "entity_id",
+        "risk_score",
+        "severity",
+        "confidence",
+        "status",
+        "created_ts",
+        "contributing_layers",
+        "reason_codes",
+        "exposure_inr",
+        "sla_due_ts",
+        "pii_tokenized",
+    ):
         assert key in d
     assert d["risk_score"] == 87 and d["pii_tokenized"] is True
 
@@ -63,8 +89,15 @@ def test_feature_source_separates_fraud(entity_xy):
 
 def test_synthetic_source_columns_match_l0(synthetic_source):
     ev = synthetic_source.events()
-    for col in ("event_id", "ts", "actor.employee_id", "action.verb", "object.amount",
-                "context.is_off_hours", "linkage.maker_id"):
+    for col in (
+        "event_id",
+        "ts",
+        "actor.employee_id",
+        "action.verb",
+        "object.amount",
+        "context.is_off_hours",
+        "linkage.maker_id",
+    ):
         assert col in ev.columns
 
 
@@ -72,8 +105,11 @@ def test_synthetic_source_columns_match_l0(synthetic_source):
 def test_real_signal_beats_random(supervised_xy):
     X, y = supervised_xy
     yv = y.to_numpy()
-    real = (X["amount_z_personal"].to_numpy() + 0.5 * X["is_off_hours"].to_numpy()
-            + X["verb_approve_payment"].to_numpy() * X["log1p_amount"].to_numpy() / 15)
+    real = (
+        X["amount_z_personal"].to_numpy()
+        + 0.5 * X["is_off_hours"].to_numpy()
+        + X["verb_approve_payment"].to_numpy() * X["log1p_amount"].to_numpy() / 15
+    )
     rand = np.random.default_rng(0).random(len(yv))
     assert E.average_precision(yv, real) > E.average_precision(yv, rand)
 
@@ -113,7 +149,9 @@ def test_leaky_feature_is_caught(supervised_xy):
     Xl["is_fraud"] = y.to_numpy()
     leaky = E.detect_leaky_features(Xl, "is_fraud")
     assert "LEAK" in leaky
-    assert len([c for c in leaky if c != "LEAK"]) <= 2  # no flood of false positives under imbalance
+    assert (
+        len([c for c in leaky if c != "LEAK"]) <= 2
+    )  # no flood of false positives under imbalance
 
 
 def test_point_adjust_is_impossible():

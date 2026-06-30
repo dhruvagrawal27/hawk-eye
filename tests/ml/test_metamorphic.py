@@ -18,6 +18,7 @@ NOTE: the L3 scorer is feature-NAME/ORDER bound (it rejects unknown columns), so
 
 Run: .mlvenv/bin/python -m pytest tests/ml/test_metamorphic.py -q
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -74,18 +75,18 @@ def test_amount_scaling_up_does_not_decrease_risk(fitted):
             up["log1p_amount"] = np.log1p(up["amount"].clip(lower=0))
         scaled = scorer.predict_proba(up)
 
-        assert scaled.mean() >= base.mean() - 1e-9, (
-            f"mean risk dropped when amount scaled x{factor} (R1 violated)"
-        )
+        assert (
+            scaled.mean() >= base.mean() - 1e-9
+        ), f"mean risk dropped when amount scaled x{factor} (R1 violated)"
         decreases = base - scaled
         frac_dec = float((decreases > 1e-6).mean())
         max_dec = float(decreases.max())
-        assert frac_dec <= 0.10, (
-            f"amount x{factor}: {frac_dec:.0%} of rows decreased (>10% => R1 violated)"
-        )
-        assert max_dec <= 0.02, (
-            f"amount x{factor}: a row's risk fell by {max_dec:.3f} (>0.02 => R1 violated)"
-        )
+        assert (
+            frac_dec <= 0.10
+        ), f"amount x{factor}: {frac_dec:.0%} of rows decreased (>10% => R1 violated)"
+        assert (
+            max_dec <= 0.02
+        ), f"amount x{factor}: a row's risk fell by {max_dec:.3f} (>0.02 => R1 violated)"
 
 
 # --------------------------------------------------------------------------- #
@@ -103,11 +104,13 @@ def test_irrelevant_field_change_does_not_change_score(fitted):
     rng = np.random.default_rng(0)
     for col in irrelevant:
         # arbitrary perturbation of every never-split-on feature
-        perturbed[col] = perturbed[col].to_numpy(dtype=float) + rng.normal(5.0, 3.0, len(perturbed))
+        perturbed[col] = perturbed[col].to_numpy(dtype=float) + rng.normal(
+            5.0, 3.0, len(perturbed)
+        )
     after = scorer.predict_proba(perturbed)
-    assert np.allclose(base, after, atol=TOL), (
-        f"perturbing {len(irrelevant)} zero-importance features changed the score (R2)"
-    )
+    assert np.allclose(
+        base, after, atol=TOL
+    ), f"perturbing {len(irrelevant)} zero-importance features changed the score (R2)"
 
 
 # --------------------------------------------------------------------------- #
@@ -119,10 +122,14 @@ def test_determinism_and_row_permutation_invariance(fitted):
     base = scorer.predict_proba(rows)
 
     # (a) re-scoring is deterministic
-    assert np.array_equal(base, scorer.predict_proba(rows)), "scoring is not deterministic (R3)"
+    assert np.array_equal(
+        base, scorer.predict_proba(rows)
+    ), "scoring is not deterministic (R3)"
 
     # (b) permuting ROWS permutes scores identically (each row scored independently)
     rng = np.random.default_rng(7)
     perm = rng.permutation(len(rows))
     permuted_scores = scorer.predict_proba(rows.iloc[perm].reset_index(drop=True))
-    assert np.allclose(permuted_scores, base[perm], atol=TOL), "row order affected scores (R3)"
+    assert np.allclose(
+        permuted_scores, base[perm], atol=TOL
+    ), "row order affected scores (R3)"

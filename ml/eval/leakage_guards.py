@@ -7,6 +7,7 @@ Catches the four evaluation pitfalls (Part 14):
   4. synthetic-only    -> ``synthetic_only_guard`` documents the limitation explicitly
 pandas-3.0-safe (uses ``pd.api.types``).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -51,9 +52,14 @@ def detect_leaky_features(
                     leaky[col] = f"|corr|={corr:.3f} >= {corr_threshold}"
                     continue
             if _best_threshold_accuracy(x, y) >= predictor_threshold:
-                leaky[col] = f"single-feature threshold predicts label >= {predictor_threshold}"
+                leaky[col] = (
+                    f"single-feature threshold predicts label >= {predictor_threshold}"
+                )
         else:
-            if _category_map_accuracy(s.astype(str).to_numpy(), y) >= predictor_threshold:
+            if (
+                _category_map_accuracy(s.astype(str).to_numpy(), y)
+                >= predictor_threshold
+            ):
                 leaky[col] = f"category->label map predicts >= {predictor_threshold}"
     return leaky
 
@@ -99,12 +105,18 @@ def _category_map_accuracy(x: np.ndarray, y: np.ndarray) -> float:
     return _balanced_accuracy(pred, y)
 
 
-def assert_no_future_feature(df: pd.DataFrame, ts_col: str, feature_cols: Iterable[str]) -> None:
+def assert_no_future_feature(
+    df: pd.DataFrame, ts_col: str, feature_cols: Iterable[str]
+) -> None:
     """Heuristic temporal-leakage guard: a feature must not be perfectly time-ordered
     with the row time in a way that implies it was computed from the future."""
     if ts_col not in df.columns:
         return
-    order = pd.to_datetime(df[ts_col], utc=True, errors="coerce").rank(method="first").to_numpy()
+    order = (
+        pd.to_datetime(df[ts_col], utc=True, errors="coerce")
+        .rank(method="first")
+        .to_numpy()
+    )
     for col in feature_cols:
         if col not in df.columns or not pd.api.types.is_numeric_dtype(df[col]):
             continue
@@ -114,7 +126,9 @@ def assert_no_future_feature(df: pd.DataFrame, ts_col: str, feature_cols: Iterab
         # A feature that is a near-perfect *future* index (corr with reverse-time ~ 1).
         corr = abs(float(np.corrcoef(x, -order)[0, 1])) if np.std(order) > 0 else 0.0
         if corr >= 0.999:
-            raise AssertionError(f"feature {col!r} appears future-derived (corr with reverse-time {corr:.3f})")
+            raise AssertionError(
+                f"feature {col!r} appears future-derived (corr with reverse-time {corr:.3f})"
+            )
 
 
 def assert_no_point_adjust() -> None:
@@ -137,7 +151,11 @@ class SyntheticOnlyGuard:
     acknowledged: bool = True
 
     def to_dict(self) -> dict:
-        return {"synthetic_only": True, "message": self.message, "acknowledged": self.acknowledged}
+        return {
+            "synthetic_only": True,
+            "message": self.message,
+            "acknowledged": self.acknowledged,
+        }
 
 
 def synthetic_only_guard() -> SyntheticOnlyGuard:

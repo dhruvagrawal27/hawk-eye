@@ -8,9 +8,10 @@ the mean predicted probability tracks the base rate.
 ``CalibratedScorer`` wraps any fitted ``BaseScorer`` (or fits one) and recalibrates its raw
 scores. ``to_0_100`` maps a probability to the BACKEND 0-100 risk integer.
 """
+
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -44,9 +45,9 @@ class CalibratedScorer(BaseScorer):
         self.base = base
         self.method = method
         self.valid_frac = float(valid_frac)
-        self._calibrator = None
+        self._calibrator: Optional[tuple[str, Any]] = None
 
-    def fit(self, X, y) -> "CalibratedScorer":
+    def fit(self, X, y) -> "CalibratedScorer":  # type: ignore[override]  # intentional: supervised fit requires y
         X = X if isinstance(X, pd.DataFrame) else pd.DataFrame(np.asarray(X))
         yarr = imbalance._as_label_array(y)
         n = len(X)

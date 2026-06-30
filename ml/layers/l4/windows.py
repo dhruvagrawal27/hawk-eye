@@ -12,6 +12,7 @@ Two representations:
 
 All dtype checks use ``pd.api.types.*`` (pandas 2.3 / 3.0 safe). No heavy deps here.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -161,8 +162,13 @@ def build_windows(
 
     if not Xs:
         X = np.zeros((0, window, feats.shape[1]), dtype=np.float32)
-        return WindowSet(X, np.array([]), np.array([], dtype="datetime64[ns]"),
-                         np.array([], dtype=int), names)
+        return WindowSet(
+            X,
+            np.array([]),
+            np.array([], dtype="datetime64[ns]"),
+            np.array([], dtype=int),
+            names,
+        )
 
     X = np.stack(Xs).astype(np.float32)
     return WindowSet(
@@ -193,8 +199,10 @@ def build_verb_sequences(
             vocab[v] = len(vocab)
 
     if labels is not None:
-        y_evt = pd.Series(np.asarray(labels.reindex(events.index).fillna(0)).astype(int),
-                          index=events.index)
+        y_evt = pd.Series(
+            np.asarray(labels.reindex(events.index).fillna(0)).astype(int),
+            index=events.index,
+        )
     else:
         y_evt = pd.Series(0, index=events.index)
 
@@ -202,9 +210,15 @@ def build_verb_sequences(
     keys = _col(events, key_col, "UNK").astype(str)
     ts = pd.to_datetime(_col(events, TS, None), utc=True, errors="coerce")
 
-    tmp = pd.DataFrame({"key": keys.to_numpy(), "ts": ts.to_numpy(),
-                        "verb": verbs.to_numpy(), "y": y_evt.to_numpy()},
-                       index=events.index).sort_values(["key", "ts"], kind="mergesort")
+    tmp = pd.DataFrame(
+        {
+            "key": keys.to_numpy(),
+            "ts": ts.to_numpy(),
+            "verb": verbs.to_numpy(),
+            "y": y_evt.to_numpy(),
+        },
+        index=events.index,
+    ).sort_values(["key", "ts"], kind="mergesort")
 
     seqs: list[list[int]] = []
     seq_y: list[int] = []

@@ -3,9 +3,9 @@
 Reusable by L3/L4/L5: negative subsampling 1:3-1:10, class weights / scale_pos_weight /
 focal loss, and a note that post-hoc calibration (ml.layers.l3.calibration) must follow.
 """
+
 from __future__ import annotations
 
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -27,7 +27,11 @@ def negative_subsample(
     neg_idx = yv.index[yv == 0]
     n_keep = min(len(neg_idx), int(round(len(pos_idx) * ratio)))
     rng = np.random.default_rng(seed)
-    keep_neg = rng.choice(neg_idx.to_numpy(), size=max(n_keep, 1), replace=False) if len(neg_idx) else np.array([])
+    keep_neg = (
+        rng.choice(neg_idx.to_numpy(), size=max(n_keep, 1), replace=False)
+        if len(neg_idx)
+        else np.array([])
+    )
     keep = np.concatenate([pos_idx.to_numpy(), keep_neg])
     rng.shuffle(keep)
     return X.loc[keep], yv.loc[keep]
@@ -57,6 +61,7 @@ def focal_loss_lgb(gamma: float = 2.0, alpha: float = 0.25):
 
     Returns a callable ``obj(y_pred, dataset) -> (grad, hess)`` usable as LightGBM's fobj.
     """
+
     def _sigmoid(x: np.ndarray) -> np.ndarray:
         return 1.0 / (1.0 + np.exp(-x))
 
@@ -66,7 +71,11 @@ def focal_loss_lgb(gamma: float = 2.0, alpha: float = 0.25):
         # focal-loss gradient/hessian (binary), alpha-balanced
         pt = np.where(y_true == 1, p, 1 - p)
         alpha_t = np.where(y_true == 1, alpha, 1 - alpha)
-        grad = alpha_t * (1 - pt) ** gamma * (gamma * pt * np.log(np.clip(pt, 1e-9, 1)) + pt - 1)
+        grad = (
+            alpha_t
+            * (1 - pt) ** gamma
+            * (gamma * pt * np.log(np.clip(pt, 1e-9, 1)) + pt - 1)
+        )
         grad = np.where(y_true == 1, grad, -grad)
         hess = np.abs(alpha_t * (1 - pt) ** gamma * pt * (1 - pt)) + 1e-6
         return grad, hess
@@ -74,7 +83,9 @@ def focal_loss_lgb(gamma: float = 2.0, alpha: float = 0.25):
     return obj
 
 
-def focal_loss_value(y_true: np.ndarray, p: np.ndarray, gamma: float = 2.0, alpha: float = 0.25) -> float:
+def focal_loss_value(
+    y_true: np.ndarray, p: np.ndarray, gamma: float = 2.0, alpha: float = 0.25
+) -> float:
     """Scalar focal loss (for monitoring/tests)."""
     p = np.clip(p, 1e-9, 1 - 1e-9)
     pt = np.where(y_true == 1, p, 1 - p)

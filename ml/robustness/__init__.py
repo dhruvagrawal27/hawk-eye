@@ -22,6 +22,7 @@ Everything here is ALERT-ONLY: defenses raise/flag for a human; they never block
 Every module imports even when optional heavy libs are absent (guarded via
 :mod:`ml._optional`); REAL where the lib is present, clean fallback otherwise.
 """
+
 from __future__ import annotations
 
 from ml.robustness.evasion import (

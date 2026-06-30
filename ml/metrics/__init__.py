@@ -14,6 +14,7 @@ pure function with explicit inputs (no global state, no I/O) so it can be unit
 tested on toy cases and reused by dashboards, governance reports, and the
 MRM review pack.
 """
+
 from __future__ import annotations
 
 from ml.metrics.ops import (

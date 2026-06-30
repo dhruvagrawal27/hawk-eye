@@ -13,6 +13,7 @@ matching the global average if they stand out within their own peer group).
 ``explain`` is aggregated from the AutoEncoder member (per-feature reconstruction error)
 when present, so the ensemble carries contestable per-feature reason codes (§29.2).
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -132,7 +133,9 @@ class L2Ensemble(BaseDetector):
         Falls back to the first member exposing a non-trivial ``explain`` if no AE is
         present, then to the ensemble fused score as a single coarse code.
         """
-        ae = next((d for d in self.detectors if isinstance(d, AutoEncoderDetector)), None)
+        ae = next(
+            (d for d in self.detectors if isinstance(d, AutoEncoderDetector)), None
+        )
         if ae is not None:
             return ae.explain(X, top_k=top_k)
         for det in self.detectors:
@@ -141,7 +144,13 @@ class L2Ensemble(BaseDetector):
                 return rcs
         scores = self.score_samples(X)
         return [
-            [ReasonCode(source="shap", feature="l2_ensemble_score",
-                        detail="fused L2 anomaly score", contribution=float(s))]
+            [
+                ReasonCode(
+                    source="shap",
+                    feature="l2_ensemble_score",
+                    detail="fused L2 anomaly score",
+                    contribution=float(s),
+                )
+            ]
             for s in scores
         ]

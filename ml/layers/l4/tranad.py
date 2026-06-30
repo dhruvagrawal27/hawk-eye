@@ -8,6 +8,7 @@ mirroring USAD inside a transformer.
 Compact build: 1 encoder layer, tiny model dim, few epochs over windowed features.
 torch import is inside the methods; ``fit`` raises ``require('torch')`` if absent.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -32,8 +33,13 @@ class TranAD(BaseDetector):
 
     layer = "L4"
 
-    def __init__(self, d_model: int = 16, window: int = 20, epochs: int = 10,
-                 version: str = "0.1.0") -> None:
+    def __init__(
+        self,
+        d_model: int = 16,
+        window: int = 20,
+        epochs: int = 10,
+        version: str = "0.1.0",
+    ) -> None:
         super().__init__(name="l4_tranad", version=version)
         self.d_model = int(d_model)
         self.window = int(window)
@@ -42,7 +48,6 @@ class TranAD(BaseDetector):
         self._c = 0
 
     def _build(self):
-        import torch
         from torch import nn
 
         d_model, c = self.d_model, self._c
@@ -51,9 +56,13 @@ class TranAD(BaseDetector):
             def __init__(self) -> None:
                 super().__init__()
                 self.inp = nn.Linear(c, d_model)
-                enc = nn.TransformerEncoderLayer(d_model=d_model, nhead=2,
-                                                 dim_feedforward=2 * d_model,
-                                                 batch_first=True, dropout=0.0)
+                enc = nn.TransformerEncoderLayer(
+                    d_model=d_model,
+                    nhead=2,
+                    dim_feedforward=2 * d_model,
+                    batch_first=True,
+                    dropout=0.0,
+                )
                 self.encoder = nn.TransformerEncoder(enc, num_layers=1)
                 self.dec1 = nn.Linear(d_model, c)
                 self.dec2 = nn.Linear(d_model, c)
@@ -103,7 +112,9 @@ class TranAD(BaseDetector):
             l1 = (1.0 / n) * mse(o1, t) + (1.0 - 1.0 / n) * mse(o2, t)
             l2 = (1.0 / n) * mse(o2, t) - (1.0 - 1.0 / n) * mse(o2, t)
             loss = l1 + l2
-            opt.zero_grad(); loss.backward(); opt.step()
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
         model.eval()
         self._model = model
         self._fitted = True
@@ -120,10 +131,12 @@ class TranAD(BaseDetector):
             t = torch.tensor(Xn, dtype=torch.float32)
             focus = torch.zeros_like(t)
             o1, _ = self._model(t, focus)
-            focus = ((t - o1) ** 2)
+            focus = (t - o1) ** 2
             o1, o2 = self._model(t, focus)
             # blend the two phase reconstruction errors (the TranAD anomaly score)
-            err = (0.5 * ((t - o1) ** 2) + 0.5 * ((t - o2) ** 2)).mean(dim=(1, 2)).numpy()
+            err = (
+                (0.5 * ((t - o1) ** 2) + 0.5 * ((t - o2) ** 2)).mean(dim=(1, 2)).numpy()
+            )
         return normalize_scores(err, method="minmax")
 
 

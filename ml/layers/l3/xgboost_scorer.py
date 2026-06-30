@@ -8,14 +8,15 @@ Heavy ``xgboost`` import stays INSIDE methods so the module always imports. When
 is absent the scorer falls back to sklearn ``GradientBoostingClassifier``. ``predict_proba``
 always returns probabilities in [0,1]. TreeSHAP reason codes via ``treeshap``.
 """
+
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
 
-from ml._optional import HAS_XGBOOST, optional_import
+from ml._optional import HAS_XGBOOST, require
 from ml.base import BaseScorer, ReasonCode
 from ml.layers.l3 import imbalance
 
@@ -51,7 +52,7 @@ class XGBoostScorer(BaseScorer):
         self.valid_frac = float(valid_frac)
         self.random_state = int(random_state)
 
-        self._model = None
+        self._model: Any = None
         self._backend = "xgboost" if HAS_XGBOOST else "sklearn"
         self._feature_names: list[str] = []
         self.best_iteration_: Optional[int] = None
@@ -74,7 +75,7 @@ class XGBoostScorer(BaseScorer):
             verbosity=0,
         )
 
-    def fit(self, X, y) -> "XGBoostScorer":
+    def fit(self, X, y) -> "XGBoostScorer":  # type: ignore[override]  # intentional: supervised fit requires y
         X = _as_frame(X)
         self._feature_names = [str(c) for c in X.columns]
         yarr = imbalance._as_label_array(y)
@@ -94,7 +95,7 @@ class XGBoostScorer(BaseScorer):
         return X.iloc[:cut], yarr[:cut], X.iloc[cut:], yarr[cut:]
 
     def _fit_xgboost(self, X: pd.DataFrame, yarr: np.ndarray) -> None:
-        xgb = optional_import("xgboost")
+        xgb = require("xgboost")
         params = self._params(yarr)
         X_tr, y_tr, X_va, y_va = self._split_valid(X, yarr)
         if X_va is not None:

@@ -9,6 +9,7 @@ The heavy ``shap`` import stays INSIDE the functions so the module always import
 shap is absent we fall back to a crude ``feature_importances_ * feature_value`` contribution
 so reason codes are still produced (degraded, but the contract holds).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -49,7 +50,9 @@ def tree_shap_reason_codes(model: Any, X, top_k: int = 5) -> list[list[ReasonCod
     ordered most-influential first, ``source="shap"``.
     """
     names = _feature_names(X)
-    Xdf = X if isinstance(X, pd.DataFrame) else pd.DataFrame(np.asarray(X), columns=names)
+    Xdf = (
+        X if isinstance(X, pd.DataFrame) else pd.DataFrame(np.asarray(X), columns=names)
+    )
     shap = optional_import("shap")
 
     if shap is not None:
@@ -65,7 +68,9 @@ def tree_shap_reason_codes(model: Any, X, top_k: int = 5) -> list[list[ReasonCod
     return _fallback_importance_codes(model, Xdf, names, top_k)
 
 
-def _rank_from_matrix(mat: np.ndarray, names: list[str], top_k: int) -> list[list[ReasonCode]]:
+def _rank_from_matrix(
+    mat: np.ndarray, names: list[str], top_k: int
+) -> list[list[ReasonCode]]:
     mat = np.atleast_2d(np.asarray(mat, dtype=float))
     n_rows, n_feat = mat.shape
     k = max(1, min(int(top_k), n_feat))
@@ -85,7 +90,9 @@ def _rank_from_matrix(mat: np.ndarray, names: list[str], top_k: int) -> list[lis
     return out
 
 
-def _fallback_importance_codes(model: Any, Xdf: pd.DataFrame, names: list[str], top_k: int) -> list[list[ReasonCode]]:
+def _fallback_importance_codes(
+    model: Any, Xdf: pd.DataFrame, names: list[str], top_k: int
+) -> list[list[ReasonCode]]:
     """Crude contribution = feature_importance * standardized feature value (no shap)."""
     imp = getattr(model, "feature_importances_", None)
     if imp is None:
@@ -119,7 +126,9 @@ def offline_interaction_values(model: Any, X) -> np.ndarray:
             "never wire it into online scoring."
         )
     names = _feature_names(X)
-    Xdf = X if isinstance(X, pd.DataFrame) else pd.DataFrame(np.asarray(X), columns=names)
+    Xdf = (
+        X if isinstance(X, pd.DataFrame) else pd.DataFrame(np.asarray(X), columns=names)
+    )
     explainer = shap.TreeExplainer(model)
     inter = explainer.shap_interaction_values(Xdf)
     arr = np.asarray(inter)

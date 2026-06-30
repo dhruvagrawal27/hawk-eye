@@ -11,19 +11,21 @@ Metrics provided (Part 14):
 - ``recall_on_known_cases``, ``time_to_detection``
 - ``range_based_precision/recall`` (Tatbul et al.), ``vus_pr`` (Paparrizos et al.)
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable, Optional, Sequence
+from typing import Iterable, Optional
 
 import numpy as np
+from numpy.typing import ArrayLike
 from sklearn.metrics import average_precision_score
 
 # Explicit, load-bearing constant: point-adjust is disabled by construction.
 POINT_ADJUST_ENABLED = False
 
 
-def _arrays(y_true: Sequence, scores: Sequence) -> tuple[np.ndarray, np.ndarray]:
+def _arrays(y_true: ArrayLike, scores: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
     y = np.asarray(y_true).astype(int).ravel()
     s = np.asarray(scores, dtype=float).ravel()
     if y.shape != s.shape:
@@ -31,7 +33,7 @@ def _arrays(y_true: Sequence, scores: Sequence) -> tuple[np.ndarray, np.ndarray]
     return y, s
 
 
-def average_precision(y_true: Sequence, scores: Sequence) -> float:
+def average_precision(y_true: ArrayLike, scores: ArrayLike) -> float:
     """Average precision = area under the PR curve (the primary metric for imbalance)."""
     y, s = _arrays(y_true, scores)
     if y.sum() == 0 or y.sum() == y.size:
@@ -42,7 +44,7 @@ def average_precision(y_true: Sequence, scores: Sequence) -> float:
 pr_auc = average_precision  # alias
 
 
-def precision_at_k(y_true: Sequence, scores: Sequence, k: int) -> float:
+def precision_at_k(y_true: ArrayLike, scores: ArrayLike, k: int) -> float:
     """Precision among the top-k highest-scored items."""
     y, s = _arrays(y_true, scores)
     k = max(1, min(int(k), y.size))
@@ -50,7 +52,7 @@ def precision_at_k(y_true: Sequence, scores: Sequence, k: int) -> float:
     return float(y[top].sum() / k)
 
 
-def recall_at_k(y_true: Sequence, scores: Sequence, k: int) -> float:
+def recall_at_k(y_true: ArrayLike, scores: ArrayLike, k: int) -> float:
     """Recall (of all positives) captured in the top-k."""
     y, s = _arrays(y_true, scores)
     total = int(y.sum())
@@ -61,7 +63,7 @@ def recall_at_k(y_true: Sequence, scores: Sequence, k: int) -> float:
     return float(y[top].sum() / total)
 
 
-def alert_to_true_ratio(y_true: Sequence, scores: Sequence, k: int) -> float:
+def alert_to_true_ratio(y_true: ArrayLike, scores: ArrayLike, k: int) -> float:
     """Alerts raised per true fraud caught in the top-k (analyst-burden metric).
 
     = k / (#true positives in top-k). Lower is better; inf if no true positive caught.
@@ -74,7 +76,10 @@ def alert_to_true_ratio(y_true: Sequence, scores: Sequence, k: int) -> float:
 
 
 def recall_on_known_cases(
-    y_true: Sequence, scores: Sequence, threshold: float, known_positive_idx: Optional[Iterable[int]] = None
+    y_true: ArrayLike,
+    scores: ArrayLike,
+    threshold: float,
+    known_positive_idx: Optional[Iterable[int]] = None,
 ) -> float:
     """Recall on a set of known historical fraud cases at a given alert threshold."""
     y, s = _arrays(y_true, scores)
@@ -88,7 +93,7 @@ def recall_on_known_cases(
 
 
 def time_to_detection(
-    scores: Sequence, timestamps: Sequence, fraud_onset_idx: int, threshold: float
+    scores: ArrayLike, timestamps: ArrayLike, fraud_onset_idx: int, threshold: float
 ) -> Optional[float]:
     """Seconds from fraud onset to the first score crossing the threshold (None if never)."""
     s = np.asarray(scores, dtype=float).ravel()
@@ -103,7 +108,7 @@ def time_to_detection(
 # --------------------------------------------------------------------------- #
 # Time-series range-aware metrics (Tatbul et al. 2018) — NEVER point-adjust   #
 # --------------------------------------------------------------------------- #
-def ranges_from_labels(y: Sequence) -> list[tuple[int, int]]:
+def ranges_from_labels(y: ArrayLike) -> list[tuple[int, int]]:
     """Contiguous [start, end) anomaly ranges from a 0/1 label vector."""
     arr = np.asarray(y).astype(int).ravel()
     ranges: list[tuple[int, int]] = []
@@ -123,7 +128,7 @@ def _overlap(a: tuple[int, int], b: tuple[int, int]) -> int:
     return max(0, min(a[1], b[1]) - max(a[0], b[0]))
 
 
-def range_based_recall(real: Sequence, pred: Sequence, alpha: float = 0.2) -> float:
+def range_based_recall(real: ArrayLike, pred: ArrayLike, alpha: float = 0.2) -> float:
     """Range-based recall: existence reward (alpha) + overlap reward (1-alpha)."""
     real_r = ranges_from_labels(real)
     pred_r = ranges_from_labels(pred)
@@ -138,7 +143,7 @@ def range_based_recall(real: Sequence, pred: Sequence, alpha: float = 0.2) -> fl
     return float(total / len(real_r))
 
 
-def range_based_precision(real: Sequence, pred: Sequence) -> float:
+def range_based_precision(real: ArrayLike, pred: ArrayLike) -> float:
     """Range-based precision: fraction of predicted-anomaly length overlapping real ranges."""
     real_r = ranges_from_labels(real)
     pred_r = ranges_from_labels(pred)
@@ -149,7 +154,9 @@ def range_based_precision(real: Sequence, pred: Sequence) -> float:
     return float(covered / pred_len)
 
 
-def affiliation_pr(y_true: Sequence, scores: Sequence, threshold: float) -> dict[str, float]:
+def affiliation_pr(
+    y_true: ArrayLike, scores: ArrayLike, threshold: float
+) -> dict[str, float]:
     """Affiliation-style PR at a threshold (range precision/recall of thresholded scores)."""
     y, s = _arrays(y_true, scores)
     pred = (s >= threshold).astype(int)
@@ -159,7 +166,7 @@ def affiliation_pr(y_true: Sequence, scores: Sequence, threshold: float) -> dict
     return {"range_precision": p, "range_recall": r, "range_f1": f1}
 
 
-def vus_pr(y_true: Sequence, scores: Sequence, max_buffer: int = 5) -> float:
+def vus_pr(y_true: ArrayLike, scores: ArrayLike, max_buffer: int = 5) -> float:
     """VUS-PR: average AUPRC as the true-label window is dilated by 0..max_buffer.
 
     Robust to small localisation errors (Paparrizos et al. 2022) without the
@@ -209,7 +216,9 @@ class MetricReport:
         }
 
 
-def evaluate(y_true: Sequence, scores: Sequence, *, name: str, k: Optional[int] = None) -> MetricReport:
+def evaluate(
+    y_true: ArrayLike, scores: ArrayLike, *, name: str, k: Optional[int] = None
+) -> MetricReport:
     """Full honest metric bundle for one scorer (no point-adjust anywhere)."""
     y, s = _arrays(y_true, scores)
     if k is None:
@@ -225,7 +234,11 @@ def evaluate(y_true: Sequence, scores: Sequence, *, name: str, k: Optional[int] 
 
 
 def comparison_table(
-    y_true: Sequence, scored: dict[str, Sequence], *, k: Optional[int] = None, seed: int = 1405
+    y_true: ArrayLike,
+    scored: dict[str, ArrayLike],
+    *,
+    k: Optional[int] = None,
+    seed: int = 1405,
 ) -> list[dict]:
     """Compare candidate scorers; a RANDOM baseline is always injected (§20.4)."""
     y = np.asarray(y_true).astype(int).ravel()

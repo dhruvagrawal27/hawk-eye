@@ -8,6 +8,7 @@ sees ``event_features()`` / ``entity_features()`` / labels.
 # STUB: DATA/DATABASE — when the real Feast online store + ClickHouse offline
 # tables land, add a ``FeastFeatureSource`` here with the same interface and swap.
 """
+
 from __future__ import annotations
 
 import os
@@ -102,7 +103,9 @@ class DataSimFeatureSource(FeatureSource):
     def _load(self) -> None:
         if self._events is not None:
             return
-        if self.run_dir and os.path.isfile(os.path.join(self.run_dir, "events.parquet")):
+        if self.run_dir and os.path.isfile(
+            os.path.join(self.run_dir, "events.parquet")
+        ):
             self._events = pd.read_parquet(os.path.join(self.run_dir, "events.parquet"))
             self._labels = pd.read_parquet(os.path.join(self.run_dir, "labels.parquet"))
             return
@@ -115,7 +118,9 @@ class DataSimFeatureSource(FeatureSource):
             from data.config import SimConfig  # type: ignore
             from data.sim import Simulator  # type: ignore
 
-            sim = Simulator(SimConfig(n_employees=self.employees, days=self.days, seed=self.seed))
+            sim = Simulator(
+                SimConfig(n_employees=self.employees, days=self.days, seed=self.seed)
+            )
             ev, lab = sim.run_records()
             self._events = _flatten_events(ev)
             self._labels = pd.DataFrame(lab)
@@ -185,12 +190,32 @@ class SyntheticFeatureSource(FeatureSource):
                 n_normal = int(rng.integers(4, 12))
                 for _ in range(n_normal):
                     hour = int(rng.integers(9, 18))
-                    ts = base + pd.Timedelta(days=day, hours=hour, minutes=int(rng.integers(0, 59)))
-                    verb = rng.choice(["login", "approve_payment", "db_select", "create_beneficiary"])
-                    amount = float(rng.integers(1000, 80000)) if verb == "approve_payment" else None
+                    ts = base + pd.Timedelta(
+                        days=day, hours=hour, minutes=int(rng.integers(0, 59))
+                    )
+                    verb = rng.choice(
+                        ["login", "approve_payment", "db_select", "create_beneficiary"]
+                    )
+                    amount = (
+                        float(rng.integers(1000, 80000))
+                        if verb == "approve_payment"
+                        else None
+                    )
                     ev_rows.append(
-                        _event_row(eid, emp, role, dept, peer, tenure, privileged, leaver, ts,
-                                   verb=str(verb), amount=amount, off_hours=False)
+                        _event_row(
+                            eid,
+                            emp,
+                            role,
+                            dept,
+                            peer,
+                            tenure,
+                            privileged,
+                            leaver,
+                            ts,
+                            verb=str(verb),
+                            amount=amount,
+                            off_hours=False,
+                        )
                     )
                     lab_rows.append(_label_row(eid, False, None, None, None))
                     eid += 1
@@ -198,27 +223,73 @@ class SyntheticFeatureSource(FeatureSource):
             if is_fraud_actor:
                 # Injected fraud burst: new beneficiary off-hours, then high-value approval.
                 bene = f"BEN-{emp_i:04d}"
-                t0 = base + pd.Timedelta(days=int(rng.integers(1, self.n_days)), hours=2)
-                ev_rows.append(
-                    _event_row(eid, emp, role, dept, peer, tenure, privileged, leaver, t0,
-                               verb="create_beneficiary", bene=bene, off_hours=True, maker="maker")
+                t0 = base + pd.Timedelta(
+                    days=int(rng.integers(1, self.n_days)), hours=2
                 )
-                lab_rows.append(_label_row(eid, True, "beneficiary_then_approve", emp, "fast"))
+                ev_rows.append(
+                    _event_row(
+                        eid,
+                        emp,
+                        role,
+                        dept,
+                        peer,
+                        tenure,
+                        privileged,
+                        leaver,
+                        t0,
+                        verb="create_beneficiary",
+                        bene=bene,
+                        off_hours=True,
+                        maker="maker",
+                    )
+                )
+                lab_rows.append(
+                    _label_row(eid, True, "beneficiary_then_approve", emp, "fast")
+                )
                 eid += 1
                 ev_rows.append(
-                    _event_row(eid, emp, role, dept, peer, tenure, privileged, leaver,
-                               t0 + pd.Timedelta(minutes=20), verb="approve_payment", bene=bene,
-                               amount=4800000.0, off_hours=True, maker="checker")
+                    _event_row(
+                        eid,
+                        emp,
+                        role,
+                        dept,
+                        peer,
+                        tenure,
+                        privileged,
+                        leaver,
+                        t0 + pd.Timedelta(minutes=20),
+                        verb="approve_payment",
+                        bene=bene,
+                        amount=4800000.0,
+                        off_hours=True,
+                        maker="checker",
+                    )
                 )
-                lab_rows.append(_label_row(eid, True, "beneficiary_then_approve", emp, "fast"))
+                lab_rows.append(
+                    _label_row(eid, True, "beneficiary_then_approve", emp, "fast")
+                )
                 eid += 1
                 if leaver:
                     for _ in range(3):
                         ev_rows.append(
-                            _event_row(eid, emp, role, dept, peer, tenure, privileged, leaver,
-                                       t0 + pd.Timedelta(hours=1), verb="export", off_hours=True, layer="database")
+                            _event_row(
+                                eid,
+                                emp,
+                                role,
+                                dept,
+                                peer,
+                                tenure,
+                                privileged,
+                                leaver,
+                                t0 + pd.Timedelta(hours=1),
+                                verb="export",
+                                off_hours=True,
+                                layer="database",
+                            )
                         )
-                        lab_rows.append(_label_row(eid, True, "bulk_exfil_resignation", emp, "fast"))
+                        lab_rows.append(
+                            _label_row(eid, True, "bulk_exfil_resignation", emp, "fast")
+                        )
                         eid += 1
 
         self._events = pd.DataFrame(ev_rows)

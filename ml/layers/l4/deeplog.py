@@ -8,10 +8,11 @@ honest) even without torch.
 
 torch import lives inside ``fit``/``score_samples``; the n-gram path is pure numpy.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -30,15 +31,21 @@ class DeepLog(BaseDetector):
 
     layer = "L4"
 
-    def __init__(self, hidden: int = 16, window: int = 5, epochs: int = 12,
-                 use_torch: bool = True, version: str = "0.1.0") -> None:
+    def __init__(
+        self,
+        hidden: int = 16,
+        window: int = 5,
+        epochs: int = 12,
+        use_torch: bool = True,
+        version: str = "0.1.0",
+    ) -> None:
         super().__init__(name="l4_deeplog", version=version)
         self.hidden = int(hidden)
         self.window = int(window)  # n-gram / lstm context length
         self.epochs = int(epochs)
         self.use_torch = bool(use_torch)
         self.vocab_size = 0
-        self._model = None
+        self._model: Any = None
         self._ngram: Optional[dict] = None
         self._vocab: dict[str, int] = {}
 
@@ -171,10 +178,17 @@ class DeepLog(BaseDetector):
         for s in seqs:
             sup = self._seq_surprisal(s)
             last = inv.get(s[-1], str(s[-1] if s else "")) if s else ""
-            out.append([ReasonCode(source="attention", code="DEEPLOG_NEXT_EVENT",
-                                   feature=str(last),
-                                   detail="low predicted probability of next verb",
-                                   contribution=float(sup))])
+            out.append(
+                [
+                    ReasonCode(
+                        source="attention",
+                        code="DEEPLOG_NEXT_EVENT",
+                        feature=str(last),
+                        detail="low predicted probability of next verb",
+                        contribution=float(sup),
+                    )
+                ]
+            )
         return out
 
 

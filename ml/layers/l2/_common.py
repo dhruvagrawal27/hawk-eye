@@ -3,6 +3,7 @@
 Kept inside ``ml/layers/l2/`` (stay-in-lane). pandas-3.0-safe: all dtype checks go
 through ``pd.api.types.*`` (never ``np.issubdtype`` on a Series dtype).
 """
+
 from __future__ import annotations
 
 from typing import Any

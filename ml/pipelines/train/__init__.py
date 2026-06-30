@@ -10,6 +10,7 @@ L3/L5/L6 load LightGBM. Co-loading both into one process segfaults. So the per-l
 trainers are imported LAZILY via ``__getattr__`` / :func:`get_trainer` — importing this
 package (or one trainer) does NOT pull every layer's heavy deps at once.
 """
+
 from __future__ import annotations
 
 import importlib

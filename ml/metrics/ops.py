@@ -14,11 +14,12 @@ Conventions
 
 These metrics are ALERT-ONLY observability — they never gate or block anything.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from typing import Iterable, Mapping, Optional, Sequence, Union
+from typing import Iterable, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -236,8 +237,9 @@ def rbi_tat_compliance(
                 continue
             if c is None:
                 # open case: elapsed-so-far against now
-                elapsed = (now - _ts(o).tz_localize(None) if _ts(o).tzinfo
-                           else now - _ts(o)).total_seconds() / 86400.0
+                elapsed = (
+                    now - _ts(o).tz_localize(None) if _ts(o).tzinfo else now - _ts(o)
+                ).total_seconds() / 86400.0
                 days_list.append(("open", elapsed))  # type: ignore[arg-type]
             else:
                 days_list.append((_ts(c) - _ts(o)).total_seconds() / 86400.0)
@@ -483,7 +485,9 @@ def compute_ops_dashboard(
             exposures, detected=detected, recovery_rate=recovery_rate, currency=currency
         )
     else:
-        loss = estimated_loss_avoided([], recovery_rate=recovery_rate, currency=currency)
+        loss = estimated_loss_avoided(
+            [], recovery_rate=recovery_rate, currency=currency
+        )
 
     if case_source is not None or (n_system is not None and n_tips is not None):
         cstv = cases_surfaced_system_vs_tips(

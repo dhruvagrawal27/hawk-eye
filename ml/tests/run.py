@@ -9,6 +9,7 @@ Usage:  .mlvenv/bin/python -m ml.tests.run            (from repo root)
         .mlvenv/bin/python -m ml.tests.run test_l3    (substring filter)
 Exit code is nonzero if any file fails.
 """
+
 from __future__ import annotations
 
 import os
@@ -23,7 +24,8 @@ _SUMMARY_RE = re.compile(r"(\d+) (passed|failed|error)")
 
 def _discover(filt: str = "") -> list[str]:
     files = [
-        f for f in sorted(os.listdir(TESTS_DIR))
+        f
+        for f in sorted(os.listdir(TESTS_DIR))
         if f.startswith("test_") and f.endswith(".py") and (filt in f if filt else True)
     ]
     return files
@@ -43,25 +45,38 @@ def main(argv: list[str]) -> int:
         path = os.path.join(TESTS_DIR, f)
         proc = subprocess.run(
             [sys.executable, "-m", "pytest", path, "-q", "-p", "no:cacheprovider"],
-            cwd=REPO_ROOT, env=env, capture_output=True, text=True,
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
         )
         out = proc.stdout + proc.stderr
         counts = {kind: int(n) for n, kind in _SUMMARY_RE.findall(out)}
-        p, fl = counts.get("passed", 0), counts.get("failed", 0) + counts.get("error", 0)
+        p, fl = counts.get("passed", 0), counts.get("failed", 0) + counts.get(
+            "error", 0
+        )
         total_pass += p
         total_fail += fl
         if proc.returncode == 0:
             print(f"  OK    {f:<28} {p} passed")
         else:
-            crash = " (process crashed)" if proc.returncode and proc.returncode > 128 else ""
-            print(f"  FAIL  {f:<28} rc={proc.returncode} {p} passed / {fl} failed{crash}")
+            crash = (
+                " (process crashed)"
+                if proc.returncode and proc.returncode > 128
+                else ""
+            )
+            print(
+                f"  FAIL  {f:<28} rc={proc.returncode} {p} passed / {fl} failed{crash}"
+            )
             failed_files.append(f)
             tail = "\n".join(out.splitlines()[-15:])
             print("    " + tail.replace("\n", "\n    "))
     print("-" * 60)
     status = "GREEN" if not failed_files else "RED"
-    print(f"[{status}] {total_pass} passed, {total_fail} failed across {len(files)} files"
-          + (f" | failed: {', '.join(failed_files)}" if failed_files else ""))
+    print(
+        f"[{status}] {total_pass} passed, {total_fail} failed across {len(files)} files"
+        + (f" | failed: {', '.join(failed_files)}" if failed_files else "")
+    )
     return 0 if not failed_files else 1
 
 

@@ -9,6 +9,7 @@ Every path writes an audit memo. LLM outputs are GROUNDED against the reason cod
 a narrative that introduces a fact not in evidence is rejected and we fail over.
 Response shape (Part 25.6 / BACKEND.md §7): {narrative, provider, tee_attested, attestation_id, model}.
 """
+
 from __future__ import annotations
 
 import os
@@ -45,7 +46,10 @@ def render_template(alert_ctx: dict[str, Any]) -> str:
         with open(tmpl_path) as fh:
             return jinja2.Template(fh.read()).render(a=ctx).strip()
     # pure-python fallback
-    rcs = " ".join((rc.get("detail") or rc.get("code") or rc.get("feature") or "") for rc in ctx.reason_codes)
+    rcs = " ".join(
+        (rc.get("detail") or rc.get("code") or rc.get("feature") or "")
+        for rc in ctx.reason_codes
+    )
     return (
         f"Alert {ctx.alert_id} on entity {ctx.entity_id} fired at risk {ctx.risk_score}/100 "
         f"({ctx.severity}). Evidence: {rcs}. Recommended checks: verify the beneficiary, confirm "
@@ -92,7 +96,9 @@ def narrate(
     alert_id = alert_ctx.get("alert_id")
 
     rate_limited = False
-    if rate_limiter is not None and not rate_limiter.allow(str(alert_id or alert_ctx.get("entity_id", "global"))):
+    if rate_limiter is not None and not rate_limiter.allow(
+        str(alert_id or alert_ctx.get("entity_id", "global"))
+    ):
         rate_limited = True  # skip LLMs, go straight to the deterministic template
 
     if not rate_limited:
@@ -107,23 +113,54 @@ def narrate(
             if not grounding.grounded:
                 # ungrounded -> reject this provider's output and fail over (Part 25.7)
                 continue
-            attestation_id = verify_and_store_attestation(prov.name, attestation_verifier)
+            attestation_id = verify_and_store_attestation(
+                prov.name, attestation_verifier
+            )
             tee_attested = bool(prov.tee and attestation_id is not None)
-            writer.write(make_memo(provider=prov.name, tee_attested=tee_attested,
-                                   attestation_id=attestation_id, model=result.model,
-                                   system_prompt=SYSTEM_PROMPT, user_prompt=user, alert_id=alert_id))
-            return label_ai_generated({
-                "narrative": result.text, "provider": prov.name, "tee_attested": tee_attested,
-                "attestation_id": attestation_id, "model": result.model, "ts": time.time(),
-                "grounding": grounding.to_dict(),
-            })
+            writer.write(
+                make_memo(
+                    provider=prov.name,
+                    tee_attested=tee_attested,
+                    attestation_id=attestation_id,
+                    model=result.model,
+                    system_prompt=SYSTEM_PROMPT,
+                    user_prompt=user,
+                    alert_id=alert_id,
+                )
+            )
+            return label_ai_generated(
+                {
+                    "narrative": result.text,
+                    "provider": prov.name,
+                    "tee_attested": tee_attested,
+                    "attestation_id": attestation_id,
+                    "model": result.model,
+                    "ts": time.time(),
+                    "grounding": grounding.to_dict(),
+                }
+            )
 
     # deterministic fallback — UI never breaks
     narrative = render_template(alert_ctx)
-    writer.write(make_memo(provider="template", tee_attested=False, attestation_id=None, model=None,
-                           system_prompt=SYSTEM_PROMPT, user_prompt=user, alert_id=alert_id))
-    return label_ai_generated({
-        "narrative": narrative, "provider": "template", "tee_attested": False,
-        "attestation_id": None, "model": None, "ts": time.time(),
-        "rate_limited": rate_limited,
-    })
+    writer.write(
+        make_memo(
+            provider="template",
+            tee_attested=False,
+            attestation_id=None,
+            model=None,
+            system_prompt=SYSTEM_PROMPT,
+            user_prompt=user,
+            alert_id=alert_id,
+        )
+    )
+    return label_ai_generated(
+        {
+            "narrative": narrative,
+            "provider": "template",
+            "tee_attested": False,
+            "attestation_id": None,
+            "model": None,
+            "ts": time.time(),
+            "rate_limited": rate_limited,
+        }
+    )

@@ -4,6 +4,7 @@ narrate() failover: NEAR AI (TEE) -> Groq -> deterministic Jinja template. Every
 narrative is grounded against reason codes, writes an audit memo, and is labelled
 AI-generated/advisory. It EXPLAINS an alert — it never decides.
 """
+
 from __future__ import annotations
 
 from ml.narrative.attestation import (

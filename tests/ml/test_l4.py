@@ -14,6 +14,7 @@ Run: .mlvenv/bin/python -m pytest tests/ml/test_l4.py -q
 
 Kept fast: tiny windows, 1-3 epochs, small models, a subsampled synthetic stream.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -142,7 +143,12 @@ def test_baselines_exist_run_first_and_score_unit_interval(windowed):
     scores = run_baselines_first(ws, window=WINDOW)
 
     # the §20.4 baseline suite is present and ran (before any deep model).
-    assert set(scores) == {"windowed_pca", "windowed_iforest", "matrix_profile", "conv_ae"}
+    assert set(scores) == {
+        "windowed_pca",
+        "windowed_iforest",
+        "matrix_profile",
+        "conv_ae",
+    }
     for name, s in scores.items():
         _in_unit_interval(s, len(ws))
 
@@ -317,7 +323,9 @@ def test_gate_uses_non_point_adjust_metric_and_supports_ap(windowed):
     pca = baseline_scores["windowed_pca"]
 
     # average_precision is also a valid (non-PA) gate metric.
-    res = keep_if_beats_baselines(pca, baseline_scores, ws.y, metric="average_precision")
+    res = keep_if_beats_baselines(
+        pca, baseline_scores, ws.y, metric="average_precision"
+    )
     assert res.metric == "average_precision"
     assert res.deep_vus_pr == pytest.approx(average_precision(ws.y, pca), abs=1e-6)
 

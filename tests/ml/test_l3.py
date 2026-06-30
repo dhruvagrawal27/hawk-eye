@@ -7,6 +7,7 @@ behave, and the benchmark picks a model whose held-out AUPRC beats a random base
 
 Run: .mlvenv/bin/python -m pytest tests/ml/test_l3.py -q
 """
+
 from __future__ import annotations
 
 import time
@@ -145,13 +146,19 @@ def test_scorer_documented_param_bands(cls, xy_ts):
     """Constructor must clamp/honour the EXACT blueprint Part 20.3 bands."""
     X, y, _ = xy_ts
     if cls is LightGBMScorer:
-        m = cls(num_leaves=1000, learning_rate=0.5, min_child_samples=10, n_estimators=50)
+        m = cls(
+            num_leaves=1000, learning_rate=0.5, min_child_samples=10, n_estimators=50
+        )
         assert 31 <= m.num_leaves <= 255
         assert 0.02 <= m.learning_rate <= 0.05
         assert 50 <= m.min_child_samples <= 200
         assert 1000 <= m.n_estimators <= 3000
         assert m.max_depth == -1
-        assert m.feature_fraction == 0.8 and m.bagging_fraction == 0.8 and m.bagging_freq == 1
+        assert (
+            m.feature_fraction == 0.8
+            and m.bagging_fraction == 0.8
+            and m.bagging_freq == 1
+        )
         params = m._params(y)
         assert params["objective"] == "binary"
         assert params.get("is_unbalance") is True
@@ -275,7 +282,9 @@ def test_benchmark_picks_best_beating_random(xy_ts):
     best_ap = average_precision(y_te, p)
     rng = np.random.default_rng(1405)
     random_ap = average_precision(y_te, rng.random(len(y_te)))
-    assert best_ap > random_ap, f"best AP {best_ap:.3f} did not beat random {random_ap:.3f}"
+    assert (
+        best_ap > random_ap
+    ), f"best AP {best_ap:.3f} did not beat random {random_ap:.3f}"
     assert best_ap > float(y_te.mean())
 
 
@@ -283,5 +292,7 @@ def test_index_order_benchmark_without_ts(xy_ts):
     """benchmark works on an index-order split when no ts column is supplied."""
     X, y, _ = xy_ts
     scorers = {"l3_lightgbm": LightGBMScorer(**FAST_KW)}
-    res = benchmark_scorers(X, y, ts=None, test_frac=0.25, scorers=scorers, calibrate=False)
+    res = benchmark_scorers(
+        X, y, ts=None, test_frac=0.25, scorers=scorers, calibrate=False
+    )
     assert res.best_name == "l3_lightgbm"

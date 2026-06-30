@@ -15,6 +15,7 @@ file deliberately uses ONLY tree/sklearn/PyOD detectors -> no torch import anywh
 
 Run: .mlvenv/bin/python -m pytest tests/ml/test_behavioral.py -q
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -77,9 +78,9 @@ def test_l2_ensemble_fraud_entities_rank_above_benign(entity_data):
 
     fraud_mean = scores[yv == 1].mean()
     benign_mean = scores[yv == 0].mean()
-    assert fraud_mean > benign_mean, (
-        f"fraud entities must score higher (fraud={fraud_mean:.3f} benign={benign_mean:.3f})"
-    )
+    assert (
+        fraud_mean > benign_mean
+    ), f"fraud entities must score higher (fraud={fraud_mean:.3f} benign={benign_mean:.3f})"
     # Rank-based: fraud actors sit in the upper half on average.
     assert _mean_rank(scores, yv == 1) > _mean_rank(scores, yv == 0)
 
@@ -107,7 +108,9 @@ def test_l3_scorer_fraud_events_rank_above_benign(event_data):
     assert p.shape == (len(X),)
     assert np.all(p >= 0.0) and np.all(p <= 1.0)
 
-    assert p[yv == 1].mean() > p[yv == 0].mean(), "fraud events must score higher than benign"
+    assert (
+        p[yv == 1].mean() > p[yv == 0].mean()
+    ), "fraud events must score higher than benign"
     # The worked-example burst (4.8M off-hours new-beneficiary approval) must rank high.
     assert _mean_rank(p, yv == 1) > 0.5
 
@@ -122,6 +125,6 @@ def test_l3_known_fraud_high_known_benign_low_at_threshold(event_data):
     thr = float(np.quantile(p, 0.90))  # top-decile alert budget
     recall_fraud = float((p[yv == 1] >= thr).mean())
     fpr_benign = float((p[yv == 0] >= thr).mean())
-    assert recall_fraud > fpr_benign, (
-        f"known fraud recall@thr {recall_fraud:.2f} must exceed benign FPR {fpr_benign:.2f}"
-    )
+    assert (
+        recall_fraud > fpr_benign
+    ), f"known fraud recall@thr {recall_fraud:.2f} must exceed benign FPR {fpr_benign:.2f}"

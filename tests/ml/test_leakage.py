@@ -16,10 +16,9 @@ Pure pandas/numpy + ml.eval -> no heavy model, no torch.
 
 Run: .mlvenv/bin/python -m pytest tests/ml/test_leakage.py -q
 """
+
 from __future__ import annotations
 
-import numpy as np
-import pandas as pd
 import pytest
 
 import ml.eval.metrics as _metrics
@@ -42,7 +41,12 @@ from ml.eval import (
 def events():
     src = DataSimFeatureSource()
     ev = src.events().reset_index(drop=True)
-    lab = src.labels().set_index("event_id")["is_fraud"].reindex(ev["event_id"]).fillna(False)
+    lab = (
+        src.labels()
+        .set_index("event_id")["is_fraud"]
+        .reindex(ev["event_id"])
+        .fillna(False)
+    )
     ev = ev.assign(is_fraud=lab.astype(int).to_numpy())
     return ev
 
@@ -53,7 +57,9 @@ def events():
 def test_point_adjust_is_never_enabled():
     assert POINT_ADJUST_ENABLED is False
     # No point_adjust function may exist anywhere in the metrics module.
-    assert not hasattr(_metrics, "point_adjust"), "a point_adjust() function must not exist"
+    assert not hasattr(
+        _metrics, "point_adjust"
+    ), "a point_adjust() function must not exist"
     assert_no_point_adjust()  # raises if PA ever gets re-enabled
 
 
@@ -110,11 +116,13 @@ def test_random_split_is_rejected(events):
 # entity-disjoint split holds                                                 #
 # --------------------------------------------------------------------------- #
 def test_entity_disjoint_split_holds(events):
-    train, test = entity_disjoint_split(events, "actor.employee_id", test_frac=0.25, seed=1405)
-    assert not train.empty and not test.empty
-    assert is_entity_disjoint(train, test, "actor.employee_id"), (
-        "no employee may appear in both train and test"
+    train, test = entity_disjoint_split(
+        events, "actor.employee_id", test_frac=0.25, seed=1405
     )
+    assert not train.empty and not test.empty
+    assert is_entity_disjoint(
+        train, test, "actor.employee_id"
+    ), "no employee may appear in both train and test"
 
 
 # --------------------------------------------------------------------------- #
@@ -125,4 +133,6 @@ def test_synthetic_only_guard_present():
     d = guard.to_dict()
     assert d["synthetic_only"] is True
     assert d["acknowledged"] is True
-    assert "synthetic" in d["message"].lower(), "the limitation must be documented in plain text"
+    assert (
+        "synthetic" in d["message"].lower()
+    ), "the limitation must be documented in plain text"

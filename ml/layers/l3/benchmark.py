@@ -5,6 +5,7 @@ evaluates each with the honest ``ml.eval`` harness (average_precision is primary
 median predict latency, returns a ranked table, and picks the best (tie-break -> LightGBM,
 the blueprint default). All three are then available to L6 fusion.
 """
+
 from __future__ import annotations
 
 import time
@@ -97,7 +98,9 @@ def benchmark_scorers(
     fitted: dict[str, BaseScorer] = {}
 
     for name, base in scorers.items():
-        model: BaseScorer = CalibratedScorer(base, method="isotonic") if calibrate else base
+        model: BaseScorer = (
+            CalibratedScorer(base, method="isotonic") if calibrate else base
+        )
         model.fit(X_tr, y_tr)
         # measure single-batch predict latency (whole test block).
         t0 = time.perf_counter()

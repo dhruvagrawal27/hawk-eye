@@ -1,4 +1,5 @@
 """NEAR AI Cloud provider — PRIMARY, TEE-attested (ML-11, SCAFFOLD; Part 25.4 #1)."""
+
 from __future__ import annotations
 
 from ml.narrative.providers.base import LLMProvider

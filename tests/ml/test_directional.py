@@ -14,6 +14,7 @@ Uses only the LightGBM/sklearn-backed L3 scorer -> no torch in this process.
 
 Run: .mlvenv/bin/python -m pytest tests/ml/test_directional.py -q
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -44,7 +45,12 @@ def ctx():
     rng = np.random.default_rng(1405)
     idx = rng.choice(len(benign), size=min(120, len(benign)), replace=False)
     base = benign.iloc[idx].reset_index(drop=True).copy()
-    for col, val in (("is_off_hours", 0), ("hour", 11), ("is_weekend", 0), ("new_beneficiary", 0)):
+    for col, val in (
+        ("is_off_hours", 0),
+        ("hour", 11),
+        ("is_weekend", 0),
+        ("new_beneficiary", 0),
+    ):
         if col in base.columns:
             base[col] = val
     high_value = float(X["amount"].quantile(0.99))
@@ -67,7 +73,9 @@ def test_off_hours_raises_risk(ctx):
     b0 = scorer.predict_proba(base)
     off = scorer.predict_proba(_set(base, is_off_hours=1, hour=2))
     assert off.mean() > b0.mean(), "off-hours must raise mean risk"
-    assert float((off < b0 - 1e-6).mean()) <= 0.05, "off-hours lowered risk for too many rows"
+    assert (
+        float((off < b0 - 1e-6).mean()) <= 0.05
+    ), "off-hours lowered risk for too many rows"
 
 
 def test_new_beneficiary_raises_risk(ctx):
@@ -75,7 +83,9 @@ def test_new_beneficiary_raises_risk(ctx):
     b0 = scorer.predict_proba(base)
     bene = scorer.predict_proba(_set(base, new_beneficiary=1, has_beneficiary=1))
     assert bene.mean() > b0.mean(), "a new beneficiary must raise mean risk"
-    assert float((bene < b0 - 1e-6).mean()) <= 0.05, "new-beneficiary lowered risk for too many rows"
+    assert (
+        float((bene < b0 - 1e-6).mean()) <= 0.05
+    ), "new-beneficiary lowered risk for too many rows"
 
 
 # --------------------------------------------------------------------------- #
@@ -103,8 +113,10 @@ def test_cumulative_risk_factors_are_monotone(ctx):
 
     stages = [("base", s0), ("+off_hours", s1), ("+new_bene", s2), ("+high_value", s3)]
     for (pname, prev), (cname, cur) in zip(stages, stages[1:]):
-        assert cur >= prev - MEAN_TOL, (
-            f"risk DROPPED going {pname}({prev:.3f}) -> {cname}({cur:.3f}) (directional law violated)"
-        )
+        assert (
+            cur >= prev - MEAN_TOL
+        ), f"risk DROPPED going {pname}({prev:.3f}) -> {cname}({cur:.3f}) (directional law violated)"
     # End-to-end: the fully off-hours/new-bene/high-value event is clearly riskier than baseline.
-    assert s3 > s0 + 0.05, f"full risk profile ({s3:.3f}) must exceed benign baseline ({s0:.3f})"
+    assert (
+        s3 > s0 + 0.05
+    ), f"full risk profile ({s3:.3f}) must exceed benign baseline ({s0:.3f})"

@@ -12,6 +12,7 @@ requires:
 Nothing here imports a heavy model library, so it loads in any process (torch or
 LightGBM) without the macOS dual-libomp hazard.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -43,7 +44,9 @@ def _stable_bytes(obj: Any) -> bytes:
         try:
             vals = pd.util.hash_pandas_object(obj, index=False).to_numpy().tobytes()
         except Exception:
-            vals = np.ascontiguousarray(obj.to_numpy(dtype=object).astype(str)).tobytes()
+            vals = np.ascontiguousarray(
+                obj.to_numpy(dtype=object).astype(str)
+            ).tobytes()
         return cols.encode() + b"|" + dtypes.encode() + b"|" + vals
     if isinstance(obj, pd.Series):
         return _stable_bytes(obj.to_frame())
@@ -195,13 +198,20 @@ class RunRecord:
 class ReproTracker:
     """MLflow tracking when present, else a local JSON run store (always works)."""
 
-    def __init__(self, *, experiment: str = "hawkeye-ml", root: Optional[str] = None,
-                 use_mlflow: Optional[bool] = None) -> None:
+    def __init__(
+        self,
+        *,
+        experiment: str = "hawkeye-ml",
+        root: Optional[str] = None,
+        use_mlflow: Optional[bool] = None,
+    ) -> None:
         self.experiment = experiment
         self.root = root or DEFAULT_REPRO_ROOT
         os.makedirs(self.root, exist_ok=True)
         # Allow tests / CI to force the local backend even when mlflow is importable.
-        self.use_mlflow = HAS_MLFLOW if use_mlflow is None else (use_mlflow and HAS_MLFLOW)
+        self.use_mlflow = (
+            HAS_MLFLOW if use_mlflow is None else (use_mlflow and HAS_MLFLOW)
+        )
         self.backend = "mlflow" if self.use_mlflow else "local"
 
     def log_run(self, rec: RunRecord) -> RunRecord:
@@ -231,16 +241,23 @@ class ReproTracker:
         mlflow.set_tracking_uri(f"file:{tracking_dir}")
         mlflow.set_experiment(self.experiment)
         with mlflow.start_run(run_name=rec.run_id):
-            mlflow.set_tags({
-                "layer": rec.layer,
-                "model_version": rec.model_version,
-                "dataset_hash": rec.dataset_hash or "",
-                "feature_hash": rec.feature_hash or "",
-                "calibrated": str(rec.calibrated),
-            })
+            mlflow.set_tags(
+                {
+                    "layer": rec.layer,
+                    "model_version": rec.model_version,
+                    "dataset_hash": rec.dataset_hash or "",
+                    "feature_hash": rec.feature_hash or "",
+                    "calibrated": str(rec.calibrated),
+                }
+            )
             mlflow.log_params({k: str(v) for k, v in rec.params.items()})
-            mlflow.log_metrics({k: float(v) for k, v in rec.metrics.items()
-                                if v is not None and np.isfinite(v)})
+            mlflow.log_metrics(
+                {
+                    k: float(v)
+                    for k, v in rec.metrics.items()
+                    if v is not None and np.isfinite(v)
+                }
+            )
 
     def runs(self) -> list[dict[str, Any]]:
         path = os.path.join(self.root, "runs.jsonl")

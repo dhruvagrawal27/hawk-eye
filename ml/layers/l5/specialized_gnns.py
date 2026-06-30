@@ -15,10 +15,11 @@ loop, predict, reason codes). Each is constructible and trainable on a tiny grap
 All torch_geometric-guarded: heavy imports live inside methods; ``fit`` requires the
 dep. The module ALWAYS imports.
 """
+
 from __future__ import annotations
 
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -41,14 +42,21 @@ class _BaseSpecializedGNN(BaseScorer):
     layer = "L5"
     kind = "base"
 
-    def __init__(self, *, hidden: int = 64, epochs: int = 30, lr: float = 0.01,
-                 dropout: float = 0.5, version: str = "0.1.0") -> None:
+    def __init__(
+        self,
+        *,
+        hidden: int = 64,
+        epochs: int = 30,
+        lr: float = 0.01,
+        dropout: float = 0.5,
+        version: str = "0.1.0",
+    ) -> None:
         super().__init__(name=f"l5-{self.kind}", version=version)
         self.hidden = int(hidden)
         self.epochs = int(epochs)
         self.lr = float(lr)
         self.dropout = float(dropout)
-        self._model = None
+        self._model: Any = None
         self._graph: Optional[EntityGraph] = None
 
     # subclasses build the torch module given an input dim
@@ -78,12 +86,20 @@ class _BaseSpecializedGNN(BaseScorer):
             labels = torch.tensor([int(ys.get(n, 0)) for n in nodes], dtype=torch.long)
         return feats, edge_index, emp_mask, labels, nodes, idx
 
-    def fit(self, X: pd.DataFrame, y, events: Optional[pd.DataFrame] = None) -> "_BaseSpecializedGNN":
+    def fit(  # type: ignore[override]  # intentional: graph fit adds events= and requires y
+        self, X: pd.DataFrame, y, events: Optional[pd.DataFrame] = None
+    ) -> "_BaseSpecializedGNN":
         require("torch_geometric")
         import torch
 
-        self._graph = build_entity_graph(events) if events is not None else (self._graph or _identity_graph(X))
-        feats, edge_index, emp_mask, labels, _, _ = self._to_tensors(X, self._graph, np.asarray(y))
+        self._graph = (
+            build_entity_graph(events)
+            if events is not None
+            else (self._graph or _identity_graph(X))
+        )
+        feats, edge_index, emp_mask, labels, _, _ = self._to_tensors(
+            X, self._graph, np.asarray(y)
+        )
         net = self._build_net(feats.shape[1])
         net.train()
         y_emp = labels[emp_mask]
@@ -103,21 +119,35 @@ class _BaseSpecializedGNN(BaseScorer):
         self._fitted = True
         return self
 
-    def predict_proba(self, X: pd.DataFrame, events: Optional[pd.DataFrame] = None) -> np.ndarray:
+    def predict_proba(
+        self, X: pd.DataFrame, events: Optional[pd.DataFrame] = None
+    ) -> np.ndarray:
         if not self._fitted or self._model is None:
             raise RuntimeError("scorer is not fitted")
         import torch
 
-        graph = build_entity_graph(events) if events is not None else (self._graph or _identity_graph(X))
+        graph = (
+            build_entity_graph(events)
+            if events is not None
+            else (self._graph or _identity_graph(X))
+        )
         feats, edge_index, _, _, nodes, idx = self._to_tensors(X, graph, None)
         with torch.no_grad():
             logits = self._model(feats, edge_index)
             proba = torch.softmax(logits, dim=1)[:, 1].cpu().numpy()
-        out = np.array([float(proba[idx[str(e)]]) if str(e) in idx else 0.0 for e in X.index])
+        out = np.array(
+            [float(proba[idx[str(e)]]) if str(e) in idx else 0.0 for e in X.index]
+        )
         return np.clip(out, 0.0, 1.0)
 
-    def reason_codes(self, X: pd.DataFrame, top_k: int = 5, events: Optional[pd.DataFrame] = None) -> list[list[ReasonCode]]:
-        graph = build_entity_graph(events) if events is not None else (self._graph or _identity_graph(X))
+    def reason_codes(
+        self, X: pd.DataFrame, top_k: int = 5, events: Optional[pd.DataFrame] = None
+    ) -> list[list[ReasonCode]]:
+        graph = (
+            build_entity_graph(events)
+            if events is not None
+            else (self._graph or _identity_graph(X))
+        )
         A, nodes = graph.adjacency()
         idx = {n: i for i, n in enumerate(nodes)}
         deg = A.sum(axis=1)
@@ -125,12 +155,16 @@ class _BaseSpecializedGNN(BaseScorer):
         for e in X.index:
             i = idx.get(str(e))
             d = float(deg[i]) if i is not None else 0.0
-            out.append([ReasonCode(
-                source="attention" if self.kind in ("gat", "hgt") else "graph",
-                code=f"{self.kind}_neighbourhood",
-                detail=f"{self.kind.upper()} aggregated {int(d)} neighbours of {e}",
-                contribution=d,
-            )])
+            out.append(
+                [
+                    ReasonCode(
+                        source="attention" if self.kind in ("gat", "hgt") else "graph",
+                        code=f"{self.kind}_neighbourhood",
+                        detail=f"{self.kind.upper()} aggregated {int(d)} neighbours of {e}",
+                        contribution=d,
+                    )
+                ]
+            )
         return out
 
 
@@ -148,7 +182,9 @@ class GATScorer(_BaseSpecializedGNN):
             def __init__(self):
                 super().__init__()
                 self.c1 = GATConv(in_dim, hidden, heads=2, concat=True, dropout=dropout)
-                self.c2 = GATConv(hidden * 2, hidden, heads=1, concat=False, dropout=dropout)
+                self.c2 = GATConv(
+                    hidden * 2, hidden, heads=1, concat=False, dropout=dropout
+                )
                 self.lin = torch.nn.Linear(hidden, 2)
 
             def forward(self, x, ei):
@@ -176,8 +212,12 @@ class HGTScorer(_BaseSpecializedGNN):
         class _HGT(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.c1 = TransformerConv(in_dim, hidden, heads=2, concat=False, dropout=dropout)
-                self.c2 = TransformerConv(hidden, hidden, heads=1, concat=False, dropout=dropout)
+                self.c1 = TransformerConv(
+                    in_dim, hidden, heads=2, concat=False, dropout=dropout
+                )
+                self.c2 = TransformerConv(
+                    hidden, hidden, heads=1, concat=False, dropout=dropout
+                )
                 self.lin = torch.nn.Linear(hidden, 2)
 
             def forward(self, x, ei):
@@ -205,13 +245,13 @@ class BWGNNScorer(_BaseSpecializedGNN):
         class _BW(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.low = SGConv(in_dim, hidden, K=2)   # low-pass band
+                self.low = SGConv(in_dim, hidden, K=2)  # low-pass band
                 self.lin_self = torch.nn.Linear(in_dim, hidden)  # high-pass (self) band
                 self.lin = torch.nn.Linear(hidden * 2, 2)
 
             def forward(self, x, ei):
-                lo = F.relu(self.low(x, ei))               # smoothed neighbourhood
-                hi = F.relu(self.lin_self(x))              # node-local (band-pass residual)
+                lo = F.relu(self.low(x, ei))  # smoothed neighbourhood
+                hi = F.relu(self.lin_self(x))  # node-local (band-pass residual)
                 h = torch.cat([lo, hi], dim=1)
                 h = F.dropout(h, p=dropout, training=self.training)
                 return self.lin(h)
@@ -243,7 +283,9 @@ class CAREGNNScorer(_BaseSpecializedGNN):
             def forward(self, x, ei):
                 h = F.relu(self.proj(x))
                 agg = F.relu(self.conv(h, ei))
-                g = torch.sigmoid(self.gate(h))   # keep node-local where neighbours look dissimilar
+                g = torch.sigmoid(
+                    self.gate(h)
+                )  # keep node-local where neighbours look dissimilar
                 h = g * h + (1 - g) * agg
                 h = F.dropout(h, p=dropout, training=self.training)
                 return self.lin(h)
@@ -253,7 +295,8 @@ class CAREGNNScorer(_BaseSpecializedGNN):
 
 class PCGNNScorer(_BaseSpecializedGNN):
     """PC-GNN flavour: label-balanced pick-and-choose. Approximated by oversampling the
-    minority class in the supervised loss (choose step) with a residual aggregator (pick)."""
+    minority class in the supervised loss (choose step) with a residual aggregator (pick).
+    """
 
     kind = "pc_gnn"
 
@@ -272,7 +315,9 @@ class PCGNNScorer(_BaseSpecializedGNN):
                 self.lin = torch.nn.Linear(hidden, 2)
 
             def forward(self, x, ei):
-                h = F.relu(self.c1(x, ei)) + F.relu(self.res(x))  # pick (neighbour) + residual
+                h = F.relu(self.c1(x, ei)) + F.relu(
+                    self.res(x)
+                )  # pick (neighbour) + residual
                 h = F.dropout(h, p=dropout, training=self.training)
                 return self.lin(h)
 

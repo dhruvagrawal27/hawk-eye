@@ -4,6 +4,7 @@ Trees (L2/L3) run in the synchronous hot path; deep nets (L4/L5) run async off t
 path and UPGRADE an existing alert (never block). Slow-lane + backfill run on a daily/
 weekly cadence. These constants are the single source of truth the schedulers read.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,10 +13,10 @@ from dataclasses import dataclass
 SYNC_LATENCY_BUDGET_MS = 300.0
 
 # Cadence ranges (min, max) in SECONDS.
-L4_CADENCE_S = (15 * 60, 60 * 60)          # L4: every 15 min .. hourly
-L5_CADENCE_S = (60 * 60, 24 * 60 * 60)     # L5: hourly .. daily
+L4_CADENCE_S = (15 * 60, 60 * 60)  # L4: every 15 min .. hourly
+L5_CADENCE_S = (60 * 60, 24 * 60 * 60)  # L5: hourly .. daily
 SLOW_LANE_CADENCE_S = (24 * 60 * 60, 7 * 24 * 60 * 60)  # slow-lane: daily .. weekly
-BACKFILL_CADENCE_S = (24 * 60 * 60, 7 * 24 * 60 * 60)   # ClickHouse re-score backfill
+BACKFILL_CADENCE_S = (24 * 60 * 60, 7 * 24 * 60 * 60)  # ClickHouse re-score backfill
 
 # Which layers are sync (hot path) vs async (upgrade an existing alert).
 SYNC_LAYERS = ("L1", "L2", "L3")

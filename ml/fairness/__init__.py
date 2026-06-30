@@ -14,6 +14,7 @@
 Every alert path carries reason codes + a narrative (``ml.narrative``) so findings are
 explainable/contestable (Part 29.2). ALERT-ONLY: nothing here auto-blocks a person.
 """
+
 from __future__ import annotations
 
 from ml.fairness.feedback_trap import (

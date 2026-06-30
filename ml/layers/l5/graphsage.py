@@ -9,10 +9,11 @@ Heavy imports (torch / torch_geometric) live INSIDE methods; the module always
 imports. ``fit`` calls ``require('torch_geometric')`` so the dependency is asserted
 exactly when training is attempted.
 """
+
 from __future__ import annotations
 
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -25,7 +26,7 @@ import pandas as pd
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 
-from ml._optional import HAS_TORCH_GEOMETRIC, optional_import, require
+from ml._optional import require
 from ml.base import BaseScorer, ReasonCode
 from ml.layers.l5.graph_build import EntityGraph, build_entity_graph
 from ml.layers.l5.xgb_graph import _align_node_features
@@ -50,7 +51,7 @@ class GraphSAGEScorer(BaseScorer):
         self.epochs = int(epochs)
         self.lr = float(lr)
         self.dropout = float(dropout)
-        self._model = None
+        self._model: Any = None
         self._columns: list[str] = []
         self._graph: Optional[EntityGraph] = None
 
@@ -77,9 +78,7 @@ class GraphSAGEScorer(BaseScorer):
         labels = None
         if y is not None:
             ys = pd.Series(np.asarray(y).astype(int), index=X.index)
-            labels = torch.tensor(
-                [int(ys.get(n, 0)) for n in nodes], dtype=torch.long
-            )
+            labels = torch.tensor([int(ys.get(n, 0)) for n in nodes], dtype=torch.long)
         return feats, edge_index, emp_mask, labels, nodes, idx
 
     def _build_net(self, in_dim: int):
@@ -89,8 +88,9 @@ class GraphSAGEScorer(BaseScorer):
 
         hidden = self.hidden
         dropout = self.dropout
+        _Module: Any = torch.nn.Module
 
-        class _SAGE(torch.nn.Module):
+        class _SAGE(_Module):
             def __init__(self):
                 super().__init__()
                 self.c1 = pyg_nn.SAGEConv(in_dim, hidden, aggr="mean")
@@ -106,13 +106,22 @@ class GraphSAGEScorer(BaseScorer):
 
         return _SAGE()
 
-    def fit(self, X: pd.DataFrame, y, events: Optional[pd.DataFrame] = None) -> "GraphSAGEScorer":
-        torch = require("torch_geometric") and require("torch")  # assert deps
+    def fit(  # type: ignore[override]  # intentional: graph fit adds events= and requires y
+        self, X: pd.DataFrame, y, events: Optional[pd.DataFrame] = None
+    ) -> "GraphSAGEScorer":
+        require("torch_geometric")  # assert deps are present
+        require("torch")
         import torch as _torch
 
-        self._graph = build_entity_graph(events) if events is not None else (self._graph or _identity_graph(X))
+        self._graph = (
+            build_entity_graph(events)
+            if events is not None
+            else (self._graph or _identity_graph(X))
+        )
         self._columns = [str(c) for c in X.columns]
-        feats, edge_index, emp_mask, labels, nodes, _ = self._to_pyg(X, self._graph, np.asarray(y))
+        feats, edge_index, emp_mask, labels, nodes, _ = self._to_pyg(
+            X, self._graph, np.asarray(y)
+        )
         net = self._build_net(feats.shape[1])
         net.train()
 
@@ -120,9 +129,7 @@ class GraphSAGEScorer(BaseScorer):
         y_emp = labels[emp_mask]
         n_pos = int((y_emp == 1).sum())
         n_neg = int((y_emp == 0).sum())
-        w = _torch.tensor(
-            [1.0, max(1.0, n_neg / max(1, n_pos))], dtype=_torch.float32
-        )
+        w = _torch.tensor([1.0, max(1.0, n_neg / max(1, n_pos))], dtype=_torch.float32)
         opt = _torch.optim.Adam(net.parameters(), lr=self.lr, weight_decay=5e-4)
         loss_fn = _torch.nn.CrossEntropyLoss(weight=w)
 
@@ -138,23 +145,37 @@ class GraphSAGEScorer(BaseScorer):
         self._fitted = True
         return self
 
-    def predict_proba(self, X: pd.DataFrame, events: Optional[pd.DataFrame] = None) -> np.ndarray:
+    def predict_proba(
+        self, X: pd.DataFrame, events: Optional[pd.DataFrame] = None
+    ) -> np.ndarray:
         if not self._fitted or self._model is None:
             raise RuntimeError("scorer is not fitted")
         import torch as _torch
 
-        graph = build_entity_graph(events) if events is not None else (self._graph or _identity_graph(X))
+        graph = (
+            build_entity_graph(events)
+            if events is not None
+            else (self._graph or _identity_graph(X))
+        )
         feats, edge_index, _, _, nodes, idx = self._to_pyg(X, graph, None)
         with _torch.no_grad():
             logits = self._model(feats, edge_index)
             proba_all = _torch.softmax(logits, dim=1)[:, 1].cpu().numpy()
         # map back to the employee rows of X, in X order
-        out = np.array([float(proba_all[idx[str(e)]]) if str(e) in idx else 0.0 for e in X.index])
+        out = np.array(
+            [float(proba_all[idx[str(e)]]) if str(e) in idx else 0.0 for e in X.index]
+        )
         return np.clip(out, 0.0, 1.0)
 
-    def reason_codes(self, X: pd.DataFrame, top_k: int = 5, events: Optional[pd.DataFrame] = None) -> list[list[ReasonCode]]:
+    def reason_codes(
+        self, X: pd.DataFrame, top_k: int = 5, events: Optional[pd.DataFrame] = None
+    ) -> list[list[ReasonCode]]:
         """Graph-sourced reason codes: the node's degree/centrality drove the GNN score."""
-        graph = build_entity_graph(events) if events is not None else (self._graph or _identity_graph(X))
+        graph = (
+            build_entity_graph(events)
+            if events is not None
+            else (self._graph or _identity_graph(X))
+        )
         A, nodes = graph.adjacency()
         idx = {n: i for i, n in enumerate(nodes)}
         deg = A.sum(axis=1)
@@ -162,14 +183,16 @@ class GraphSAGEScorer(BaseScorer):
         for e in X.index:
             i = idx.get(str(e))
             d = float(deg[i]) if i is not None else 0.0
-            out.append([
-                ReasonCode(
-                    source="graph",
-                    code="gnn_neighbourhood",
-                    detail=f"GraphSAGE aggregated {int(d)} typed neighbours of {e}",
-                    contribution=float(d),
-                )
-            ])
+            out.append(
+                [
+                    ReasonCode(
+                        source="graph",
+                        code="gnn_neighbourhood",
+                        detail=f"GraphSAGE aggregated {int(d)} typed neighbours of {e}",
+                        contribution=float(d),
+                    )
+                ]
+            )
         return out
 
 

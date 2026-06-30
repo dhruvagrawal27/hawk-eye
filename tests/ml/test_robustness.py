@@ -14,6 +14,7 @@ macOS OpenMP note: this file uses LightGBM (L3/L5) and sklearn (L2 IsolationFore
 it deliberately does NOT touch torch (no L2 AutoEncoder / L4 / L5 GNN), so the two libomp
 copies are never co-loaded and the process cannot segfault. KMP guard set at top regardless.
 """
+
 import os
 
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
@@ -69,7 +70,11 @@ def _graph_structural_features(events: pd.DataFrame, index: pd.Index) -> pd.Data
     import networkx as nx
 
     g = nx.Graph()
-    emp_col, bene_col, acct_col = "actor.employee_id", "object.beneficiary_id", "object.account_id"
+    emp_col, bene_col, acct_col = (
+        "actor.employee_id",
+        "object.beneficiary_id",
+        "object.account_id",
+    )
     for _, row in events.iterrows():
         emp = row.get(emp_col)
         if not emp:
@@ -80,15 +85,24 @@ def _graph_structural_features(events: pd.DataFrame, index: pd.Index) -> pd.Data
             if v:
                 g.add_node(v, kind=kind)
                 g.add_edge(emp, v)
-    exports = (events.assign(_is_exp=events["action.verb"].astype(str).eq("export"))
-               .groupby(emp_col)["_is_exp"].sum())
+    exports = (
+        events.assign(_is_exp=events["action.verb"].astype(str).eq("export"))
+        .groupby(emp_col)["_is_exp"]
+        .sum()
+    )
     rows = {}
     for emp in index:
         deg = g.degree(emp) if emp in g else 0
-        n_bene = sum(1 for nb in (g.neighbors(emp) if emp in g else [])
-                     if g.nodes[nb].get("kind") == "bene")
-        rows[emp] = {"g_degree": float(deg), "g_n_bene": float(n_bene),
-                     "g_export_fanout": float(exports.get(emp, 0.0))}
+        n_bene = sum(
+            1
+            for nb in (g.neighbors(emp) if emp in g else [])
+            if g.nodes[nb].get("kind") == "bene"
+        )
+        rows[emp] = {
+            "g_degree": float(deg),
+            "g_n_bene": float(n_bene),
+            "g_export_fanout": float(exports.get(emp, 0.0)),
+        }
     return pd.DataFrame.from_dict(rows, orient="index").reindex(index).fillna(0.0)
 
 
@@ -115,10 +129,16 @@ def test_diverse_ensemble_real_detectors_catch_evader(source):
     events = source.events()
 
     # --- Unsupervised (sklearn IsolationForest, NO torch) -> [0,1] anomaly score ---
-    iso = IsolationForest(n_estimators=150, max_samples=min(256, len(X)),
-                          contamination="auto", random_state=1405).fit(X)
+    iso = IsolationForest(
+        n_estimators=150,
+        max_samples=min(256, len(X)),
+        contamination="auto",
+        random_state=1405,
+    ).fit(X)
     # decision_function: higher == more normal; negate then rank-normalise to [0,1].
-    iso_scores = pd.Series(normalize_scores(-iso.decision_function(X), method="rank"), index=X.index)
+    iso_scores = pd.Series(
+        normalize_scores(-iso.decision_function(X), method="rank"), index=X.index
+    )
 
     # --- Supervised (LightGBM on behavioural features) ---
     lgbm = LightGBMScorer().fit(X, y)
@@ -140,8 +160,14 @@ def test_diverse_ensemble_real_detectors_catch_evader(source):
 
     def rule_member(feats: pd.DataFrame) -> pd.Series:
         # Deterministic rule: off-hours activity rate.
-        return pd.to_numeric(feats.get("offhours_rate", pd.Series(0.0, index=feats.index)),
-                             errors="coerce").fillna(0.0).clip(0, 1)
+        return (
+            pd.to_numeric(
+                feats.get("offhours_rate", pd.Series(0.0, index=feats.index)),
+                errors="coerce",
+            )
+            .fillna(0.0)
+            .clip(0, 1)
+        )
 
     ens = DiverseEnsembleDefense(
         {
@@ -150,7 +176,12 @@ def test_diverse_ensemble_real_detectors_catch_evader(source):
             "supervised": member_from(lgbm_scores),
             "graph": member_from(graph_scores),
         },
-        member_thresholds={"rules": 0.5, "unsupervised": 0.6, "supervised": 0.5, "graph": 0.5},
+        member_thresholds={
+            "rules": 0.5,
+            "unsupervised": 0.6,
+            "supervised": 0.5,
+            "graph": 0.5,
+        },
         secret="test-secret",
     )
     assert set(ens.member_names()) == {"rules", "unsupervised", "supervised", "graph"}
@@ -159,13 +190,18 @@ def test_diverse_ensemble_real_detectors_catch_evader(source):
     Xa = X.copy()
     evader = "EMP-EVADER"
     benign = X.loc[y[y == 0].index].median(numeric_only=True)
-    Xa.loc[evader] = benign  # looks like a quiet, benign employee to the supervised model
+    Xa.loc[evader] = (
+        benign  # looks like a quiet, benign employee to the supervised model
+    )
 
     # Override per-member scores for the evader to model the attack precisely:
     #   supervised: LOW (successfully evaded);  graph: HIGH (structural exfil caught).
-    iso_a = iso_scores.copy();        iso_a.loc[evader] = 0.10
-    lgbm_a = lgbm_scores.copy();      lgbm_a.loc[evader] = 0.05   # evades supervised threshold
-    graph_a = graph_scores.copy();    graph_a.loc[evader] = 0.95  # caught by graph
+    iso_a = iso_scores.copy()
+    iso_a.loc[evader] = 0.10
+    lgbm_a = lgbm_scores.copy()
+    lgbm_a.loc[evader] = 0.05  # evades supervised threshold
+    graph_a = graph_scores.copy()
+    graph_a.loc[evader] = 0.95  # caught by graph
     rule_a_offhours = 0.0
 
     Xa.loc[evader, "offhours_rate"] = rule_a_offhours
@@ -176,7 +212,12 @@ def test_diverse_ensemble_real_detectors_catch_evader(source):
             "supervised": member_from(lgbm_a),
             "graph": member_from(graph_a),
         },
-        member_thresholds={"rules": 0.5, "unsupervised": 0.6, "supervised": 0.5, "graph": 0.5},
+        member_thresholds={
+            "rules": 0.5,
+            "unsupervised": 0.6,
+            "supervised": 0.5,
+            "graph": 0.5,
+        },
         secret="test-secret",
     )
     verdict = ens_attack.evaluate_one(Xa, evader)
@@ -231,13 +272,17 @@ def test_low_and_slow_poisoning_caught_by_changepoint_and_peer_anchor():
     """ACCEPTANCE: a gradual low-and-slow baseline drift (not shared by peers) is caught."""
     n = 30
     # Entity is poisoned: flat, then a slow ramp upward over the back half of the window.
-    entity = np.concatenate([np.full(n // 2, 0.10), np.linspace(0.10, 0.95, n - n // 2)])
+    entity = np.concatenate(
+        [np.full(n // 2, 0.10), np.linspace(0.10, 0.95, n - n // 2)]
+    )
     # Peers stay flat (the poisoning is NOT a fleet-wide shift).
     peers = {
         f"PEER-{j}": np.full(n, 0.10) + np.random.default_rng(j).normal(0, 0.01, n)
         for j in range(8)
     }
-    rep = detect_low_and_slow_poisoning(entity, peers, entity_id="EMP-poison", drift_thresh=0.1)
+    rep = detect_low_and_slow_poisoning(
+        entity, peers, entity_id="EMP-poison", drift_thresh=0.1
+    )
 
     assert rep.poisoning_suspected is True
     assert rep.change_point is not None and rep.change_point >= n // 2 - 3
@@ -246,20 +291,29 @@ def test_low_and_slow_poisoning_caught_by_changepoint_and_peer_anchor():
 
     # Negative control: the SAME entity inside a FLEET-WIDE shift is NOT flagged as poison,
     # because peer-anchoring sees the peers move too.
-    peers_shift = {f"PEER-{j}": entity + np.random.default_rng(j).normal(0, 0.01, n) for j in range(8)}
-    rep2 = detect_low_and_slow_poisoning(entity, peers_shift, entity_id="EMP-poison", drift_thresh=0.1)
+    peers_shift = {
+        f"PEER-{j}": entity + np.random.default_rng(j).normal(0, 0.01, n)
+        for j in range(8)
+    }
+    rep2 = detect_low_and_slow_poisoning(
+        entity, peers_shift, entity_id="EMP-poison", drift_thresh=0.1
+    )
     assert rep2.poisoning_suspected is False
 
 
 def test_train_set_anomaly_check_quarantines_poison_rows():
     """Out-of-distribution training rows are quarantined before they enter the train set."""
     rng = np.random.default_rng(0)
-    ref = pd.DataFrame({"amount": rng.normal(100, 10, 200), "velocity": rng.normal(5, 1, 200)})
+    ref = pd.DataFrame(
+        {"amount": rng.normal(100, 10, 200), "velocity": rng.normal(5, 1, 200)}
+    )
     chk = TrainSetAnomalyCheck(z_thresh=6.0).fit(ref)
-    incoming = pd.DataFrame({
-        "amount": [101.0, 99.0, 5000.0],   # third row is a gross outlier (poison)
-        "velocity": [5.0, 4.8, 4.9],
-    })
+    incoming = pd.DataFrame(
+        {
+            "amount": [101.0, 99.0, 5000.0],  # third row is a gross outlier (poison)
+            "velocity": [5.0, 4.8, 4.9],
+        }
+    )
     bad = chk.check(incoming)
     assert bad.tolist() == [False, False, True]
     accepted, quarantined = chk.clean(incoming)
@@ -269,8 +323,8 @@ def test_train_set_anomaly_check_quarantines_poison_rows():
 def test_label_distribution_review_flags_label_flips():
     """A poisoner flipping the label mix shifts the positive rate -> flagged."""
     rev = LabelDistributionReview(tv_thresh=0.15, pos_rate_thresh=0.1)
-    base = [0] * 90 + [1] * 10            # 10% fraud
-    poisoned = [0] * 50 + [1] * 50        # 50% fraud (mass label flips)
+    base = [0] * 90 + [1] * 10  # 10% fraud
+    poisoned = [0] * 50 + [1] * 50  # 50% fraud (mass label flips)
     out = rev.review(base, poisoned)
     assert out["flagged"] is True
     assert out["pos_rate_delta"] > 0.1
@@ -288,19 +342,25 @@ def test_immutable_label_audit_detects_tampering():
     assert audit.verify() is True  # untouched chain verifies
 
     audit.tamper(1, new_is_fraud=True)  # red-team: silently rewrite a past label
-    assert audit.verify() is False      # tamper detected
+    assert audit.verify() is False  # tamper detected
 
 
 def test_provenance_ledger_traces_batch_lineage():
     """Lineage records source/actor/dataset-hash so a poisoned batch is traceable."""
     led = ProvenanceLedger()
     df = pd.DataFrame({"x": [1, 2, 3]})
-    rec = led.record("batch-1", df, source="edd_upload", actor="EMP-9001", ts="2026-06-30")
+    rec = led.record(
+        "batch-1", df, source="edd_upload", actor="EMP-9001", ts="2026-06-30"
+    )
     assert rec["dataset_hash"] and rec["n_rows"] == 3
     got = led.lineage("batch-1")
-    assert got is not None and got["source"] == "edd_upload" and got["actor"] == "EMP-9001"
+    assert (
+        got is not None and got["source"] == "edd_upload" and got["actor"] == "EMP-9001"
+    )
     # A different batch content yields a different hash (tamper-evident lineage).
-    rec2 = led.record("batch-2", pd.DataFrame({"x": [1, 2, 4]}), source="edd_upload", actor="EMP-9001")
+    rec2 = led.record(
+        "batch-2", pd.DataFrame({"x": [1, 2, 4]}), source="edd_upload", actor="EMP-9001"
+    )
     assert rec2["dataset_hash"] != rec["dataset_hash"]
 
 
@@ -333,7 +393,8 @@ def test_internal_api_requires_authentication_and_rate_limits():
     api = InternalInferenceAPI(
         lambda f: 0.5,
         authorized_tokens={"ext": "external"},
-        max_calls=5, per_seconds=60.0,
+        max_calls=5,
+        per_seconds=60.0,
     )
     with pytest.raises(InferenceDenied):
         api.infer([0.1], token="bogus", principal="attacker", now=1.0)
@@ -389,10 +450,12 @@ def test_manipulated_explanation_contradicting_rules_is_flagged():
     raw_evidence = {
         "new_beneficiary_high_value": 1.0,
         "off_hours": 1.0,
-        "tenure_days": 0.0,        # no support for the claimed top driver
+        "tenure_days": 0.0,  # no support for the claimed top driver
         "session_duration": 0.0,
     }
-    chk = cross_check_explanation(manipulated, fired_rules=fired_rules, raw_evidence=raw_evidence)
+    chk = cross_check_explanation(
+        manipulated, fired_rules=fired_rules, raw_evidence=raw_evidence
+    )
     assert chk.flagged is True
     assert "tenure_days" in chk.unsupported_features
     assert "new_beneficiary_high_value" in chk.missing_dominant_rules
@@ -402,12 +465,18 @@ def test_manipulated_explanation_contradicting_rules_is_flagged():
 def test_honest_explanation_passes_cross_check():
     """A faithful explanation citing the actual fired rules is NOT flagged."""
     honest = [
-        {"source": "shap", "feature": "new_beneficiary_high_value", "contribution": 0.7},
+        {
+            "source": "shap",
+            "feature": "new_beneficiary_high_value",
+            "contribution": 0.7,
+        },
         {"source": "shap", "feature": "off_hours", "contribution": 0.3},
     ]
     fired_rules = ["new_beneficiary_high_value", "off_hours"]
     raw_evidence = {"new_beneficiary_high_value": 1.0, "off_hours": 1.0}
-    chk = cross_check_explanation(honest, fired_rules=fired_rules, raw_evidence=raw_evidence)
+    chk = cross_check_explanation(
+        honest, fired_rules=fired_rules, raw_evidence=raw_evidence
+    )
     assert chk.consistent is True and chk.flagged is False
 
 

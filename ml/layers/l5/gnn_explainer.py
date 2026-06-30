@@ -5,6 +5,7 @@ explaining WHY a node was flagged: which incident edges/neighbours, when perturb
 most change the model's score. Uses PyG ``GNNExplainer`` when available, else a
 self-contained edge-perturbation importance fallback (always works, no torch needed).
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -38,12 +39,21 @@ def explain_node(
     what runs for the GBDT default; if a PyG GNNExplainer is wired for a torch model it
     can be substituted, but the contract (graph ReasonCodes) is identical.
     """
-    g = graph or (build_entity_graph(events) if events is not None else getattr(scorer, "_graph", None))
+    g = graph or (
+        build_entity_graph(events)
+        if events is not None
+        else getattr(scorer, "_graph", None)
+    )
     if g is None:
         g = build_entity_graph(events) if events is not None else None
     if g is None:
-        return [ReasonCode(source="graph", code="no_graph",
-                           detail=f"no graph available to explain {node}")]
+        return [
+            ReasonCode(
+                source="graph",
+                code="no_graph",
+                detail=f"no graph available to explain {node}",
+            )
+        ]
 
     node = str(node)
     # Score everything against the SAME base graph ``g`` (swap it into the scorer's
@@ -56,11 +66,14 @@ def explain_node(
 
     incident = _incident_edges(g, node)
     if not incident:
-        return [ReasonCode(
-            source="graph", code="isolated_node",
-            detail=f"{node} has no graph neighbours; score driven by node-local features",
-            contribution=base_score,
-        )]
+        return [
+            ReasonCode(
+                source="graph",
+                code="isolated_node",
+                detail=f"{node} has no graph neighbours; score driven by node-local features",
+                contribution=base_score,
+            )
+        ]
 
     # Importance over the node's design vector (k-hop aggregates), used to weight how
     # much each edge's removal perturbs the features the model actually relies on. This
@@ -69,7 +82,7 @@ def explain_node(
     base_design = _design_vector(scorer, X, node, g)
     imp = _design_importance(scorer)
 
-    contribs: list[tuple[tuple[str, str, str], float]] = []
+    contribs: list[tuple[tuple[str, str, str], float, float]] = []
     for edge in incident:
         perturbed = _graph_without_edge(g, edge)
         prob_drop = 0.0
@@ -80,7 +93,11 @@ def explain_node(
             new_design = _design_vector(scorer, X, node, perturbed)
             if base_design is not None and new_design is not None:
                 delta = np.abs(base_design - new_design)
-                feat_drop = float((delta * imp).sum()) if imp is not None else float(delta.sum())
+                feat_drop = (
+                    float((delta * imp).sum())
+                    if imp is not None
+                    else float(delta.sum())
+                )
         # combine: probability movement dominates when present, else feature movement
         score = abs(prob_drop) + 1e-3 * feat_drop
         contribs.append((edge, score, prob_drop))
@@ -90,18 +107,27 @@ def explain_node(
     for (a, b, t), score, prob_drop in contribs[:top_k]:
         neighbour = b if a == node else a
         ntype = g.nodes.get(neighbour, "node")
-        out.append(ReasonCode(
-            source="graph",
-            code=f"edge_{t}",
-            feature=str(neighbour),
-            detail=(f"edge '{t}' to {ntype} {neighbour} influences {node}'s fraud score "
-                    f"(prob_delta {prob_drop:+.3f})"),
-            contribution=float(score),
-        ))
+        out.append(
+            ReasonCode(
+                source="graph",
+                code=f"edge_{t}",
+                feature=str(neighbour),
+                detail=(
+                    f"edge '{t}' to {ntype} {neighbour} influences {node}'s fraud score "
+                    f"(prob_delta {prob_drop:+.3f})"
+                ),
+                contribution=float(score),
+            )
+        )
     if not out:
-        out.append(ReasonCode(source="graph", code="neighbourhood",
-                              detail=f"{node} neighbourhood evaluated; no single edge dominant",
-                              contribution=base_score))
+        out.append(
+            ReasonCode(
+                source="graph",
+                code="neighbourhood",
+                detail=f"{node} neighbourhood evaluated; no single edge dominant",
+                contribution=base_score,
+            )
+        )
     return out
 
 

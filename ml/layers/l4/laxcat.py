@@ -12,7 +12,10 @@ Reason codes it emits answer "which variables and which time intervals":
 torch import lives inside the methods; ``fit`` raises ``require('torch')`` if absent.
 Subclasses ``BaseScorer`` (supervised -> predict_proba in [0,1]).
 """
+
 from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 
@@ -23,8 +26,9 @@ from ml.layers.l4.windows import WindowSet
 
 def _win3(X, window: int) -> tuple[np.ndarray, list[str]]:
     if isinstance(X, WindowSet):
-        return X.X.astype(np.float32), (X.feature_names or
-                                        [f"f{i}" for i in range(X.X.shape[2])])
+        return X.X.astype(np.float32), (
+            X.feature_names or [f"f{i}" for i in range(X.X.shape[2])]
+        )
     arr = np.asarray(X, dtype=np.float32)
     if arr.ndim == 3:
         return arr, [f"f{i}" for i in range(arr.shape[2])]
@@ -38,14 +42,20 @@ class LAXCAT(BaseScorer):
 
     layer = "L4"
 
-    def __init__(self, n_intervals: int = 4, conv_channels: int = 8, window: int = 20,
-                 epochs: int = 25, version: str = "0.1.0") -> None:
+    def __init__(
+        self,
+        n_intervals: int = 4,
+        conv_channels: int = 8,
+        window: int = 20,
+        epochs: int = 25,
+        version: str = "0.1.0",
+    ) -> None:
         super().__init__(name="l4_laxcat", version=version)
         self.n_intervals = int(n_intervals)
         self.conv_channels = int(conv_channels)
         self.window = int(window)
         self.epochs = int(epochs)
-        self._model = None
+        self._model: Any = None
         self._c = 0
         self._feature_names: list[str] = []
 
@@ -62,8 +72,8 @@ class LAXCAT(BaseScorer):
                 super().__init__()
                 # per-variable temporal conv (depthwise-ish: shared small conv per var)
                 self.conv = nn.Conv1d(c, c * k, kernel_size=3, padding=1, groups=c)
-                self.var_att = nn.Linear(k, 1)       # variable attention
-                self.tmp_att = nn.Linear(c * k, 1)   # temporal-interval attention
+                self.var_att = nn.Linear(k, 1)  # variable attention
+                self.tmp_att = nn.Linear(c * k, 1)  # temporal-interval attention
                 self.int_len = int_len
                 self.n_int = n_int
                 self.k = k
@@ -72,36 +82,40 @@ class LAXCAT(BaseScorer):
 
             def forward(self, x):
                 # x: (n, w, c) -> conv over time
-                h = self.conv(x.transpose(1, 2))           # (n, c*k, w)
+                h = self.conv(x.transpose(1, 2))  # (n, c*k, w)
                 n = h.shape[0]
-                h = h.view(n, self.c, self.k, -1)          # (n, c, k, w)
+                h = h.view(n, self.c, self.k, -1)  # (n, c, k, w)
                 # ---- temporal attention over intervals ----
                 wlen = h.shape[-1]
                 il = max(1, wlen // self.n_int)
                 # mean-pool each interval -> (n, c, k, n_int)
                 pooled = []
                 for t in range(self.n_int):
-                    seg = h[..., t * il:(t + 1) * il if t < self.n_int - 1 else wlen]
+                    seg = h[..., t * il : (t + 1) * il if t < self.n_int - 1 else wlen]
                     pooled.append(seg.mean(dim=-1))
-                pooled = torch.stack(pooled, dim=-1)        # (n, c, k, n_int)
+                pooled = torch.stack(pooled, dim=-1)  # (n, c, k, n_int)
                 # temporal weights from the flattened (c*k) feature per interval
-                tflat = pooled.permute(0, 3, 1, 2).reshape(n, self.n_int, self.c * self.k)
+                tflat = pooled.permute(0, 3, 1, 2).reshape(
+                    n, self.n_int, self.c * self.k
+                )
                 t_logits = self.tmp_att(tflat).squeeze(-1)  # (n, n_int)
-                t_w = torch.softmax(t_logits, dim=1)        # temporal attention
+                t_w = torch.softmax(t_logits, dim=1)  # temporal attention
                 # weighted sum over intervals -> (n, c, k)
                 ctx = (pooled * t_w[:, None, None, :]).sum(dim=-1)
                 # ---- variable attention ----
-                v_logits = self.var_att(ctx).squeeze(-1)    # (n, c)
-                v_w = torch.softmax(v_logits, dim=1)        # variable attention
-                feat = (ctx.mean(dim=-1) * v_w)             # (n, c)
-                logit = self.clf(feat).squeeze(-1)          # (n,)
+                v_logits = self.var_att(ctx).squeeze(-1)  # (n, c)
+                v_w = torch.softmax(v_logits, dim=1)  # variable attention
+                feat = ctx.mean(dim=-1) * v_w  # (n, c)
+                logit = self.clf(feat).squeeze(-1)  # (n,)
                 return logit, v_w, t_w
 
         return _LAXCAT()
 
-    def fit(self, X, y) -> "LAXCAT":
+    def fit(self, X, y) -> "LAXCAT":  # type: ignore[override]  # intentional: supervised fit requires y
         if not HAS_TORCH:
-            require("torch", reason="LAXCAT supervised attention classifier needs torch")
+            require(
+                "torch", reason="LAXCAT supervised attention classifier needs torch"
+            )
         import torch
 
         X3, names = _win3(X, self.window)
@@ -129,7 +143,9 @@ class LAXCAT(BaseScorer):
         for _ in range(self.epochs):
             logit, _, _ = model(t)
             loss = lossf(logit, yt)
-            opt.zero_grad(); loss.backward(); opt.step()
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
         model.eval()
         self._model = model
         self._fitted = True
@@ -172,12 +188,14 @@ class LAXCAT(BaseScorer):
             top_vars = np.argsort(-v_w[r])[:top_k]
             rcs = []
             for vi in top_vars:
-                rcs.append(ReasonCode(
-                    source="attention",
-                    feature=names[vi] if vi < len(names) else f"f{vi}",
-                    detail=interval,
-                    contribution=float(v_w[r, vi] * t_w[r, ti]),
-                ))
+                rcs.append(
+                    ReasonCode(
+                        source="attention",
+                        feature=names[vi] if vi < len(names) else f"f{vi}",
+                        detail=interval,
+                        contribution=float(v_w[r, vi] * t_w[r, ti]),
+                    )
+                )
             out.append(rcs)
         return out
 

@@ -4,6 +4,7 @@ Train the stacked meta-learner over per-layer scores + rule flags, then isotonic
 calibrate so the fused output is a real probability (0-100 downstream). Default meta is
 logistic (transparent); kind='lightgbm' uses a shallow GBDT.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -35,14 +36,21 @@ def train_l6(
     calibration: str = "isotonic",
 ) -> L6TrainResult:
     """Fit + calibrate L6 fusion over a per-layer score matrix; report AUPRC."""
-    Xdf = layer_scores if isinstance(layer_scores, pd.DataFrame) else assemble_layer_matrix(layer_scores)
+    Xdf = (
+        layer_scores
+        if isinstance(layer_scores, pd.DataFrame)
+        else assemble_layer_matrix(layer_scores)
+    )
     yv = np.asarray(y).astype(int).ravel()
 
     fusion = L6Fusion(meta_kind=meta_kind, calibration=calibration)
     fusion.fit(Xdf, yv)
 
     cal = fusion.calibrated_scores(Xdf)
-    metrics = {"auprc": average_precision(yv, cal), "mean_calibrated": float(np.mean(cal))}
+    metrics = {
+        "auprc": average_precision(yv, cal),
+        "mean_calibrated": float(np.mean(cal)),
+    }
     return L6TrainResult(fusion=fusion, metrics=metrics, n_train=len(Xdf))
 
 

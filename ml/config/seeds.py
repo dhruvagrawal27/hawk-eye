@@ -4,6 +4,7 @@ Every run is reproducible: a single seed drives numpy, Python's `random`, and
 (if installed) PyTorch. `seeded_rng` returns an isolated Generator so a component
 can be deterministic without touching global state.
 """
+
 from __future__ import annotations
 
 import os
@@ -13,10 +14,14 @@ from typing import Optional
 
 import numpy as np
 
-GLOBAL_SEED = 1405  # matches DATA's SimConfig.seed (CONTEXT.md) for cross-workstream parity
+GLOBAL_SEED = (
+    1405  # matches DATA's SimConfig.seed (CONTEXT.md) for cross-workstream parity
+)
 
 
-def seed_everything(seed: int = GLOBAL_SEED, *, deterministic_torch: bool = True) -> int:
+def seed_everything(
+    seed: int = GLOBAL_SEED, *, deterministic_torch: bool = True
+) -> int:
     """Seed Python, numpy, and torch (ONLY if torch is already loaded). Returns the seed used.
 
     Critically we do NOT force-import torch here: that would co-load torch + LightGBM into one
@@ -26,7 +31,9 @@ def seed_everything(seed: int = GLOBAL_SEED, *, deterministic_torch: bool = True
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
-    torch = sys.modules.get("torch")  # seed torch only if it's already imported (don't force-load)
+    torch = sys.modules.get(
+        "torch"
+    )  # seed torch only if it's already imported (don't force-load)
     if torch is not None:
         torch.manual_seed(seed)
         if torch.cuda.is_available():  # pragma: no cover - no GPU in CI

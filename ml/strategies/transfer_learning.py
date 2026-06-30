@@ -5,29 +5,32 @@ fine-tune on our (small) labeled target. torch autoencoder pretraining when avai
 a PCA-encoder fallback otherwise. Public-data results are a sanity check, never a
 production-performance claim (Part 5.3).
 """
+
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from ml._optional import optional_import
+from ml._optional import optional_import, require
 from ml.config.seeds import GLOBAL_SEED, seed_everything
 
 
 class TransferEncoder:
     """Encoder pretrained on a source corpus, fine-tuned with a head on the target."""
 
-    def __init__(self, emb_dim: int = 16, hidden: int = 32, seed: int = GLOBAL_SEED) -> None:
+    def __init__(
+        self, emb_dim: int = 16, hidden: int = 32, seed: int = GLOBAL_SEED
+    ) -> None:
         self.emb_dim = emb_dim
         self.hidden = hidden
         self.seed = seed
         self._scaler = StandardScaler()
-        self._torch_ae = None  # (encoder, decoder) when torch is used
-        self._pca = None       # sklearn PCA when torch absent
+        self._torch_ae: Any = None  # (encoder, decoder) when torch is used
+        self._pca: Any = None  # sklearn PCA when torch absent
         self._head: Optional[LogisticRegression] = None
         self._backend = "pca"
 
@@ -43,19 +46,30 @@ class TransferEncoder:
             from sklearn.decomposition import PCA
 
             self._backend = "pca"
-            self._pca = PCA(n_components=min(self.emb_dim, Xs.shape[1]), random_state=self.seed).fit(Xs)
+            self._pca = PCA(
+                n_components=min(self.emb_dim, Xs.shape[1]), random_state=self.seed
+            ).fit(Xs)
         return self
 
     def _pretrain_torch(self, torch, Xs: np.ndarray, epochs: int) -> None:
         nn = torch.nn
         in_dim = Xs.shape[1]
-        enc = nn.Sequential(nn.Linear(in_dim, self.hidden), nn.ReLU(), nn.Linear(self.hidden, self.emb_dim))
-        dec = nn.Sequential(nn.Linear(self.emb_dim, self.hidden), nn.ReLU(), nn.Linear(self.hidden, in_dim))
+        enc = nn.Sequential(
+            nn.Linear(in_dim, self.hidden),
+            nn.ReLU(),
+            nn.Linear(self.hidden, self.emb_dim),
+        )
+        dec = nn.Sequential(
+            nn.Linear(self.emb_dim, self.hidden),
+            nn.ReLU(),
+            nn.Linear(self.hidden, in_dim),
+        )
         params = list(enc.parameters()) + list(dec.parameters())
         opt = torch.optim.Adam(params, lr=1e-2)
         loss_fn = nn.MSELoss()
         xt = torch.tensor(Xs, dtype=torch.float32)
-        enc.train(); dec.train()
+        enc.train()
+        dec.train()
         for _ in range(epochs):
             opt.zero_grad()
             recon = dec(enc(xt))
@@ -69,7 +83,7 @@ class TransferEncoder:
     def embed(self, X) -> np.ndarray:
         Xs = self._scaler.transform(np.asarray(X, dtype=float))
         if self._backend == "torch" and self._torch_ae is not None:
-            torch = optional_import("torch")
+            torch = require("torch")
             enc = self._torch_ae[0]
             with torch.no_grad():
                 return enc(torch.tensor(Xs, dtype=torch.float32)).numpy()
@@ -91,7 +105,10 @@ def from_scratch_baseline(X_target, y_target, seed: int = GLOBAL_SEED):
     """A no-transfer baseline (logistic on raw standardized features) for comparison."""
     scaler = StandardScaler()
     head = LogisticRegression(max_iter=500, class_weight="balanced")
-    head.fit(scaler.fit_transform(np.asarray(X_target, dtype=float)), np.asarray(y_target).astype(int).ravel())
+    head.fit(
+        scaler.fit_transform(np.asarray(X_target, dtype=float)),
+        np.asarray(y_target).astype(int).ravel(),
+    )
 
     def predict_proba(X):
         return head.predict_proba(scaler.transform(np.asarray(X, dtype=float)))[:, 1]
@@ -105,9 +122,12 @@ def load_public_source(name: str = "cert", n: int = 600) -> Optional[pd.DataFram
     Returns None if the loader is unavailable. # STUB: real CERT/Elliptic files land via DATA.
     """
     try:  # pragma: no cover - depends on DATA package being importable
-        import sys, os
+        import sys
+        import os
 
-        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        root = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         if root not in sys.path:
             sys.path.insert(0, root)
         if name == "cert":
@@ -120,7 +140,11 @@ def load_public_source(name: str = "cert", n: int = 600) -> Optional[pd.DataFram
         if name == "elliptic":
             from data.datasets.loaders.elliptic import EllipticLoader  # type: ignore
 
-            g = EllipticLoader().synthetic() if hasattr(EllipticLoader(), "synthetic") else EllipticLoader().load("")
+            g = (
+                EllipticLoader().synthetic()
+                if hasattr(EllipticLoader(), "synthetic")
+                else EllipticLoader().load("")
+            )
             nodes = g["nodes"]
             return nodes.select_dtypes("number")
     except Exception:

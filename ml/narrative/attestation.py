@@ -9,6 +9,7 @@ report for audit. Groq is not a TEE path -> None.
 # Set TEE_ATTESTATION_URL to PLATFORM's mock service to exercise the attested path;
 # absent it, NEAR AI returns None (tee_attested=False) and the gateway degrades honestly.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -21,7 +22,9 @@ from typing import Optional
 from ml._optional import optional_import
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DEFAULT_STORE = os.path.join(REPO_ROOT, "ml", "_artifacts", "narratives", "attestations.jsonl")
+DEFAULT_STORE = os.path.join(
+    REPO_ROOT, "ml", "_artifacts", "narratives", "attestations.jsonl"
+)
 
 
 @dataclass
@@ -40,7 +43,9 @@ class AttestationReport:
 class AttestationVerifier:
     """Base verifier. Returns a report iff the dual quote verifies, else None."""
 
-    def verify(self, provider: str) -> Optional[AttestationReport]:  # pragma: no cover - abstract
+    def verify(
+        self, provider: str
+    ) -> Optional[AttestationReport]:  # pragma: no cover - abstract
         raise NotImplementedError
 
 
@@ -62,7 +67,10 @@ class ScaffoldAttestationVerifier(AttestationVerifier):
             data = resp.json()
             quote = json.dumps(data.get("quote", {}), sort_keys=True)
             return AttestationReport(
-                attestation_id=data.get("attestation_id", "att_" + hashlib.sha256(quote.encode()).hexdigest()[:6]),
+                attestation_id=data.get(
+                    "attestation_id",
+                    "att_" + hashlib.sha256(quote.encode()).hexdigest()[:6],
+                ),
                 provider=provider,
                 intel_tdx_verified=bool(data.get("intel_tdx_verified", True)),
                 nvidia_verified=bool(data.get("nvidia_verified", True)),

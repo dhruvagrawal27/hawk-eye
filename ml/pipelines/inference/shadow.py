@@ -5,9 +5,10 @@ its scores are only logged for offline champion/challenger comparison. This is t
 to evaluate a candidate on production traffic before any promotion. The hard contract:
 ``alerts_emitted == 0`` for a shadow run (asserted by callers and tests).
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
@@ -68,9 +69,16 @@ class ShadowScorer:
         ids = [str(i) for i in X.index]
         # log scores to the sink (this is the ONLY side effect — no alert emission)
         for eid, s in zip(ids, p):
-            self.sink.append({"entity_id": eid, "shadow_score": float(s),
-                              "model_version": getattr(self.challenger, "model_version", "unknown"),
-                              "alert": False})
+            self.sink.append(
+                {
+                    "entity_id": eid,
+                    "shadow_score": float(s),
+                    "model_version": getattr(
+                        self.challenger, "model_version", "unknown"
+                    ),
+                    "alert": False,
+                }
+            )
 
         champ_ap = chal_ap = None
         if y is not None and int(np.asarray(y).sum()) > 0:

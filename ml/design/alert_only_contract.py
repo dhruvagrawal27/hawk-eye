@@ -4,16 +4,30 @@ Golden rule #1: models SCORE and EXPLAIN; a human decides. No model output may t
 an action. This module makes that a *runtime-enforced* contract, not just a doctrine:
 a model emits an ``Advisory`` (rank + reasons), never a ``block``/``freeze``/``classify``.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 # Actions a model may emit (advisory only) vs. actions it must NEVER emit (human-only).
-ALLOWED_ADVISORY_ACTIONS = ("alert", "rank", "explain", "escalate_for_review", "flag_for_edd")
+ALLOWED_ADVISORY_ACTIONS = (
+    "alert",
+    "rank",
+    "explain",
+    "escalate_for_review",
+    "flag_for_edd",
+)
 FORBIDDEN_AUTONOMOUS_ACTIONS = (
-    "block", "freeze", "auto_block", "reverse_transaction", "auto_classify_fraud",
-    "deny", "suspend_user", "seize", "auto_close",
+    "block",
+    "freeze",
+    "auto_block",
+    "reverse_transaction",
+    "auto_classify_fraud",
+    "deny",
+    "suspend_user",
+    "seize",
+    "auto_close",
 )
 
 
@@ -41,7 +55,9 @@ class Advisory:
             "action": self.action,
             "advisory": True,
             "blocks": False,
-            "reason_codes": [getattr(rc, "to_dict", lambda: rc)() for rc in self.reason_codes],
+            "reason_codes": [
+                getattr(rc, "to_dict", lambda: rc)() for rc in self.reason_codes
+            ],
             "narrative": self.narrative,
         }
 
@@ -54,7 +70,9 @@ def assert_advisory_action(action: str) -> None:
             f"A human must decide; allowed advisory actions: {ALLOWED_ADVISORY_ACTIONS}."
         )
     if action not in ALLOWED_ADVISORY_ACTIONS:
-        raise AlertOnlyViolation(f"unknown action {action!r}; allowed: {ALLOWED_ADVISORY_ACTIONS}")
+        raise AlertOnlyViolation(
+            f"unknown action {action!r}; allowed: {ALLOWED_ADVISORY_ACTIONS}"
+        )
 
 
 def alert_only_contract() -> dict:

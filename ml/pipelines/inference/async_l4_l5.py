@@ -6,6 +6,7 @@ already-emitted fast-lane alert — raising its risk_score / adding reason codes
 contributing_layers when they find extra signal. An async pass NEVER lowers an alert below
 its fast-lane floor and NEVER blocks a transaction.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -62,7 +63,9 @@ class AsyncUpgrader:
         new = max(old, async_100)
 
         added_layers: list[str] = []
-        layer_label = {"L4": "L4_sequence", "L5": "L5_graph"}.get(self.layer, self.layer)
+        layer_label = {"L4": "L4_sequence", "L5": "L5_graph"}.get(
+            self.layer, self.layer
+        )
         contributing = list(existing_alert.get("contributing_layers", []))
         if new > old and layer_label not in contributing:
             contributing.append(layer_label)
@@ -75,7 +78,9 @@ class AsyncUpgrader:
         existing_alert["contributing_layers"] = contributing
         existing_alert.setdefault("reason_codes", [])
         existing_alert["reason_codes"].extend(rc.to_dict() for rc in rcs)
-        existing_alert["status"] = existing_alert.get("status", "open")  # never auto-close/block
+        existing_alert["status"] = existing_alert.get(
+            "status", "open"
+        )  # never auto-close/block
 
         return AlertUpgrade(
             entity_id=str(existing_alert.get("entity_id", "")),
@@ -100,7 +105,9 @@ def run_async_upgrade(
         s = float(np.asarray(scorer.predict_proba(X)).ravel()[0])
     else:
         s = float(np.asarray(scorer.score_samples(X)).ravel()[0])
-    up = AsyncUpgrader(layer=layer, model_version=getattr(scorer, "model_version", "unknown"))
+    up = AsyncUpgrader(
+        layer=layer, model_version=getattr(scorer, "model_version", "unknown")
+    )
     return up.upgrade(existing_alert, async_score=s, reason_codes=reason_codes)
 
 

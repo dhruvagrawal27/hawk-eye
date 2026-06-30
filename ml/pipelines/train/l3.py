@@ -6,10 +6,11 @@ Time-aware CV + early stopping + scale_pos_weight + 1:3-1:10 negative subsample
 Returns a fitted, CALIBRATED scorer plus an honest (time-split) metric report. Stays
 LightGBM-only (no torch) so it is safe to run in a process that already loaded LightGBM.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -70,8 +71,9 @@ def train_l3(
             Xv, yv = Xtr.iloc[va_idx], ytr.iloc[va_idx]
             if int(yc.sum()) == 0 or int(yv.sum()) == 0:
                 continue
-            base = LightGBMScorer(n_estimators=n_estimators, use_scale_pos_weight=True,
-                                  random_state=seed)
+            base = LightGBMScorer(
+                n_estimators=n_estimators, use_scale_pos_weight=True, random_state=seed
+            )
             base.fit(Xc, yc)
             cv_ap.append(average_precision(yv, base.predict_proba(Xv)))
 
@@ -83,7 +85,9 @@ def train_l3(
     Xss = Xss.iloc[order].reset_index(drop=True)
     yss = yss.iloc[order].reset_index(drop=True)
 
-    base = LightGBMScorer(n_estimators=n_estimators, use_scale_pos_weight=True, random_state=seed)
+    base = LightGBMScorer(
+        n_estimators=n_estimators, use_scale_pos_weight=True, random_state=seed
+    )
     # ----- isotonic calibration on a held-out tail (refits base internally) -----
     scorer = CalibratedScorer(base, method="isotonic", valid_frac=0.25)
     scorer.fit(Xss, yss)
@@ -100,8 +104,12 @@ def train_l3(
     metrics["cv_auprc_mean"] = float(np.mean(cv_ap)) if cv_ap else float("nan")
 
     return L3TrainResult(
-        scorer=scorer, metrics=metrics, cv_ap=cv_ap, spw=spw,
-        n_train=len(Xtr), n_test=len(Xte),
+        scorer=scorer,
+        metrics=metrics,
+        cv_ap=cv_ap,
+        spw=spw,
+        n_train=len(Xtr),
+        n_test=len(Xte),
     )
 
 

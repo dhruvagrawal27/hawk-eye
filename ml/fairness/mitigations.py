@@ -16,6 +16,7 @@ Three mitigation surfaces, in order of preference per the blueprint:
 ALERT-ONLY: mitigations adjust *score normalisation / alerting thresholds*; they never
 auto-block a person.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -83,8 +84,11 @@ def assert_no_protected_features(
     behavioural feature). Everything else that matches is treated as a leak.
     """
     allow_set = {str(a) for a in (allow or [])}
-    hits = [h for h in find_protected_features(feature_names, extra_protected=extra_protected)
-            if h not in allow_set]
+    hits = [
+        h
+        for h in find_protected_features(feature_names, extra_protected=extra_protected)
+        if h not in allow_set
+    ]
     if hits:
         raise ProtectedFeatureLeak(
             "protected attributes must not be used as model features; found: "
@@ -151,8 +155,11 @@ def group_wise_thresholds(
         if y_true is None:
             raise ValueError("objective='tpr' requires y_true")
         yt = pd.Series(np.asarray(list(y_true), dtype=float).astype(int), index=s.index)
-        pooled = target_rate if target_rate is not None else float((yt == 1).mean() and
-                                                                    (s[yt == 1] >= s.median()).mean())
+        pooled = (
+            target_rate
+            if target_rate is not None
+            else float((yt == 1).mean() and (s[yt == 1] >= s.median()).mean())
+        )
         thresholds: dict[str, float] = {}
         for g in pd.unique(grp):
             mask = (grp.values == g) & (yt.values == 1)
@@ -163,8 +170,11 @@ def group_wise_thresholds(
             # threshold = quantile so a (1 - target_rate) fraction of positives are flagged.
             q = float(np.clip(1.0 - (pooled or 0.5), 0.0, 1.0))
             thresholds[str(g)] = float(np.quantile(pos, q))
-        return GroupThresholds(thresholds=thresholds, global_threshold=float(s.median()),
-                               objective=objective)
+        return GroupThresholds(
+            thresholds=thresholds,
+            global_threshold=float(s.median()),
+            objective=objective,
+        )
 
     # selection_rate objective
     pooled = target_rate if target_rate is not None else float((s >= s.median()).mean())
@@ -176,8 +186,11 @@ def group_wise_thresholds(
             continue
         q = float(np.clip(1.0 - pooled, 0.0, 1.0))
         thresholds[str(g)] = float(np.quantile(vals, q))
-    return GroupThresholds(thresholds=thresholds, global_threshold=float(np.quantile(s, 1.0 - pooled)),
-                           objective=objective)
+    return GroupThresholds(
+        thresholds=thresholds,
+        global_threshold=float(np.quantile(s, 1.0 - pooled)),
+        objective=objective,
+    )
 
 
 def apply_group_thresholds(
@@ -187,7 +200,8 @@ def apply_group_thresholds(
     s = np.asarray(list(y_score), dtype=float)
     groups = [str(g) for g in sensitive]
     return np.array(
-        [1 if s[i] >= gt.threshold_for(groups[i]) else 0 for i in range(len(s))], dtype=int
+        [1 if s[i] >= gt.threshold_for(groups[i]) else 0 for i in range(len(s))],
+        dtype=int,
     )
 
 
@@ -247,7 +261,9 @@ def threshold_optimizer(
     """
     fl = optional_import("fairlearn")
     if fl is None:
-        return ThresholdOptimizerResult(available=False, backend="direct", constraint=constraint)
+        return ThresholdOptimizerResult(
+            available=False, backend="direct", constraint=constraint
+        )
     try:
         from fairlearn.postprocessing import ThresholdOptimizer
 
@@ -265,7 +281,13 @@ def threshold_optimizer(
         )
         opt.fit(idx, yt, sensitive_features=sf)
         rng = np.random.RandomState(0)
-        y_pred = np.asarray(opt.predict(idx, sensitive_features=sf, random_state=rng)).astype(int)
-        return ThresholdOptimizerResult(available=True, y_pred=y_pred, constraint=constraint)
+        y_pred = np.asarray(
+            opt.predict(idx, sensitive_features=sf, random_state=rng)
+        ).astype(int)
+        return ThresholdOptimizerResult(
+            available=True, y_pred=y_pred, constraint=constraint
+        )
     except Exception:
-        return ThresholdOptimizerResult(available=False, backend="direct", constraint=constraint)
+        return ThresholdOptimizerResult(
+            available=False, backend="direct", constraint=constraint
+        )

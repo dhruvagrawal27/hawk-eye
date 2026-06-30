@@ -16,6 +16,7 @@ crossed.
 HONEST EVAL: concept drift is measured on time-ordered dispositions (never point-adjusted).
 No heavy model library is imported, so this loads in any process.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -63,7 +64,9 @@ def population_stability_index(
     return float(np.sum((cur_pct - ref_pct) * np.log(cur_pct / ref_pct)))
 
 
-def ks_statistic(reference: Iterable[float], current: Iterable[float]) -> tuple[float, float]:
+def ks_statistic(
+    reference: Iterable[float], current: Iterable[float]
+) -> tuple[float, float]:
     """Two-sample Kolmogorov-Smirnov (statistic, p-value).
 
     Uses :func:`scipy.stats.ks_2samp` when SciPy is present (it ships with scikit-learn),
@@ -149,11 +152,20 @@ class DataDriftReport:
 def _numeric_columns(ref: pd.DataFrame, cur: pd.DataFrame) -> list[str]:
     cols = [c for c in ref.columns if c in cur.columns]
     # pandas-3.0-safe numeric check (never np.issubdtype on a Series).
-    return [c for c in cols if pd.api.types.is_numeric_dtype(ref[c]) and pd.api.types.is_numeric_dtype(cur[c])]
+    return [
+        c
+        for c in cols
+        if pd.api.types.is_numeric_dtype(ref[c])
+        and pd.api.types.is_numeric_dtype(cur[c])
+    ]
 
 
 def data_drift_report(
-    reference: pd.DataFrame, current: pd.DataFrame, *, bins: int = 10, use_evidently: Optional[bool] = None
+    reference: pd.DataFrame,
+    current: pd.DataFrame,
+    *,
+    bins: int = 10,
+    use_evidently: Optional[bool] = None,
 ) -> DataDriftReport:
     """Per-feature PSI + KS drift between a reference and a current feature matrix.
 
@@ -181,7 +193,9 @@ def data_drift_report(
     return DataDriftReport(features=feats, backend=backend)
 
 
-def _run_evidently(reference: pd.DataFrame, current: pd.DataFrame) -> bool:  # pragma: no cover - optional path
+def _run_evidently(
+    reference: pd.DataFrame, current: pd.DataFrame
+) -> bool:  # pragma: no cover - optional path
     """Run an Evidently data-drift report; return True on success (API varies by version)."""
     evidently = optional_import("evidently")
     if evidently is None:

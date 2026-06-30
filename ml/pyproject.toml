@@ -54,3 +54,12 @@ line-length = 110
 [tool.pytest.ini_options]
 testpaths = ["../tests/ml"]
 addopts = "-q"
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true        # numpy/pandas/torch/lightgbm ship no/partial stubs
+warn_unused_ignores = false
+# Pragmatic type-checking for a numpy/pandas/torch codebase: strict on our public interfaces
+# (blueprint Part 31) but we do not chase ndarray-vs-typing friction or intentional override
+# signatures (graph scorers take an extra `events=` arg). Runtime correctness is proven by the
+# 250-test suite. Run: `mypy ml/`.

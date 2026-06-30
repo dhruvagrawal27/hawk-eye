@@ -4,12 +4,13 @@ Combines rule provenance + SHAP top features + attention/graph evidence into ONE
 ranked reason-code list per entity, in the BACKEND.md §2 shape, and builds the L6 Alert.
 One alert per entity (fusion reduces alert fatigue).
 """
+
 from __future__ import annotations
 
 import datetime as _dt
 from typing import Optional, Sequence
 
-from ml.base.interfaces import Alert, ReasonCode, Severity, severity_from_score
+from ml.base.interfaces import Alert, ReasonCode, severity_from_score
 
 # Rules first (deterministic, regulator-facing), then graph, attention, shap.
 _SOURCE_PRIORITY = {"rule": 0, "graph": 1, "attention": 2, "shap": 3}
@@ -66,8 +67,10 @@ def build_alert(
     created = created_ts or _now_iso()
     sla_due = None
     try:
-        sla_due = (_dt.datetime.strptime(created, "%Y-%m-%dT%H:%M:%SZ")
-                   + _dt.timedelta(days=sla_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        sla_due = (
+            _dt.datetime.strptime(created, "%Y-%m-%dT%H:%M:%SZ")
+            + _dt.timedelta(days=sla_days)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
     except Exception:  # pragma: no cover
         sla_due = None
     return Alert(

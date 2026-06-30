@@ -8,6 +8,7 @@ Uses **PyOD ``IForest``** when available, else falls back to sklearn
 ``IsolationForest`` with the same hyperparameters. ``score_samples`` returns
 rank-normalised anomaly scores in [0,1] (higher = more anomalous).
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -84,7 +85,9 @@ class IsolationForestDetector(BaseDetector):
             )
             self._model.fit(mat)
             # sklearn: higher score_samples => more normal; negate for anomaly score.
-            self._train_scores = -np.asarray(self._model.score_samples(mat), dtype=float)
+            self._train_scores = -np.asarray(
+                self._model.score_samples(mat), dtype=float
+            )
         self._fitted = True
         return self
 
@@ -97,7 +100,9 @@ class IsolationForestDetector(BaseDetector):
         mat, _ = as_matrix(X)
         if HAS_PYOD:
             return np.asarray(self._model.decision_function(mat), dtype=float)
-        return -np.asarray(self._model.score_samples(mat), dtype=float)  # pragma: no cover
+        return -np.asarray(
+            self._model.score_samples(mat), dtype=float
+        )  # pragma: no cover
 
     def score_samples(self, X: Any) -> np.ndarray:
         if not self._fitted:

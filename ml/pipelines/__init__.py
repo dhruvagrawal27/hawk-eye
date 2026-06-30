@@ -13,6 +13,7 @@
 Submodules are imported lazily (``__getattr__``) so importing ``ml.pipelines`` does NOT
 pull torch + lightgbm into one process at once (the macOS dual-libomp hazard).
 """
+
 from __future__ import annotations
 
 import importlib

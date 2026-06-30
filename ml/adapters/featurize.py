@@ -11,6 +11,7 @@ Columns are the dotted flattened L0 names (``actor.employee_id``, ``object.amoun
 Missing columns degrade gracefully to zeros/defaults so synthetic fixtures with a
 subset of columns still produce a valid (zero-filled) matrix.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -79,8 +80,12 @@ def event_level_features(events: pd.DataFrame) -> pd.DataFrame:
     feat["hour"] = hour
     feat["dow"] = dow
     feat["is_weekend"] = (dow >= 5).astype(int)
-    feat["has_beneficiary"] = (_col(df, "object.beneficiary_id", "").astype(str).str.len() > 0).astype(int)
-    feat["has_account"] = (_col(df, "object.account_id", "").astype(str).str.len() > 0).astype(int)
+    feat["has_beneficiary"] = (
+        _col(df, "object.beneficiary_id", "").astype(str).str.len() > 0
+    ).astype(int)
+    feat["has_account"] = (
+        _col(df, "object.account_id", "").astype(str).str.len() > 0
+    ).astype(int)
     swift = _col(df, "linkage.swift_ref", "").astype(str).str.len() > 0
     cbs = _col(df, "linkage.cbs_ref", "").astype(str).str.len() > 0
     feat["has_swift_ref"] = swift.astype(int)
@@ -97,7 +102,9 @@ def event_level_features(events: pd.DataFrame) -> pd.DataFrame:
     # Per-entity contextual features (peer-relative amount z-score; rolling velocity).
     emp = _col(df, EMP, "__none__").astype(str)
     feat["amount_z_personal"] = _grouped_zscore(amount, emp)
-    feat["new_beneficiary"] = _new_pair_flag(emp, _col(df, "object.beneficiary_id", "").astype(str))
+    feat["new_beneficiary"] = _new_pair_flag(
+        emp, _col(df, "object.beneficiary_id", "").astype(str)
+    )
     feat["velocity_1h"] = _rolling_count(df, emp, window="1h")
 
     feat.index = pd.Index(idx, name="event_id")
@@ -132,13 +139,21 @@ def entity_level_features(events: pd.DataFrame) -> pd.DataFrame:
     out["amount_sum"] = grp["amount"].sum()
     out["offhours_rate"] = grp["offh"].mean()
     out["n_distinct_verbs"] = grp["verb"].nunique()
-    out["n_distinct_devices"] = grp["device"].apply(lambda s: s[s.str.len() > 0].nunique())
+    out["n_distinct_devices"] = grp["device"].apply(
+        lambda s: s[s.str.len() > 0].nunique()
+    )
     out["n_distinct_geos"] = grp["geo"].apply(lambda s: s[s.str.len() > 0].nunique())
     out["n_distinct_bene"] = grp["bene"].apply(lambda s: s[s.str.len() > 0].nunique())
     out["privileged_flag"] = grp["priv"].max()
     out["leaver_flag"] = grp["leaver"].max()
     out["tenure_days"] = grp["tenure"].max()
-    for v in ("approve_payment", "create_beneficiary", "export", "grant_entitlement", "db_write"):
+    for v in (
+        "approve_payment",
+        "create_beneficiary",
+        "export",
+        "grant_entitlement",
+        "db_write",
+    ):
         out[f"n_{v}"] = grp["verb"].apply(lambda s, vv=v: int((s == vv).sum()))
     out.index = pd.Index(out.index, name="employee_id")
     return out.fillna(0.0)
@@ -146,20 +161,30 @@ def entity_level_features(events: pd.DataFrame) -> pd.DataFrame:
 
 def join_event_labels(event_features: pd.DataFrame, labels: pd.DataFrame) -> pd.Series:
     """Return a 0/1 fraud label Series aligned to ``event_features.index`` (event_id)."""
-    lab = labels.set_index("event_id")["is_fraud"] if "event_id" in labels.columns else labels["is_fraud"]
+    lab = (
+        labels.set_index("event_id")["is_fraud"]
+        if "event_id" in labels.columns
+        else labels["is_fraud"]
+    )
     y = lab.reindex(event_features.index).fillna(False)
     return _bool_int(y).rename("is_fraud")
 
 
 def entity_labels(events: pd.DataFrame, labels: pd.DataFrame) -> pd.Series:
     """Per-employee label: 1 if the employee is ever a fraud actor (actor_id) on a fraud label."""
-    emp_all = pd.Index(sorted(_col(events, EMP, "__none__").astype(str).unique()), name="employee_id")
+    emp_all = pd.Index(
+        sorted(_col(events, EMP, "__none__").astype(str).unique()), name="employee_id"
+    )
     if "actor_id" in labels.columns and "is_fraud" in labels.columns:
         fraud = labels[_bool_int(labels["is_fraud"]) == 1]
         fraud_actors = set(fraud["actor_id"].dropna().astype(str).tolist())
     else:
         fraud_actors = set()
-    return pd.Series([1 if e in fraud_actors else 0 for e in emp_all], index=emp_all, name="is_fraud_actor")
+    return pd.Series(
+        [1 if e in fraud_actors else 0 for e in emp_all],
+        index=emp_all,
+        name="is_fraud_actor",
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -177,7 +202,11 @@ def _grouped_zscore(values: pd.Series, group: pd.Series) -> pd.Series:
 
 def _new_pair_flag(left: pd.Series, right: pd.Series) -> pd.Series:
     """1 the first time a (left,right) pair (employee,beneficiary) appears, else 0."""
-    key = left.astype(str).reset_index(drop=True) + "|" + right.astype(str).reset_index(drop=True)
+    key = (
+        left.astype(str).reset_index(drop=True)
+        + "|"
+        + right.astype(str).reset_index(drop=True)
+    )
     valid = right.astype(str).reset_index(drop=True).str.len() > 0
     seen: set[str] = set()
     flags = []

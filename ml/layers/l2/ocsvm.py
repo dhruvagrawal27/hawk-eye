@@ -6,6 +6,7 @@ training set when it is large (default cap 2000 rows) to keep it tractable, per 
 ``score_samples`` returns rank-normalised anomaly scores in [0,1] (higher = more
 anomalous).
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional

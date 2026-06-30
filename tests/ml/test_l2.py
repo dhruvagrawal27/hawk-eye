@@ -9,6 +9,7 @@ Behavioural + contract assertions for every L2 detector and the fusion ensemble:
   exceeds that for BENIGN entities (the headline acceptance check);
 - AUPRC beats a random baseline (honest, non-point-adjusted, entity-level eval).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -89,11 +90,11 @@ def test_isoforest_exact_defaults():
 
 def test_autoencoder_defaults_match_blueprint():
     ae = AutoEncoderDetector()
-    assert 0.25 <= ae.bottleneck_ratio <= 0.5      # bottleneck ~1/4-1/2 input dim
-    assert 0.1 <= ae.dropout <= 0.3                # dropout in [0.1, 0.3]
-    assert ae.threshold_pct == 99.0               # 99th-pctile flag threshold
+    assert 0.25 <= ae.bottleneck_ratio <= 0.5  # bottleneck ~1/4-1/2 input dim
+    assert 0.1 <= ae.dropout <= 0.3  # dropout in [0.1, 0.3]
+    assert ae.threshold_pct == 99.0  # 99th-pctile flag threshold
     with pytest.raises(ValueError):
-        AutoEncoderDetector(dropout=0.5)          # outside [0.1, 0.3] rejected
+        AutoEncoderDetector(dropout=0.5)  # outside [0.1, 0.3] rejected
 
 
 # --------------------------------------------------------------------------- #
@@ -149,9 +150,7 @@ def test_ensemble_rejects_wrong_detector_count(entity_data):
 
 def test_ensemble_max_fusion_runs(entity_data):
     X, _, _ = entity_data
-    ens = L2Ensemble(
-        [IsolationForestDetector(), EcodDetector()], fuse="max"
-    ).fit(X)
+    ens = L2Ensemble([IsolationForestDetector(), EcodDetector()], fuse="max").fit(X)
     s = ens.score_samples(X)
     assert s.shape == (len(X),)
     assert np.all((s >= 0) & (s <= 1))
@@ -159,9 +158,7 @@ def test_ensemble_max_fusion_runs(entity_data):
 
 def test_ensemble_explain_aggregates_from_autoencoder(entity_data):
     X, _, _ = entity_data
-    ens = L2Ensemble(
-        [IsolationForestDetector(), AutoEncoderDetector(epochs=12)]
-    ).fit(X)
+    ens = L2Ensemble([IsolationForestDetector(), AutoEncoderDetector(epochs=12)]).fit(X)
     reasons = ens.explain(X, top_k=3)
     assert len(reasons) == len(X)
     nonempty = [r for r in reasons if r]
@@ -207,14 +204,16 @@ def test_ensemble_separates_fraud_from_benign(entity_data):
     yv = y.to_numpy()
     fraud_mean = scores[yv == 1].mean()
     benign_mean = scores[yv == 0].mean()
-    assert fraud_mean > benign_mean, (
-        f"fraud entities must score higher: fraud={fraud_mean:.3f} benign={benign_mean:.3f}"
-    )
+    assert (
+        fraud_mean > benign_mean
+    ), f"fraud entities must score higher: fraud={fraud_mean:.3f} benign={benign_mean:.3f}"
 
     # honest non-PA entity-level eval: AUPRC should beat the random baseline (prevalence)
     ap = average_precision(yv, scores)
     prevalence = float(yv.mean())
-    assert ap > prevalence, f"AUPRC {ap:.3f} must beat random prevalence {prevalence:.3f}"
+    assert (
+        ap > prevalence
+    ), f"AUPRC {ap:.3f} must beat random prevalence {prevalence:.3f}"
     # and some real fraud should surface in the top-k
     assert precision_at_k(yv, scores, k=max(2, int(yv.sum()))) > 0.0
 

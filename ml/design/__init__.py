@@ -1,4 +1,5 @@
 """Peer-fair, alert-only scoring design + the simple-beats-deep decision summary (ML-9)."""
+
 from __future__ import annotations
 
 from ml.design.alert_only_contract import (

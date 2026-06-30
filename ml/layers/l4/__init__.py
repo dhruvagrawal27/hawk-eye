@@ -17,6 +17,7 @@ Every module imports even when torch is missing; deep ``fit`` then raises a clea
 ``require('torch')`` while the PCA/IF/matrix-profile baselines still work, and DeepLog
 falls back to a numpy n-gram.
 """
+
 from __future__ import annotations
 
 from ml.layers.l4.anomaly_transformer import AnomalyTransformer

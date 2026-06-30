@@ -6,6 +6,7 @@ Trees only (IsolationForest/ECOD ensemble + GBDT) so the per-event latency stays
 
 ALERT-ONLY: this returns scores; it never blocks or auto-acts.
 """
+
 from __future__ import annotations
 
 import time
@@ -88,10 +89,17 @@ class SyncFastLane:
         for i, eid in enumerate(X_entity.index):
             l2s, l3s = float(l2[i]), float(l3_by_entity.iloc[i])
             fast = max(l2s, l3s) if self.fuse == "max" else 0.5 * (l2s + l3s)
-            out.append(FastLaneScore(
-                entity_id=str(eid), fast_score=fast, l2_score=l2s, l3_score=l3s,
-                model_versions=mv, latency_ms=per, blocked=False,
-            ))
+            out.append(
+                FastLaneScore(
+                    entity_id=str(eid),
+                    fast_score=fast,
+                    l2_score=l2s,
+                    l3_score=l3s,
+                    model_versions=mv,
+                    latency_ms=per,
+                    blocked=False,
+                )
+            )
         return out
 
     @staticmethod

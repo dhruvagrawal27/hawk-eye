@@ -16,6 +16,7 @@ Two complementary measures (both Fairlearn-independent):
 Output: a list of flagged proxies with the measure, value, and reason codes + narrative so
 the finding is explainable/contestable (Part 29.2).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -109,7 +110,9 @@ class ProxyFinding:
             "feature": self.feature,
             "protected_attribute": self.protected_attribute,
             "mutual_information": round(self.mutual_information, 4),
-            "correlation": None if self.correlation is None else round(self.correlation, 4),
+            "correlation": (
+                None if self.correlation is None else round(self.correlation, 4)
+            ),
             "measure": self.measure,
             "value": round(self.value, 4),
             "is_proxy": self.is_proxy,
@@ -140,11 +143,19 @@ def detect_proxies(
         def narrator(ctx: dict[str, Any]) -> dict[str, Any]:  # type: ignore[misc]
             return {"narrative": _render(ctx), "provider": "template"}
 
-    feats = list(candidate_features) if candidate_features is not None else list(features.columns)
+    feats = (
+        list(candidate_features)
+        if candidate_features is not None
+        else list(features.columns)
+    )
     findings: list[ProxyFinding] = []
     idx = features.index
     for attr in protected.columns:
-        pa = protected[attr].reindex(idx) if not protected.index.equals(idx) else protected[attr]
+        pa = (
+            protected[attr].reindex(idx)
+            if not protected.index.equals(idx)
+            else protected[attr]
+        )
         for f in feats:
             if f not in features.columns:
                 continue

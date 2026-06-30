@@ -2,13 +2,13 @@
 
 No torch / no LightGBM here — pure numpy/pandas, so no OpenMP hazard.
 """
+
 from __future__ import annotations
 
 import math
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from ml.metrics import (
@@ -94,7 +94,9 @@ def test_fpr_from_vectors():
 
 
 def test_fpr_from_counts():
-    assert false_positive_rate(false_positives=2, true_negatives=8) == pytest.approx(0.2)
+    assert false_positive_rate(false_positives=2, true_negatives=8) == pytest.approx(
+        0.2
+    )
 
 
 def test_fpr_no_benign_is_nan():
@@ -134,7 +136,9 @@ def test_rbi_tat_open_case_excluded_when_not_breach():
     opened = [datetime(2026, 6, 20), datetime(2020, 1, 1)]
     closed = [datetime(2026, 6, 25), None]  # 5d closed; second still open
     r = rbi_tat_compliance(
-        opened_times=opened, closed_times=closed, tat_days=30.0,
+        opened_times=opened,
+        closed_times=closed,
+        tat_days=30.0,
         count_open_as_breach=False,
     )
     assert r["n_open_excluded"] == 1
@@ -203,7 +207,9 @@ def test_cases_system_vs_tips_from_counts():
 
 
 def test_cases_system_vs_tips_empty_nan():
-    assert math.isnan(cases_surfaced_system_vs_tips(n_system=0, n_tips=0)["system_share"])
+    assert math.isnan(
+        cases_surfaced_system_vs_tips(n_system=0, n_tips=0)["system_share"]
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -257,9 +263,14 @@ def test_compute_ops_dashboard_partial_inputs_safe():
 
 def test_ops_dashboard_dataclass_roundtrip():
     d = OpsDashboard(
-        alert_volume={}, mttd=1.0, mttd_unit="hours",
-        mean_time_to_disposition=2.0, disposition_unit="days",
-        false_positive_rate=0.1, rbi_tat_compliance={}, estimated_loss_avoided={},
+        alert_volume={},
+        mttd=1.0,
+        mttd_unit="hours",
+        mean_time_to_disposition=2.0,
+        disposition_unit="days",
+        false_positive_rate=0.1,
+        rbi_tat_compliance={},
+        estimated_loss_avoided={},
         cases_system_vs_tips={},
     )
     assert d.to_dict()["mttd"] == 1.0

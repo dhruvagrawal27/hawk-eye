@@ -4,6 +4,7 @@ No torch / LightGBM here — fairness uses Fairlearn + sklearn + numpy only, whi
 fine in one process. We synthesize a small dataset with a known sensitive attribute and a
 deliberately BIASED scorer so every metric/mitigation has clear signal.
 """
+
 from __future__ import annotations
 
 import os
@@ -85,7 +86,13 @@ def biased_dataset():
             "tenure": tenure,
         }
     )
-    return dict(y_true=y_true, y_pred=y_pred, y_score=y_score, protected=protected, region=region)
+    return dict(
+        y_true=y_true,
+        y_pred=y_pred,
+        y_score=y_score,
+        protected=protected,
+        region=region,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -100,7 +107,9 @@ def test_disparate_impact_detects_bias(biased_dataset):
 
 def test_single_attribute_metric_all_fields(biased_dataset):
     m = compute_fairness_metric(
-        biased_dataset["y_true"], biased_dataset["y_pred"], biased_dataset["region"],
+        biased_dataset["y_true"],
+        biased_dataset["y_pred"],
+        biased_dataset["region"],
         attribute="region",
     )
     # all four required metrics computed
@@ -111,8 +120,14 @@ def test_single_attribute_metric_all_fields(biased_dataset):
     assert "disparate_impact" in m.breaches()
     assert m.backend in ("fairlearn", "direct")
     d = m.to_dict()
-    assert set(["demographic_parity_difference", "disparate_impact_ratio",
-                "equal_opportunity_difference", "equalized_odds_difference"]).issubset(d)
+    assert set(
+        [
+            "demographic_parity_difference",
+            "disparate_impact_ratio",
+            "equal_opportunity_difference",
+            "equalized_odds_difference",
+        ]
+    ).issubset(d)
 
 
 def test_all_protected_attributes_covered(biased_dataset):
@@ -185,7 +200,9 @@ def test_fairness_monitor_hook(biased_dataset):
     assert any(a["attribute"] == "region" for a in rec1["alerts"])
 
     # callable form works as a streaming hook
-    rec2 = mon(biased_dataset["y_true"], biased_dataset["y_pred"], biased_dataset["protected"])
+    rec2 = mon(
+        biased_dataset["y_true"], biased_dataset["y_pred"], biased_dataset["protected"]
+    )
     assert rec2["batch_index"] == 1
     assert len(mon.history) == 2
 
@@ -203,7 +220,9 @@ def test_monitor_newly_breached_regression():
     unbiased = (rng.random(n) < 0.2).astype(int)
     mon.update(y_true, unbiased, protected)
     # batch 2: strongly biased toward 'a'
-    biased = np.where((grp == "a") & (rng.random(n) < 0.8), 1, (rng.random(n) < 0.05).astype(int))
+    biased = np.where(
+        (grp == "a") & (rng.random(n) < 0.8), 1, (rng.random(n) < 0.05).astype(int)
+    )
     mon.update(y_true, biased, protected)
     assert "region" in mon.newly_breached()
 
@@ -240,14 +259,18 @@ def test_group_wise_thresholds_equalize_selection(biased_dataset):
 
 def test_threshold_optimizer_postprocessing(biased_dataset):
     res = threshold_optimizer(
-        biased_dataset["y_score"], biased_dataset["y_true"], biased_dataset["region"],
+        biased_dataset["y_score"],
+        biased_dataset["y_true"],
+        biased_dataset["region"],
         constraint="demographic_parity",
     )
     # Fairlearn is installed on the reference machine -> available; result is a 0/1 vector.
     assert res.available is True
     assert res.y_pred is not None
     di_after = disparate_impact_ratio(res.y_pred, biased_dataset["region"])
-    di_before = disparate_impact_ratio(biased_dataset["y_pred"], biased_dataset["region"])
+    di_before = disparate_impact_ratio(
+        biased_dataset["y_pred"], biased_dataset["region"]
+    )
     assert di_after >= di_before  # not worse; typically much more even
 
 
@@ -260,7 +283,12 @@ def test_assert_no_protected_features_blocks_leak():
 
 
 def test_assert_no_protected_features_passes_clean():
-    good = ["amount_z_personal", "offhours_rate", "login_velocity_60m", "n_distinct_devices"]
+    good = [
+        "amount_z_personal",
+        "offhours_rate",
+        "login_velocity_60m",
+        "n_distinct_devices",
+    ]
     assert_no_protected_features(good)  # must not raise
 
 
@@ -288,7 +316,9 @@ def test_proxy_detection_flags_branch_as_region(biased_dataset):
     findings = detect_proxies(features, protected[["region"]])
     flagged = flagged_proxies(findings)
     # branch should be flagged as a region proxy
-    assert any(f.feature == "branch" and f.protected_attribute == "region" for f in flagged)
+    assert any(
+        f.feature == "branch" and f.protected_attribute == "region" for f in flagged
+    )
     proxy = next(f for f in flagged if f.feature == "branch")
     assert proxy.value >= proxy.threshold
     assert proxy.reason_codes and proxy.narrative
@@ -317,7 +347,9 @@ def test_feedback_trap_detects_disproportionate_confirmation():
         rng.random(n) < 0.8,
         rng.random(n) < 0.2,
     )
-    protected = pd.DataFrame({"region": region, "gender": rng.choice(["f", "m"], size=n)})
+    protected = pd.DataFrame(
+        {"region": region, "gender": rng.choice(["f", "m"], size=n)}
+    )
     results = detect_feedback_trap(dispositions, protected)
     assert results["region"].disproportionate is True
     assert results["region"].reason_codes and results["region"].narrative
@@ -347,7 +379,9 @@ def test_feedback_trap_no_flag_when_balanced():
 def test_feedback_trap_string_dispositions():
     region = (["north"] * 50) + (["south"] * 50)
     # north mostly confirmed, south mostly cleared
-    disp = (["confirmed"] * 45 + ["cleared"] * 5) + (["cleared"] * 45 + ["confirmed"] * 5)
+    disp = (["confirmed"] * 45 + ["cleared"] * 5) + (
+        ["cleared"] * 45 + ["confirmed"] * 5
+    )
     protected = pd.DataFrame({"region": region})
     results = detect_feedback_trap(disp, protected)
     assert results["region"].disproportionate is True

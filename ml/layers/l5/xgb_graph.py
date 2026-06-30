@@ -15,14 +15,15 @@ graph aggregate fired) as ``ReasonCode(source="graph"|"shap")``.
 The module ALWAYS imports — boosters are imported inside ``fit``/methods and degrade
 to scikit-learn when LightGBM/XGBoost are absent.
 """
+
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
 
-from ml._optional import HAS_LIGHTGBM, HAS_XGBOOST, optional_import
+from ml._optional import HAS_LIGHTGBM, HAS_XGBOOST, require
 from ml.base import BaseScorer, ReasonCode
 from ml.layers.l5.graph_build import EntityGraph, build_entity_graph, k_hop_aggregates
 
@@ -68,7 +69,7 @@ class _BaseGraphScorer(BaseScorer):
     def __init__(self, name: str, *, k: int = 2, version: str = "0.1.0") -> None:
         super().__init__(name=name, version=version)
         self.k = int(k)
-        self._model = None
+        self._model: Any = None
         self._impl = "none"
         self._columns: list[str] = []
         self._graph: Optional[EntityGraph] = None
@@ -78,7 +79,9 @@ class _BaseGraphScorer(BaseScorer):
     def _make_model(self, n_pos: int, n_neg: int):  # pragma: no cover - overridden
         raise NotImplementedError
 
-    def _build_design(self, X: pd.DataFrame, events: Optional[pd.DataFrame]) -> pd.DataFrame:
+    def _build_design(
+        self, X: pd.DataFrame, events: Optional[pd.DataFrame]
+    ) -> pd.DataFrame:
         """X is per-employee entity_features. ``events`` (optional) builds/refreshes the graph."""
         if events is not None:
             self._graph = build_entity_graph(events)
@@ -91,9 +94,16 @@ class _BaseGraphScorer(BaseScorer):
                     self._graph.employees.append(e)
         return graph_design_matrix(X, self._graph, k=self.k)
 
-    def fit(self, X: pd.DataFrame, y, events: Optional[pd.DataFrame] = None) -> "_BaseGraphScorer":
+    def fit(  # type: ignore[override]  # intentional: graph fit adds events= and requires y
+        self, X: pd.DataFrame, y, events: Optional[pd.DataFrame] = None
+    ) -> "_BaseGraphScorer":
         design = self._build_design(X, events)
-        y = pd.Series(np.asarray(y).astype(int).ravel(), index=X.index).reindex(design.index).fillna(0).astype(int)
+        y = (
+            pd.Series(np.asarray(y).astype(int).ravel(), index=X.index)
+            .reindex(design.index)
+            .fillna(0)
+            .astype(int)
+        )
         self._columns = [str(c) for c in design.columns]
         Xv = design.to_numpy(dtype=float)
         yv = y.to_numpy(dtype=int)
@@ -105,7 +115,9 @@ class _BaseGraphScorer(BaseScorer):
         self._fitted = True
         return self
 
-    def _design_for(self, X: pd.DataFrame, events: Optional[pd.DataFrame]) -> pd.DataFrame:
+    def _design_for(
+        self, X: pd.DataFrame, events: Optional[pd.DataFrame]
+    ) -> pd.DataFrame:
         graph = build_entity_graph(events) if events is not None else self._graph
         if graph is None:
             graph = EntityGraph()
@@ -120,7 +132,9 @@ class _BaseGraphScorer(BaseScorer):
                 design[c] = 0.0
         return design[self._columns]
 
-    def predict_proba(self, X: pd.DataFrame, events: Optional[pd.DataFrame] = None) -> np.ndarray:
+    def predict_proba(
+        self, X: pd.DataFrame, events: Optional[pd.DataFrame] = None
+    ) -> np.ndarray:
         if not self._fitted or self._model is None:
             raise RuntimeError("scorer is not fitted")
         design = self._design_for(X, events)
@@ -178,7 +192,9 @@ class XGBGraphScorer(_BaseGraphScorer):
     available). Uses the L3 imbalance recipe (``scale_pos_weight``/``is_unbalance``).
     """
 
-    def __init__(self, *, k: int = 2, backend: str = "auto", version: str = "0.1.0") -> None:
+    def __init__(
+        self, *, k: int = 2, backend: str = "auto", version: str = "0.1.0"
+    ) -> None:
         super().__init__(name="l5-xgb-graph", k=k, version=version)
         self.backend = backend
 
@@ -186,7 +202,7 @@ class XGBGraphScorer(_BaseGraphScorer):
         spw = max(1.0, n_neg / max(1, n_pos))
         want = self.backend
         if want in ("auto", "lightgbm") and HAS_LIGHTGBM:
-            lgb = optional_import("lightgbm")
+            lgb = require("lightgbm")
             self._impl = "lightgbm"
             return lgb.LGBMClassifier(
                 objective="binary",
@@ -203,7 +219,7 @@ class XGBGraphScorer(_BaseGraphScorer):
                 random_state=1405,
             )
         if want in ("auto", "xgboost") and HAS_XGBOOST:
-            xgb = optional_import("xgboost")
+            xgb = require("xgboost")
             self._impl = "xgboost"
             return xgb.XGBClassifier(
                 tree_method="hist",
@@ -234,7 +250,9 @@ class XGBGraphScorer(_BaseGraphScorer):
 class RFGraphScorer(_BaseGraphScorer):
     """RandomForest variant of the graph scorer (robust, no booster dependency)."""
 
-    def __init__(self, *, k: int = 2, n_estimators: int = 300, version: str = "0.1.0") -> None:
+    def __init__(
+        self, *, k: int = 2, n_estimators: int = 300, version: str = "0.1.0"
+    ) -> None:
         super().__init__(name="l5-rf-graph", k=k, version=version)
         self.n_estimators = int(n_estimators)
 

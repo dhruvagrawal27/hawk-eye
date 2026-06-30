@@ -14,6 +14,7 @@ Pure pandas/numpy -> no heavy model, no torch. pandas-3.0-safe (``pd.api.types``
 
 Run: .mlvenv/bin/python -m pytest tests/ml/test_drift_integrity.py -q
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -87,7 +88,10 @@ def reference():
 # --------------------------------------------------------------------------- #
 def test_clean_batch_passes_integrity(reference):
     schema = list(reference.columns)
-    ranges = {"is_off_hours": (0, 1), "amount": (0, float(reference["amount"].max()) * 2)}
+    ranges = {
+        "is_off_hours": (0, 1),
+        "amount": (0, float(reference["amount"].max()) * 2),
+    }
     required = ["amount", "is_off_hours"]
     assert check_integrity(reference, schema, ranges, required) == []
 
@@ -99,17 +103,26 @@ def test_integrity_flags_missing_column_range_and_null(reference):
 
     # (a) missing a schema column
     miss = reference.drop(columns=["amount"])
-    assert any(v.startswith("missing_columns") for v in check_integrity(miss, schema, ranges, required))
+    assert any(
+        v.startswith("missing_columns")
+        for v in check_integrity(miss, schema, ranges, required)
+    )
 
     # (b) out-of-range value (off-hours flag should be 0/1; inject a 9)
     bad_range = reference.copy()
     bad_range.loc[bad_range.index[0], "is_off_hours"] = 9
-    assert any(v == "out_of_range:is_off_hours" for v in check_integrity(bad_range, schema, ranges, required))
+    assert any(
+        v == "out_of_range:is_off_hours"
+        for v in check_integrity(bad_range, schema, ranges, required)
+    )
 
     # (c) null in a required feature
     nulls = reference.copy()
     nulls.loc[nulls.index[0], "amount"] = np.nan
-    assert any(v == "null_in_required:amount" for v in check_integrity(nulls, schema, ranges, required))
+    assert any(
+        v == "null_in_required:amount"
+        for v in check_integrity(nulls, schema, ranges, required)
+    )
 
 
 # --------------------------------------------------------------------------- #

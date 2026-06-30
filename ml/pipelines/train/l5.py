@@ -7,6 +7,7 @@ Default path is the XGB-Graph scorer (LightGBM/XGBoost/sklearn — torch-free). 
 (torch_geometric) is supported via ``scorer=...`` but must NOT share a process with
 LightGBM (macOS dual-libomp), so callers select one.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -81,8 +82,12 @@ def train_l5(
         metrics = {"auprc": float("nan"), f"recall_at_{rec_at_k}": float("nan")}
 
     return L5TrainResult(
-        scorer=sc, metrics=metrics, n_nodes=n_nodes,
-        n_edges=0, n_train=len(Xtr), n_test=len(Xte),
+        scorer=sc,
+        metrics=metrics,
+        n_nodes=n_nodes,
+        n_edges=0,
+        n_train=len(Xtr),
+        n_test=len(Xte),
     )
 
 

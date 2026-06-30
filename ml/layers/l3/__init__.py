@@ -9,6 +9,7 @@ probability. Live reason codes via plain TreeSHAP (interaction values OFFLINE on
 Every heavy library import lives inside methods, so this package always imports even when
 lightgbm/xgboost/catboost/shap are absent (clean sklearn fallbacks kick in).
 """
+
 from __future__ import annotations
 
 from ml.layers.l3.calibration import CalibratedScorer, reliability_summary, to_0_100

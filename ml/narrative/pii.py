@@ -6,12 +6,12 @@ deterministic HMAC-SHA256 token scheme so ML code can tokenise its own fixtures 
 verify tokens — it NEVER re-identifies. The key is read from ``os.environ`` and never
 hardcoded (golden rule #2).
 """
+
 from __future__ import annotations
 
 import hashlib
 import hmac
 import os
-from typing import Optional
 
 # A non-secret default lets fixtures/tests run; production injects PII_HMAC_KEY.
 _DEV_FALLBACK_KEY = b"hawkeye-dev-pii-hmac-key-not-for-production"

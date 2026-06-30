@@ -1,4 +1,5 @@
 """Adapters: the seams to DATA (features/events) and DATABASE (model/label stores)."""
+
 from __future__ import annotations
 
 from ml.adapters.feature_source import (

@@ -6,12 +6,12 @@ Insider fraud has few labels and a vast unlabeled majority. Two complementary to
   negatives (spy-style) so we never treat 'unknown' as 'benign'.
 - ``SelfTrainingClassifier`` — pseudo-label high-confidence unlabeled points and retrain.
 """
+
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any
 
 import numpy as np
-import pandas as pd
 from sklearn.base import clone
 from sklearn.ensemble import HistGradientBoostingClassifier
 
@@ -29,19 +29,29 @@ class PUClassifier:
     by the estimated label frequency c. Reliable negatives are the lowest-scoring unlabeled.
     """
 
-    def __init__(self, base=None, val_frac: float = 0.25, seed: int = GLOBAL_SEED) -> None:
-        self.base = base if base is not None else HistGradientBoostingClassifier(random_state=seed)
+    def __init__(
+        self, base=None, val_frac: float = 0.25, seed: int = GLOBAL_SEED
+    ) -> None:
+        self.base = (
+            base
+            if base is not None
+            else HistGradientBoostingClassifier(random_state=seed)
+        )
         self.val_frac = val_frac
         self.seed = seed
         self.c_ = 1.0
-        self._clf = None
+        self._clf: Any = None
 
     def fit(self, X, s) -> "PUClassifier":
         X = _as2d(X)
         s = np.asarray(s).astype(int).ravel()
         rng = np.random.default_rng(self.seed)
         pos = np.flatnonzero(s == 1)
-        hold = rng.choice(pos, size=max(1, int(len(pos) * self.val_frac)), replace=False) if len(pos) else np.array([], int)
+        hold = (
+            rng.choice(pos, size=max(1, int(len(pos) * self.val_frac)), replace=False)
+            if len(pos)
+            else np.array([], int)
+        )
         train_mask = np.ones(len(s), bool)
         train_mask[hold] = False
         self._clf = clone(self.base)
@@ -68,12 +78,22 @@ class PUClassifier:
 class SelfTrainingClassifier:
     """Semi-supervised self-training: pseudo-label confident unlabeled points, retrain."""
 
-    def __init__(self, base=None, threshold: float = 0.9, max_iter: int = 3, seed: int = GLOBAL_SEED) -> None:
-        self.base = base if base is not None else HistGradientBoostingClassifier(random_state=seed)
+    def __init__(
+        self,
+        base=None,
+        threshold: float = 0.9,
+        max_iter: int = 3,
+        seed: int = GLOBAL_SEED,
+    ) -> None:
+        self.base = (
+            base
+            if base is not None
+            else HistGradientBoostingClassifier(random_state=seed)
+        )
         self.threshold = threshold
         self.max_iter = max_iter
         self.seed = seed
-        self._clf = None
+        self._clf: Any = None
         self.n_pseudolabels_ = 0
 
     def fit(self, X, y) -> "SelfTrainingClassifier":
