@@ -1,0 +1,39 @@
+# =============================================================================
+# Hawk-Eye — PLATFORM-owned services compose
+# Blueprint Part 18/19/25/30. Grows per milestone; ALWAYS valid (root compose
+# includes it). Currently: degradation-switch (PLATFORM-4, REAL).
+# Added later: tee-attestation (M2), pam-shim (M2), vault (M2), otel-collector (M4),
+# alertmanager (M4), governance-api (M5), hitl-gate (M5).
+# =============================================================================
+name: hawk-eye
+
+networks:
+  hawkeye:
+    name: hawkeye
+    driver: bridge
+
+services:
+  # --- Graceful-degradation control plane (PLATFORM-4/28, REAL) ---------------
+  degradation-switch:
+    build:
+      context: ../../services/degradation-switch
+      dockerfile: Dockerfile
+    image: hawkeye/degradation-switch:1.0.0
+    container_name: hawkeye-degradation-switch
+    networks: [hawkeye]
+    ports:
+      - "8092:8092"
+    environment:
+      ML_SERVING_HEALTH_URL: ${ML_SERVING_HEALTH_URL:-http://serving:8001/v2/health/ready}
+      SERVING_INFER_BASE: http://serving:8001/v2/models
+      KAFKA_BOOTSTRAP: kafka:9092
+      ENABLE_KAFKA_WORKER: "true"
+      DEGRADATION_FORCE_RULES_ONLY: ${DEGRADATION_FORCE_RULES_ONLY:-false}
+    # NOTE: intentionally NO hard depends_on serving — the switch's whole job is to
+    # tolerate serving being down and degrade to L1-rules-only. It probes at runtime.
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8092/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s

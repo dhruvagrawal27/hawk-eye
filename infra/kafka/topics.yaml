@@ -1,0 +1,45 @@
+# Hawk-Eye — canonical Kafka topic topology (PLATFORM-2/4, blueprint Part 9.1)
+# DATA defines the L0 schema (BACKEND.md §1); PLATFORM provisions the topics.
+# Dev: 1 broker, RF=1. Prod (Part 9.2): 3-5 brokers, RF=3, partitioned-by-entity.
+# create-topics.sh applies this set. Keep names stable — other laptops reference them.
+topics:
+  - name: hawkeye.events.l0
+    partitions: 6            # partitioned by entity_id for per-entity ordering (Part 9.2)
+    replication: 1           # prod: 3
+    config: { retention.ms: 604800000, cleanup.policy: delete }   # 7d hot
+    note: "L0 unified events from collectors (BACKEND.md §1)."
+  - name: hawkeye.events.enriched
+    partitions: 6
+    replication: 1
+    config: { retention.ms: 604800000 }
+    note: "Flink stateful-enriched + windowed-feature events."
+  - name: hawkeye.scores
+    partitions: 6
+    replication: 1
+    config: { retention.ms: 604800000 }
+    note: "Per-layer L2-L6 scores from serving/fusion."
+  - name: hawkeye.alerts
+    partitions: 3
+    replication: 1
+    config: { retention.ms: 2592000000 }   # 30d (RBI TAT window)
+    note: "L6 fused alerts (BACKEND.md §2). Consumed by case store + dashboard."
+  - name: hawkeye.audit
+    partitions: 3
+    replication: 1
+    config: { retention.ms: -1, cleanup.policy: compact }   # append-only, never expire
+    note: "Immutable audit stream -> WORM sink (Part 19.3 quis-custodiet)."
+  - name: hawkeye.feedback
+    partitions: 3
+    replication: 1
+    config: { retention.ms: 7776000000 }   # 90d
+    note: "EDD dispositions -> labels (active-learning loop)."
+  - name: hawkeye.rescore
+    partitions: 6
+    replication: 1
+    config: { retention.ms: 604800000 }
+    note: "Events flagged for re-scoring after degradation->L1-only (PLATFORM-4/28)."
+  - name: hawkeye.dlq
+    partitions: 3
+    replication: 1
+    config: { retention.ms: 1209600000 }   # 14d
+    note: "Dead-letter queue for poison messages (Part 32.2 reliability)."

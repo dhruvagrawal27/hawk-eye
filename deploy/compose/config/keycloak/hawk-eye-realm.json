@@ -1,0 +1,80 @@
+{
+  "realm": "hawk-eye",
+  "enabled": true,
+  "displayName": "Hawk-Eye Insider Fraud Detection",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "roles": {
+    "realm": [
+      { "name": "analyst", "description": "Fraud investigator — triage + EDD on assigned cases (BACKEND.md §4)" },
+      { "name": "senior_investigator", "description": "Senior investigator — incl. PII unmask (audited)" },
+      { "name": "team_lead_mlro", "description": "Team Lead / MLRO — block-request approval, escalation" },
+      { "name": "compliance_officer", "description": "Compliance — rule/threshold CRUD (change-controlled), reporting" },
+      { "name": "auditor", "description": "Internal Audit — read-only immutable audit trail (who-viewed-whom)" },
+      { "name": "model_engineer", "description": "Model Engineer/Data Scientist — registry, drift, model promotion (+sign-off)" },
+      { "name": "platform_admin", "description": "Platform Admin — user/role mgmt; PAM-gated, audited (Part 19.3)" },
+      { "name": "builder", "description": "SoD persona (PLATFORM-33): builds models. CANNOT label or act." },
+      { "name": "labeler", "description": "SoD persona: labels training data. CANNOT build or administer." },
+      { "name": "actor", "description": "SoD persona: acts on alerts (investigator). CANNOT build or label." },
+      { "name": "administrator", "description": "SoD persona: administers platform. CANNOT build, label, or act on alerts." }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "hawk-eye-frontend",
+      "name": "Investigator Dashboard (React/Vite)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:5173/*", "http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:5173", "http://localhost:3000"],
+      "attributes": { "pkce.code.challenge.method": "S256" }
+    },
+    {
+      "clientId": "hawk-eye-backend",
+      "name": "Backend API (FastAPI)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "backend-dev-secret-rotate-in-vault",
+      "bearerOnly": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:8000/*"]
+    },
+    {
+      "clientId": "hawk-eye-services",
+      "name": "Internal service accounts (mTLS/SPIFFE peers)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "services-dev-secret-rotate-in-vault",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    }
+  ],
+  "users": [
+    { "username": "u_analyst", "enabled": true, "email": "analyst@hawk-eye.test", "firstName": "Asha", "lastName": "Analyst",
+      "credentials": [{ "type": "password", "value": "demo_pw", "temporary": false }],
+      "realmRoles": ["analyst", "actor"] },
+    { "username": "u_builder", "enabled": true, "email": "builder@hawk-eye.test", "firstName": "Bina", "lastName": "Builder",
+      "credentials": [{ "type": "password", "value": "demo_pw", "temporary": false }],
+      "realmRoles": ["model_engineer", "builder"] },
+    { "username": "u_labeler", "enabled": true, "email": "labeler@hawk-eye.test", "firstName": "Lalit", "lastName": "Labeler",
+      "credentials": [{ "type": "password", "value": "demo_pw", "temporary": false }],
+      "realmRoles": ["labeler"] },
+    { "username": "u_admin", "enabled": true, "email": "admin@hawk-eye.test", "firstName": "Arun", "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "demo_pw", "temporary": false }],
+      "realmRoles": ["platform_admin", "administrator"] },
+    { "username": "u_compliance", "enabled": true, "email": "compliance@hawk-eye.test", "firstName": "Chitra", "lastName": "Compliance",
+      "credentials": [{ "type": "password", "value": "demo_pw", "temporary": false }],
+      "realmRoles": ["compliance_officer"] },
+    { "username": "u_auditor", "enabled": true, "email": "auditor@hawk-eye.test", "firstName": "Iqbal", "lastName": "Auditor",
+      "credentials": [{ "type": "password", "value": "demo_pw", "temporary": false }],
+      "realmRoles": ["auditor"] }
+  ]
+}

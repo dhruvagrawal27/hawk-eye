@@ -1,0 +1,162 @@
+# =============================================================================
+# Hawk-Eye — APP / identity / observability compose  (PLATFORM-3)
+# Blueprint Part 8 / 9.1 / 26.1.  Serving · FastAPI · Keycloak · MLflow · Airflow
+# · Prometheus · Grafana.  Image tags from deploy/compose/.env (the BOM).
+# Run alongside core: `make app-up`.
+# =============================================================================
+name: hawk-eye
+
+networks:
+  hawkeye:
+    name: hawkeye
+    driver: bridge
+
+volumes:
+  mlflow-data:
+  grafana-data:
+  prometheus-data:
+
+services:
+  # --- Model serving (KServe v2). CPU stub here; ML swaps real Triton (BOM). ---
+  serving:
+    build:
+      context: ./config/serving
+      dockerfile: Dockerfile
+    image: hawkeye/serving-stub:0.0.1   # STUB: replaced by ${TRITON_IMAGE} (ML)
+    container_name: hawkeye-serving
+    networks: [hawkeye]
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/v2/health/ready').status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  # --- App / API (FastAPI). STUB: replaced by the BACKEND image. ---------------
+  backend:
+    build:
+      context: ../../tests/harness/stubs/backend
+      dockerfile: Dockerfile
+    image: hawkeye/backend-stub:0.0.1   # STUB: replaced by BACKEND FastAPI image
+    container_name: hawkeye-backend
+    networks: [hawkeye]
+    ports:
+      - "8000:8000"
+    environment:
+      PII_HMAC_KEY: ${PII_HMAC_KEY:-dev-only-hmac-key}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  # --- Identity: Keycloak (OIDC). Realm `hawk-eye` imported on start. ----------
+  keycloak:
+    image: ${KEYCLOAK_IMAGE}
+    container_name: hawkeye-keycloak
+    networks: [hawkeye]
+    ports:
+      - "8080:8080"
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev_pw}
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+    volumes:
+      - ./config/keycloak:/opt/keycloak/data/import:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/8080' 2>/dev/null || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # --- Model registry/tracking: MLflow (ML owns content; PLATFORM hosts) -------
+  mlflow:
+    image: ${MLFLOW_IMAGE}
+    container_name: hawkeye-mlflow
+    networks: [hawkeye]
+    ports:
+      - "5000:5000"
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+    volumes:
+      - mlflow-data:/mlflow
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/health').status==200 else 1)\""]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 25s
+
+  # --- Orchestration: Airflow (standalone, dev). ML/DATA author DAGs. ----------
+  airflow:
+    image: ${AIRFLOW_IMAGE}
+    container_name: hawkeye-airflow
+    networks: [hawkeye]
+    ports:
+      - "8088:8080"
+    command: ["bash", "-c", "airflow standalone"]
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      _AIRFLOW_WWW_USER_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      _AIRFLOW_WWW_USER_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev_pw}
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/8080' 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+  # --- Metrics: Prometheus -----------------------------------------------------
+  prometheus:
+    image: ${PROMETHEUS_IMAGE}
+    container_name: hawkeye-prometheus
+    networks: [hawkeye]
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../observability/prometheus-rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  # --- Dashboards: Grafana (provisioned datasource + dashboards) ---------------
+  grafana:
+    image: ${GRAFANA_IMAGE}
+    container_name: hawkeye-grafana
+    networks: [hawkeye]
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin_dev_pw}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../../observability/grafana-dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s

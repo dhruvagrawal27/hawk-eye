@@ -1,0 +1,13 @@
+# Feast feature-store config (PLATFORM hosts the server; DATA owns the real repo).
+# Online store = Redis (the compose `redis` service). Offline = local file (dev).
+project: hawkeye
+provider: local
+registry: /feature_repo/data/registry.db
+online_store:
+  type: redis
+  connection_string: "redis:6379,password=hawkeye_dev_pw"
+offline_store:
+  type: file
+entity_key_serialization_version: 2
+# NOTE: DATA (feature_store/feature_repo) replaces example_repo.py with the real
+# feature views (DATA-6). This placeholder keeps the host green so the topology validates.

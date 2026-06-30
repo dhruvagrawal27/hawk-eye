@@ -1,0 +1,38 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "title": "Hawk-Eye — Platform Overview",
+  "tags": ["hawk-eye", "platform"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Degradation: routing rules-only (1=degraded)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [
+        { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "targets": [ { "expr": "max(degradation_rules_only)", "refId": "A" } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Alerts raised / min (by mode)",
+      "gridPos": { "h": 6, "w": 16, "x": 8, "y": 0 },
+      "targets": [ { "expr": "sum by (mode) (rate(degradation_alerts_total[5m]))", "refId": "A" } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Serving inference p99 latency (s)",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 6 },
+      "targets": [ { "expr": "histogram_quantile(0.99, sum by (le) (rate(serving_infer_latency_seconds_bucket[5m])))", "refId": "A" } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Events scored / min (by mode)",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 6 },
+      "targets": [ { "expr": "sum by (mode) (rate(degradation_scored_total[5m]))", "refId": "A" } ]
+    }
+  ]
+}
