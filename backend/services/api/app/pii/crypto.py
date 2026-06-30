@@ -53,6 +53,8 @@ def at_rest_status() -> dict:
     """Posture summary surfaced on /health and admin views."""
     return {
         "field_level_encryption": "AES-256-GCM",
-        "key_custody": "platform_vault_kms_hsm" if not settings.is_local else "local_dev_placeholder",
+        "key_custody": (
+            "platform_vault_kms_hsm" if not settings.is_local else "local_dev_placeholder"
+        ),
         "mtls_in_transit": settings.mtls_internal,
     }

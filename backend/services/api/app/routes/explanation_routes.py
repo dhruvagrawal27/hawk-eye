@@ -62,8 +62,13 @@ def get_explanation(
         weight = 0.8 if (ev.amount_inr or 0) > 0 else 0.4 if ev.lane == "change" else 0.2
         attention.append(AttentionStep(step=i, verb=ev.verb, ts=ev.ts, weight=weight))
 
-    AUDIT.write(actor=principal.user_id, actor_role=principal.role, action="explanation.view",
-                target=alert.entity_id, detail={"alert_id": alert_id})
+    AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="explanation.view",
+        target=alert.entity_id,
+        detail={"alert_id": alert_id},
+    )
     return Explanation(
         alert_id=alert_id,
         entity_id=alert.entity_id,

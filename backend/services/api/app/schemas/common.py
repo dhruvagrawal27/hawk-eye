@@ -7,7 +7,7 @@ IDs follow CONTEXT.md §6 conventions: ``evt_*`` events, ``alr_*`` alerts, ``aud
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 
 
@@ -79,14 +79,14 @@ class Capability(str, Enum):
 
 # --- Time / ID helpers ---
 def utcnow() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 def iso_z(dt: datetime) -> str:
     """ISO-8601 with a trailing ``Z`` (CONTEXT.md §6)."""
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _rand(n: int) -> str:

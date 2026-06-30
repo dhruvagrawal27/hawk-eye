@@ -40,8 +40,11 @@ def assemble(
     # 4) Sequence attention (L4), when present.
     for step in sequence_attention or []:
         codes.append(
-            {"source": "sequence", "detail": f"step {step.get('step')}: {step.get('verb')}",
-             "contribution": step.get("weight")}
+            {
+                "source": "sequence",
+                "detail": f"step {step.get('step')}: {step.get('verb')}",
+                "contribution": step.get("weight"),
+            }
         )
 
     return codes

@@ -23,7 +23,11 @@ def _signals(fv: dict) -> dict:
     amount_z = max(0.0, min(4.0, float(fv.get("amount_zscore", 0.0) or 0.0)))
     latency = fv.get("minutes_since_new_beneficiary")
     lat_risk = 0.0 if latency is None else max(0.0, 1.0 - float(latency) / 120.0)
-    sod = 1.0 if (fv.get("maker_checker_same_actor") or fv.get("maker_checker_pair_isolated")) else 0.0
+    sod = (
+        1.0
+        if (fv.get("maker_checker_same_actor") or fv.get("maker_checker_pair_isolated"))
+        else 0.0
+    )
     priv = 1.0 if fv.get("privileged_session") else 0.0
     return {"off": off, "amount_z": amount_z / 4.0, "lat_risk": lat_risk, "sod": sod, "priv": priv}
 

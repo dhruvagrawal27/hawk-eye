@@ -23,8 +23,10 @@ def _ctx(actor=None, action=None, features=None):
 
 
 def test_privileged_session_correlation_fires():
-    ctx = _ctx(actor={"employee_id": "EMP-3c55", "privileged_flag": True},
-               action={"verb": "db_write", "channel": "db"})
+    ctx = _ctx(
+        actor={"employee_id": "EMP-3c55", "privileged_flag": True},
+        action={"verb": "db_write", "channel": "db"},
+    )
     hit = privileged_session_correlation(ctx, _cfg("PRIVILEGED_SESSION_CORRELATION"))
     assert hit is not None and hit.code == "PRIVILEGED_SESSION_CORRELATION"
 
@@ -36,9 +38,15 @@ def test_orphaned_account_use_fires_for_leaver():
 
 def test_leaver_window_exfil_requires_volume():
     cfg = _cfg("LEAVER_WINDOW_EXFIL", exfil_verbs=["export"], export_volume_min=1000)
-    ctx = _ctx(actor={"employee_id": "EMP-9f02", "leaver_flag": True}, action={"verb": "export"},
-               features={"export_record_count": 5000})
+    ctx = _ctx(
+        actor={"employee_id": "EMP-9f02", "leaver_flag": True},
+        action={"verb": "export"},
+        features={"export_record_count": 5000},
+    )
     assert leaver_window_exfil(ctx, cfg) is not None
-    ctx_low = _ctx(actor={"employee_id": "EMP-9f02", "leaver_flag": True}, action={"verb": "export"},
-                   features={"export_record_count": 10})
+    ctx_low = _ctx(
+        actor={"employee_id": "EMP-9f02", "leaver_flag": True},
+        action={"verb": "export"},
+        features={"export_record_count": 10},
+    )
     assert leaver_window_exfil(ctx_low, cfg) is None

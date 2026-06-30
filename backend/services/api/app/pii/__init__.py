@@ -11,6 +11,10 @@ from app.pii.vault import VAULT, ReidVault
 
 __all__ = [
     "crypto",
-    "tokenize", "tokenize_payload", "is_token", "assert_no_raw_pii",
-    "VAULT", "ReidVault",
+    "tokenize",
+    "tokenize_payload",
+    "is_token",
+    "assert_no_raw_pii",
+    "VAULT",
+    "ReidVault",
 ]

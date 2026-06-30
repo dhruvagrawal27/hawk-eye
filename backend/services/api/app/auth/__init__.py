@@ -10,7 +10,13 @@ from app.auth.deps import (
 from app.auth.principal import Principal
 
 __all__ = [
-    "case_scope", "oidc", "rbac", "sod",
-    "get_principal", "require_capabilities", "require_capability", "require_role",
+    "case_scope",
+    "oidc",
+    "rbac",
+    "sod",
+    "get_principal",
+    "require_capabilities",
+    "require_capability",
+    "require_role",
     "Principal",
 ]

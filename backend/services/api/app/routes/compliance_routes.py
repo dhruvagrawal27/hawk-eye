@@ -35,19 +35,33 @@ class DataPrincipalRequestBody(BaseModel):
 
 @router.post("/compliance/transfers")
 def record_transfer(body: TransferRequest, principal: Principal = Depends(_COMPLIANCE)) -> dict:
-    rec = REGISTER.record_transfer(body.purpose, body.destination_jurisdiction, tee_attested=body.tee_attested)
-    AUDIT.write(actor=principal.user_id, actor_role=principal.role, action="dpdp.transfer",
-                detail={"transfer_id": rec.transfer_id, "destination": rec.destination_jurisdiction})
+    rec = REGISTER.record_transfer(
+        body.purpose, body.destination_jurisdiction, tee_attested=body.tee_attested
+    )
+    AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="dpdp.transfer",
+        detail={"transfer_id": rec.transfer_id, "destination": rec.destination_jurisdiction},
+    )
     return rec.__dict__
 
 
 @router.post("/compliance/data-principal")
-def data_principal_request(body: DataPrincipalRequestBody, principal: Principal = Depends(_COMPLIANCE)) -> dict:
+def data_principal_request(
+    body: DataPrincipalRequestBody, principal: Principal = Depends(_COMPLIANCE)
+) -> dict:
     try:
-        req = REGISTER.submit_request(body.request_type, body.principal_id, under_fraud_hold=body.under_fraud_hold)
+        req = REGISTER.submit_request(
+            body.request_type, body.principal_id, under_fraud_hold=body.under_fraud_hold
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    AUDIT.write(actor=principal.user_id, actor_role=principal.role, action="dpdp.data_principal",
-                target=body.principal_id, detail={"request_id": req.request_id, "type": req.request_type,
-                                                  "status": req.status})
+    AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="dpdp.data_principal",
+        target=body.principal_id,
+        detail={"request_id": req.request_id, "type": req.request_type, "status": req.status},
+    )
     return req.__dict__

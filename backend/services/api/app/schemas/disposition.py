@@ -15,7 +15,9 @@ from app.schemas.common import DispositionOutcome
 class DispositionRequest(BaseModel):
     outcome: DispositionOutcome = Field(..., examples=["fraud"])
     notes: str = Field("", description="Investigator rationale (free text)")
-    evidence_ids: list[str] = Field(default_factory=list, examples=[["evt_8f2a1c90", "evt_8f2a1d04"]])
+    evidence_ids: list[str] = Field(
+        default_factory=list, examples=[["evt_8f2a1c90", "evt_8f2a1d04"]]
+    )
 
 
 class DispositionResponse(BaseModel):
@@ -57,7 +59,11 @@ class BlockRequestResponse(BaseModel):
     """A *request*, never an executed block. Requires Lead approval to action downstream."""
 
     alert_id: str
-    status: str = Field("block_requested", description="Pending Lead approval — never auto-executed")
+    status: str = Field(
+        "block_requested", description="Pending Lead approval — never auto-executed"
+    )
     requires_approval_by: str = "team_lead"
-    auto_blocked: bool = Field(False, description="Always False — the system never auto-blocks money")
+    auto_blocked: bool = Field(
+        False, description="Always False — the system never auto-blocks money"
+    )
     audit_id: str

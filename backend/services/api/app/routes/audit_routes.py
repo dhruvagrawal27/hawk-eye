@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Query
 from app.audit.writer import AUDIT
 from app.auth.deps import require_capability
 from app.auth.principal import Principal
+from app.auth.rbac import decision
 from app.schemas.audit import AuditPage
 from app.schemas.common import Capability
 
@@ -27,8 +28,18 @@ def get_audit(
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ) -> AuditPage:
-    items, total = AUDIT.query(actor=actor, target=entity, action=action, limit=limit, offset=offset)
+    # RBAC ⚠️ "view own" (Senior Investigator, Model Engineer): restrict to the caller's own actions
+    # (Part 24.1). Auditor / Compliance / Team Lead / Platform Admin get the full trail.
+    if decision(principal.role, Capability.VIEW_AUDIT).note == "view_own":
+        actor = principal.user_id
+    items, total = AUDIT.query(
+        actor=actor, target=entity, action=action, limit=limit, offset=offset
+    )
     # Reading the audit trail is itself an audited action (watch-the-watchers, recursively).
-    AUDIT.write(actor=principal.user_id, actor_role=principal.role, action="audit.view",
-                detail={"filters": {"actor": actor, "entity": entity, "action": action}})
+    AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="audit.view",
+        detail={"filters": {"actor": actor, "entity": entity, "action": action}},
+    )
     return AuditPage(items=items, total=total, limit=limit, offset=offset)

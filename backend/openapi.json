@@ -938,6 +938,67 @@
         }
       }
     },
+    "/api/v1/alerts/{alert_id}/block-request/approve": {
+      "post": {
+        "tags": [
+          "disposition"
+        ],
+        "summary": "Approve Block Request",
+        "description": "Team Lead APPROVES a raised block request (Part 24.1: Lead = ✅ approve for Request block).\n\nThis is the human approval of the *request* — it is still **never an auto-block of money**.\nActioning a block remains a manual, out-of-band step; the system only records the approval.",
+        "operationId": "approve_block_request_api_v1_alerts__alert_id__block_request_approve_post",
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Alert Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Approve Block Request Api V1 Alerts  Alert Id  Block Request Approve Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/feedback": {
       "post": {
         "tags": [
@@ -1057,6 +1118,75 @@
         "description": "Propose a rule/threshold change. Pending until a second approver signs off (four-eyes).",
         "operationId": "propose_rule_change_api_v1_rules_post",
         "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleChangeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleChangeProposal"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rules/{code}": {
+      "put": {
+        "tags": [
+          "rules"
+        ],
+        "summary": "Update Rule Change",
+        "description": "PUT = propose an *update* to an existing rule (Part 24.2 `PUT /rules`). Like POST, it is a\nfour-eyes proposal: it takes effect only after a second approver signs off, is versioned, and\nis audited. The rule code is taken from the path.",
+        "operationId": "update_rule_change_api_v1_rules__code__put",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          },
           {
             "name": "authorization",
             "in": "header",

@@ -32,7 +32,7 @@ class InferenceRuntime:
 
     def reload(self) -> None:
         loaded = self.loader.load_all(INLINE_LAYERS + ["L4_sequence"])
-        self._ready = {layer: True for layer in loaded}
+        self._ready = dict.fromkeys(loaded, True)
 
     def ready(self) -> bool:
         return any(self._ready.get(layer) for layer in INLINE_LAYERS)

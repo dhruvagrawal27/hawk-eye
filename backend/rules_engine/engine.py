@@ -42,7 +42,9 @@ class EvalResult:
 
     @property
     def reason_codes(self) -> list[dict]:
-        return [h.to_reason_code() for h in self.hits] + [f.to_reason_code() for f in self.sod.flags]
+        return [h.to_reason_code() for h in self.hits] + [
+            f.to_reason_code() for f in self.sod.flags
+        ]
 
 
 class RulesEngine:

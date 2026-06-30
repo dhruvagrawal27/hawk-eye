@@ -56,7 +56,12 @@ class SoDMatrix:
         # 1) Same actor as maker AND checker.
         same_actor = bool(ctx.feat("maker_checker_same_actor"))
         creator = ctx.feat("beneficiary_created_by") or ctx.feat("maker_actor")
-        if not same_actor and ctx.maker_checker == "checker" and creator == ctx.actor_id and creator:
+        if (
+            not same_actor
+            and ctx.maker_checker == "checker"
+            and creator == ctx.actor_id
+            and creator
+        ):
             same_actor = True
         if same_actor:
             flags.append(

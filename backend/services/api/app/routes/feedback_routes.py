@@ -24,16 +24,26 @@ def submit_feedback(
     principal: Principal = Depends(require_capability(Capability.DISPOSITION)),
 ) -> FeedbackResponse:
     audit = AUDIT.write(
-        actor=principal.user_id, actor_role=principal.role, action="feedback.submit",
-        target=body.alert_id, detail={"label": body.label.value, "confidence": body.confidence},
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="feedback.submit",
+        target=body.alert_id,
+        detail={"label": body.label.value, "confidence": body.confidence},
     )
     ALERTS.queue_feedback(
         {
-            "alert_id": body.alert_id, "label": body.label.value, "confidence": body.confidence,
-            "notes": body.notes, "labeled_by": principal.user_id, "audit_id": audit.audit_id,
+            "alert_id": body.alert_id,
+            "label": body.label.value,
+            "confidence": body.confidence,
+            "notes": body.notes,
+            "labeled_by": principal.user_id,
+            "audit_id": audit.audit_id,
             "source": "active_learning_feedback",
         }
     )
     return FeedbackResponse(
-        accepted=True, label_written=True, feedback_queued_for_retraining=True, audit_id=audit.audit_id
+        accepted=True,
+        label_written=True,
+        feedback_queued_for_retraining=True,
+        audit_id=audit.audit_id,
     )

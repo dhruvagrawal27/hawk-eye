@@ -25,9 +25,7 @@ class FmrLineItem(BaseModel):
 class FmrReport(BaseModel):
     generated_ts: str
     period: str
-    submission_enabled: bool = Field(
-        False, description="SCAFFOLD: live RBI channel absent locally"
-    )
+    submission_enabled: bool = Field(False, description="SCAFFOLD: live RBI channel absent locally")
     items: list[FmrLineItem] = Field(default_factory=list)
     total_amount_inr: int = 0
 

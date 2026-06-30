@@ -27,7 +27,9 @@ class RegistryClient:
         meta = self.registry.get(model_id, version)
         if meta is None:
             raise SignatureError(f"unknown model {model_id}@{version}")
-        canary = self.loader.canary_hot_swap(model_id, version, canary_percent)  # verifies signature
+        canary = self.loader.canary_hot_swap(
+            model_id, version, canary_percent
+        )  # verifies signature
         self.registry.set_stage(model_id, version, to_stage)
         return {
             "model_id": model_id,

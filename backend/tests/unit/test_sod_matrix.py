@@ -19,7 +19,9 @@ def test_maker_checker_same_actor_flagged():
 
 
 def test_isolated_pair_flagged():
-    res = SoDMatrix().score(_ctx({"maker_checker_pair_isolated": True, "maker_checker_partner": "EMP-1a09"}))
+    res = SoDMatrix().score(
+        _ctx({"maker_checker_pair_isolated": True, "maker_checker_partner": "EMP-1a09"})
+    )
     assert any(f.code == "SOD_CREATE_APPROVE_ISOLATED_PAIR" for f in res.flags)
 
 

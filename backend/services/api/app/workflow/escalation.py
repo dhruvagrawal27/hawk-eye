@@ -6,7 +6,7 @@ tighter internal TAT (capped at the RBI limit). Routing maps severity → the qu
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.config import settings
 from app.schemas.alerts import Alert
@@ -24,11 +24,11 @@ _ROUTING = {
 
 
 def _parse(ts: str) -> datetime:
-    return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(timezone.utc)
+    return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(UTC)
 
 
 def _iso_z(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return dt.astimezone(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def sla_due_ts(created_ts: str, severity: str | None = None, *, max_days: int | None = None) -> str:
@@ -39,7 +39,9 @@ def sla_due_ts(created_ts: str, severity: str | None = None, *, max_days: int | 
 
 def internal_tat_days(severity: str) -> int:
     """Tighter internal turnaround target per severity (for prioritization/escalation, ≤ RBI cap)."""
-    return min(_INTERNAL_TAT_DAYS.get(severity, settings.sla_days_default), settings.sla_days_default)
+    return min(
+        _INTERNAL_TAT_DAYS.get(severity, settings.sla_days_default), settings.sla_days_default
+    )
 
 
 def route_for_severity(severity: str) -> Role:

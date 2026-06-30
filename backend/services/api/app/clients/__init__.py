@@ -11,8 +11,12 @@ from app.clients.registry_client import REGISTRY_CLIENT, RegistryClient
 from app.clients.serving_client import SERVING_CLIENT, ServingClient
 
 __all__ = [
-    "FEATURE_READER", "FeatureReader",
-    "SERVING_CLIENT", "ServingClient",
-    "NARRATIVE_CLIENT", "NarrativeClient",
-    "REGISTRY_CLIENT", "RegistryClient",
+    "FEATURE_READER",
+    "FeatureReader",
+    "SERVING_CLIENT",
+    "ServingClient",
+    "NARRATIVE_CLIENT",
+    "NarrativeClient",
+    "REGISTRY_CLIENT",
+    "RegistryClient",
 ]

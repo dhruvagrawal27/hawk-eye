@@ -55,7 +55,7 @@ def load(rules_dir: Path = RULES_DIR) -> dict[str, RuleConfig]:
             continue
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         entries = data.get("rules") if isinstance(data, dict) and "rules" in data else [data]
-        for entry in entries:
+        for entry in entries or []:
             if not entry or "code" not in entry:
                 continue
             cfg = _coerce(entry)

@@ -26,9 +26,18 @@ def test_get_alert_shape(client, auth):
     assert r.status_code == 200
     body = r.json()
     for field in (
-        "alert_id", "entity_id", "risk_score", "severity", "confidence", "status",
-        "created_ts", "contributing_layers", "reason_codes", "exposure_inr",
-        "sla_due_ts", "pii_tokenized",
+        "alert_id",
+        "entity_id",
+        "risk_score",
+        "severity",
+        "confidence",
+        "status",
+        "created_ts",
+        "contributing_layers",
+        "reason_codes",
+        "exposure_inr",
+        "sla_due_ts",
+        "pii_tokenized",
     ):
         assert field in body, field
     assert body["created_ts"].endswith("Z")
@@ -45,9 +54,27 @@ def test_queue_deduped_per_entity():
     from app.store.alert_store import ALERTS
 
     # Two alerts for the same entity → the queue shows one (deduped per entity).
-    ALERTS.add(Alert(**{**Alert.example(), "alert_id": "alr_dupeA", "entity_id": "EMP-dupe", "risk_score": 70}))
-    ALERTS.add(Alert(**{**Alert.example(), "alert_id": "alr_dupeB", "entity_id": "EMP-dupe", "risk_score": 90}))
-    items, _ = ALERTS.list(dedupe_per_entity=True, limit=100)
+    ALERTS.add(
+        Alert(
+            **{
+                **Alert.example(),
+                "alert_id": "alr_dupeA",
+                "entity_id": "EMP-dupe",
+                "risk_score": 70,
+            }
+        )
+    )
+    ALERTS.add(
+        Alert(
+            **{
+                **Alert.example(),
+                "alert_id": "alr_dupeB",
+                "entity_id": "EMP-dupe",
+                "risk_score": 90,
+            }
+        )
+    )
+    items, _ = ALERTS.query(dedupe_per_entity=True, limit=100)
     dupe_ids = [a.alert_id for a in items if a.entity_id == "EMP-dupe"]
     assert dupe_ids == ["alr_dupeB"]  # the higher-ranked one survives
 

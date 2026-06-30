@@ -36,17 +36,25 @@ class UserStore:
 
     def _seed(self) -> None:
         seed = [
-            User("EMP-an01", "Asha Nair (Analyst)", Role.ANALYST,
-                 assigned_alerts={"alr_demo01"}),
+            User("EMP-an01", "Asha Nair (Analyst)", Role.ANALYST, assigned_alerts={"alr_demo01"}),
             User("EMP-sr01", "Sunil Rao (Senior Investigator)", Role.SENIOR_INVESTIGATOR),
             User("EMP-tl01", "Tara Iyer (Team Lead / MLRO)", Role.TEAM_LEAD),
             User("EMP-co01", "Carla D'Souza (Compliance Officer)", Role.COMPLIANCE_OFFICER),
+            User("EMP-co02", "Rohit Menon (Compliance Officer)", Role.COMPLIANCE_OFFICER),
             User("EMP-au01", "Anil Verma (Auditor)", Role.AUDITOR),
-            User("EMP-me01", "Maya Krishnan (Model Engineer)", Role.MODEL_ENGINEER,
-                 de_identified_only=True),
+            User(
+                "EMP-me01",
+                "Maya Krishnan (Model Engineer)",
+                Role.MODEL_ENGINEER,
+                de_identified_only=True,
+            ),
             User("EMP-pa01", "Pat Sharma (Platform Admin)", Role.PLATFORM_ADMIN),
-            User("svc-ingest", "Ingest Service Account", Role.SERVICE_ACCOUNT,
-                 scopes=["events:write", "audit:write"]),
+            User(
+                "svc-ingest",
+                "Ingest Service Account",
+                Role.SERVICE_ACCOUNT,
+                scopes=["events:write", "audit:write"],
+            ),
         ]
         for u in seed:
             self._users[u.user_id] = u

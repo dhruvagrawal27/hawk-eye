@@ -42,7 +42,9 @@ def test_fusion_hard_hit_is_high():
         features={"is_off_hours": True, "minutes_since_new_beneficiary": 19},
         l1_score=0.9,
         l1_hard_hit=True,
-        l1_reason_codes=[{"source": "rule", "code": "NEW_BENEFICIARY_THEN_HIGHVALUE", "detail": "x"}],
+        l1_reason_codes=[
+            {"source": "rule", "code": "NEW_BENEFICIARY_THEN_HIGHVALUE", "detail": "x"}
+        ],
         graph_evidence=["maker EMP-7f3a + checker EMP-1a09 isolated pair (ring RNG-12)"],
     )
     assert out.severity == "high"

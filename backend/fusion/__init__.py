@@ -6,7 +6,12 @@ from fusion.service import DEFAULT_FUSION, FusionOutput, FusionService
 from fusion.treeshap import top_features
 
 __all__ = [
-    "FusionService", "FusionOutput", "DEFAULT_FUSION",
-    "calibrate_probability", "severity_for", "confidence_from",
-    "assemble", "top_features",
+    "FusionService",
+    "FusionOutput",
+    "DEFAULT_FUSION",
+    "calibrate_probability",
+    "severity_for",
+    "confidence_from",
+    "assemble",
+    "top_features",
 ]

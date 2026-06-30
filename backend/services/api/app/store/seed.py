@@ -50,8 +50,11 @@ def _second_alert() -> Alert:
         created_ts="2026-06-29T19:05:00Z",
         contributing_layers=["L1_rules", "L2_unsupervised"],
         reason_codes=[
-            {"source": "rule", "code": "JUST_UNDER_THRESHOLD",
-             "detail": "amount INR 9,80,000 structured just below threshold INR 10,00,000"},
+            {
+                "source": "rule",
+                "code": "JUST_UNDER_THRESHOLD",
+                "detail": "amount INR 9,80,000 structured just below threshold INR 10,00,000",
+            },
             {"source": "shap", "feature": "amount_zscore", "contribution": 0.18},
         ],
         exposure_inr=980000,
@@ -71,10 +74,16 @@ def _third_alert() -> Alert:
         created_ts="2026-06-30T01:02:00Z",
         contributing_layers=["L1_rules", "L3_gbdt", "L5_graph"],
         reason_codes=[
-            {"source": "rule", "code": "DB_WRITE_WITHOUT_APP_TXN",
-             "detail": "direct DB write ACCT-77a1 with no matching application transaction"},
-            {"source": "rule", "code": "PRIVILEGED_SESSION_CORRELATION",
-             "detail": "privileged session for EMP-3c55 correlated with off-hours DB activity"},
+            {
+                "source": "rule",
+                "code": "DB_WRITE_WITHOUT_APP_TXN",
+                "detail": "direct DB write ACCT-77a1 with no matching application transaction",
+            },
+            {
+                "source": "rule",
+                "code": "PRIVILEGED_SESSION_CORRELATION",
+                "detail": "privileged session for EMP-3c55 correlated with off-hours DB activity",
+            },
             {"source": "graph", "detail": "EMP-3c55 shares device WS-114 with leaver EMP-9f02"},
         ],
         exposure_inr=2500000,
@@ -95,8 +104,11 @@ def _fourth_alert() -> Alert:
         created_ts="2026-06-28T11:20:00Z",
         contributing_layers=["L1_rules", "L3_gbdt", "L5_graph"],
         reason_codes=[
-            {"source": "rule", "code": "NEW_BENEFICIARY_THEN_HIGHVALUE",
-             "detail": "new payee BEN-77aa paid INR 3,50,00,000 within 41 min"},
+            {
+                "source": "rule",
+                "code": "NEW_BENEFICIARY_THEN_HIGHVALUE",
+                "detail": "new payee BEN-77aa paid INR 3,50,00,000 within 41 min",
+            },
             {"source": "graph", "detail": "beneficiary BEN-77aa in mule ring RNG-44"},
         ],
         exposure_inr=35000000,  # ₹3.5 crore → CRILC-reportable
@@ -108,27 +120,52 @@ def _fourth_alert() -> Alert:
 def _seed_entity_360() -> None:
     ENTITIES.put_profile(
         EntityProfile(
-            entity_id="EMP-7f3a", role="ops_maker", dept="trade_finance", branch="BR-219",
-            peer_group="PG-ops-tf", tenure_days=2840, privileged_flag=False, leaver_flag=False,
-            risk_score=87, severity=Severity.HIGH, open_alerts=1, pii_tokenized=True,
+            entity_id="EMP-7f3a",
+            role="ops_maker",
+            dept="trade_finance",
+            branch="BR-219",
+            peer_group="PG-ops-tf",
+            tenure_days=2840,
+            privileged_flag=False,
+            leaver_flag=False,
+            risk_score=87,
+            severity=Severity.HIGH,
+            open_alerts=1,
+            pii_tokenized=True,
         )
     )
     ENTITIES.put_timeline(
         "EMP-7f3a",
         [
-            TimelineEvent(ts="2026-06-30T02:14:07Z", lane="change", verb="create_beneficiary",
-                          channel="cbs", detail="new payee BEN-9b1c created (off-hours)",
-                          event_id="evt_8f2a1c90"),
-            TimelineEvent(ts="2026-06-30T02:33:10Z", lane="transaction", verb="approve_payment",
-                          channel="cbs", detail="INR 48,00,000 to BEN-9b1c (checker EMP-1a09)",
-                          event_id="evt_8f2a1d04", amount_inr=4800000),
-            TimelineEvent(ts="2026-06-30T02:33:11Z", lane="access", verb="graph_update",
-                          detail="maker-checker edge EMP-7f3a↔EMP-1a09"),
+            TimelineEvent(
+                ts="2026-06-30T02:14:07Z",
+                lane="change",
+                verb="create_beneficiary",
+                channel="cbs",
+                detail="new payee BEN-9b1c created (off-hours)",
+                event_id="evt_8f2a1c90",
+            ),
+            TimelineEvent(
+                ts="2026-06-30T02:33:10Z",
+                lane="transaction",
+                verb="approve_payment",
+                channel="cbs",
+                detail="INR 48,00,000 to BEN-9b1c (checker EMP-1a09)",
+                event_id="evt_8f2a1d04",
+                amount_inr=4800000,
+            ),
+            TimelineEvent(
+                ts="2026-06-30T02:33:11Z",
+                lane="access",
+                verb="graph_update",
+                detail="maker-checker edge EMP-7f3a↔EMP-1a09",
+            ),
         ],
     )
     ENTITIES.put_graph(
         EntityGraph(
-            entity_id="EMP-7f3a", ring_id="RNG-12",
+            entity_id="EMP-7f3a",
+            ring_id="RNG-12",
             nodes=[
                 GraphNode(id="EMP-7f3a", kind="employee", label="maker", risk=87),
                 GraphNode(id="EMP-1a09", kind="employee", label="checker", risk=74),
@@ -146,14 +183,24 @@ def _seed_entity_360() -> None:
         "EMP-7f3a",
         [
             PeerComparison(
-                entity_id="EMP-7f3a", peer_group="PG-ops-tf",
+                entity_id="EMP-7f3a",
+                peer_group="PG-ops-tf",
                 dimension="new_beneficiary_to_payment_latency_min",
-                actor_value=27.0, peer_mean=2880.0, peer_p95=240.0, z_score=-3.1, is_outlier=True,
+                actor_value=27.0,
+                peer_mean=2880.0,
+                peer_p95=240.0,
+                z_score=-3.1,
+                is_outlier=True,
             ),
             PeerComparison(
-                entity_id="EMP-7f3a", peer_group="PG-ops-tf",
+                entity_id="EMP-7f3a",
+                peer_group="PG-ops-tf",
                 dimension="off_hours_activity_ratio",
-                actor_value=0.42, peer_mean=0.03, peer_p95=0.12, z_score=3.6, is_outlier=True,
+                actor_value=0.42,
+                peer_mean=0.03,
+                peer_p95=0.12,
+                z_score=3.6,
+                is_outlier=True,
             ),
         ],
     )

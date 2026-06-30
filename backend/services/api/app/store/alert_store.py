@@ -36,7 +36,7 @@ class AlertStore:
     def all(self) -> list[Alert]:
         return list(self._alerts.values())
 
-    def list(
+    def query(
         self,
         *,
         status: str | None = None,
@@ -72,13 +72,15 @@ class AlertStore:
         if alert:
             alert.assignee = assignee
             if alert.status == AlertStatus.OPEN.value:
-                alert.status = AlertStatus.ASSIGNED.value
+                # Alert uses model_config use_enum_values → status is stored as the str value.
+                alert.status = AlertStatus.ASSIGNED.value  # type: ignore[assignment]
         return alert
 
     def set_status(self, alert_id: str, status: AlertStatus | str) -> Alert | None:
         alert = self._alerts.get(alert_id)
         if alert:
-            alert.status = status.value if isinstance(status, AlertStatus) else status
+            value = status.value if isinstance(status, AlertStatus) else status
+            alert.status = value  # type: ignore[assignment]
         return alert
 
     # --- dispositions / block requests ---

@@ -11,14 +11,14 @@ Caller may also embed precomputed features under ``event['features']`` — those
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def _parse_ts(ts: str | None) -> datetime | None:
     if not ts:
         return None
     try:
-        return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(timezone.utc)
+        return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(UTC)
     except ValueError:
         return None
 
@@ -28,7 +28,7 @@ class FeatureReader:
 
     def __init__(self) -> None:
         # beneficiary_id -> (creator_employee_id, created_ts)
-        self._recent_beneficiaries: dict[str, tuple[str, datetime | None]] = {}
+        self._recent_beneficiaries: dict[str, tuple[str | None, datetime | None]] = {}
         # (maker, checker) pair -> count, to flag isolated pairs (L5 graph proxy in the fast path)
         self._pair_counts: dict[tuple[str, str], int] = {}
 
@@ -65,14 +65,19 @@ class FeatureReader:
                     "minutes_since_new_beneficiary",
                     max(0.0, (now - created_ts).total_seconds() / 60.0),
                 )
-            if creator and actor and creator == actor and "checker" in (action.get("maker_checker") or ""):
+            if (
+                creator
+                and actor
+                and creator == actor
+                and "checker" in (action.get("maker_checker") or "")
+            ):
                 features.setdefault("maker_checker_same_actor", True)
 
         # Track maker-checker pairs to surface isolated-pair signals (graph proxy).
         if verb in ("approve_payment", "payment"):
             creator = features.get("beneficiary_created_by")
             if creator and actor and creator != actor:
-                pair = tuple(sorted((creator, actor)))  # type: ignore[arg-type]
+                pair: tuple[str, str] = tuple(sorted((str(creator), str(actor))))  # type: ignore[assignment]
                 self._pair_counts[pair] = self._pair_counts.get(pair, 0) + 1
                 if self._pair_counts[pair] >= 2:
                     features.setdefault("maker_checker_pair_isolated", True)

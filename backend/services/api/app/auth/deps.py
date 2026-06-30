@@ -39,16 +39,31 @@ def get_principal(authorization: str | None = Header(default=None)) -> Principal
         ) from exc
 
 
+def _enforce(principal: Principal, capability: Capability) -> None:
+    """Raise 403 unless the principal's role grants ``capability``.
+
+    Service accounts use **scoped tokens** (Part 24.1 ``scoped_token`` / ``write_only``): even where
+    the matrix marks a capability conditional, the capability must be present in the token's
+    ``scopes`` — so a service account whose scope is ``audit:write`` cannot READ the audit trail.
+    """
+    grant = rbac.decision(principal.role, capability)
+    if not grant.permitted:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"role {principal.role.value} lacks capability {capability.value}",
+        )
+    if principal.role == Role.SERVICE_ACCOUNT and capability.value not in principal.scopes:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"service-account token lacks scope for {capability.value} (scoped/write-only)",
+        )
+
+
 def require_capability(capability: Capability) -> Callable[[Principal], Principal]:
     """Dependency factory: 403 unless the principal's role grants ``capability``."""
 
     def _dep(principal: Principal = Depends(get_principal)) -> Principal:
-        grant = rbac.decision(principal.role, capability)
-        if not grant.permitted:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"role {principal.role.value} lacks capability {capability.value}",
-            )
+        _enforce(principal, capability)
         return principal
 
     return _dep
@@ -57,11 +72,7 @@ def require_capability(capability: Capability) -> Callable[[Principal], Principa
 def require_capabilities(*capabilities: Capability) -> Callable[[Principal], Principal]:
     def _dep(principal: Principal = Depends(get_principal)) -> Principal:
         for cap in capabilities:
-            if not rbac.decision(principal.role, cap).permitted:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"role {principal.role.value} lacks capability {cap.value}",
-                )
+            _enforce(principal, cap)
         return principal
 
     return _dep

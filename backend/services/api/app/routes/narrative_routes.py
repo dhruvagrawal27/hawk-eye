@@ -55,10 +55,16 @@ def generate_narrative(
     )
     ALERTS.add_narrative_memo(memo)
     AUDIT.write(
-        actor=principal.user_id, actor_role=principal.role, action="narrative.generate",
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="narrative.generate",
         target=alert.entity_id,
-        detail={"alert_id": alert_id, "provider": memo.provider, "tee_attested": memo.tee_attested,
-                "prompt_hash": memo.prompt_hash},
+        detail={
+            "alert_id": alert_id,
+            "provider": memo.provider,
+            "tee_attested": memo.tee_attested,
+            "prompt_hash": memo.prompt_hash,
+        },
     )
     return NarrativeResponse(
         alert_id=alert_id,

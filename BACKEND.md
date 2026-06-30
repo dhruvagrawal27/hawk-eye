@@ -53,12 +53,13 @@ The rules engine + fusion read these online features by Feast key (consume from 
 | `GET /alerts/{id}` | Full alert (audited who-viewed-whom) | view_alerts |
 | `POST /alerts/{id}/assign` | Assign/claim | triage_assign |
 | `POST /alerts/{id}/disposition` | EDD outcome → **label** (§5) | disposition |
-| `POST /alerts/{id}/block-request` | Raise block **request** (never auto; Lead approves) | request_block |
+| `POST /alerts/{id}/block-request` | Raise block **request** (never auto) | request_block |
+| `POST /alerts/{id}/block-request/approve` | Lead **approves** the request (still never auto-blocks money) | role: team_lead |
 | `GET /entities/{id}` `/timeline` `/graph` `/peers` | Entity-360 (audited) | view_alerts |
 | `POST /entities/{id}/unmask` | Re-identify tokenized PII (audited; Analyst needs justification) | unmask_pii |
 | `GET /explanations/{alert_id}` | SHAP + rule provenance + sequence attention + graph | view_alerts |
 | `POST /narratives/{alert_id}` | TEE-LLM narrative + audit memo (§7) | view_alerts |
-| `GET /rules` · `POST /rules` · `POST /rules/{change_id}/approve` | Change-controlled CRUD + **four-eyes** (§6 below) | tune_rules |
+| `GET /rules` · `POST /rules` · `PUT /rules/{code}` · `POST /rules/{change_id}/approve` | Change-controlled CRUD + **four-eyes** (propose any tune_rules; **approve = Compliance only**, §6) | tune_rules |
 | `GET /models` · `POST /models/{id}/promote?version=` | Registry view / promotion (signed, SoD sign-off) | train_deploy_models |
 | `GET /drift?model_id=` · `GET /metrics/model?model_id=` | Drift & model quality | train_deploy_models |
 | `POST /feedback` | Active-learning label submission | disposition |
@@ -75,7 +76,9 @@ OpenAPI is generated to `backend/openapi.json`.
 **Roles:** analyst · senior_investigator · team_lead (MLRO) · compliance_officer · auditor · model_engineer · platform_admin · service_account.
 **Capabilities:** view_alerts · triage_assign · disposition · request_block · unmask_pii · tune_rules · train_deploy_models · view_audit · admin.
 Matrix encoded exactly in `app/auth/rbac.py` (+ OPA bundle `app/auth/opa/rbac.rego`); ✅ allow / ⚠️ conditional / ❌ deny per Part 24.1.
-**SoD rule (Part 19.6):** whoever **deploys models** cannot **label data** or **close their own alerts**; whoever **investigates** cannot **tune the rules** that generate their alerts unchecked. **PII unmask is a separate, audited capability.** Model promotion needs a second-person sign-off (promoter ≠ approver). Four-eyes on rule changes (proposer ≠ approver). Analyst = assigned cases only; Model Engineer = de-identified data only.
+**SoD rule (Part 19.6):** whoever **deploys models** cannot **label data** or **close their own alerts**; whoever **investigates** cannot **tune the rules** that generate their alerts unchecked. **PII unmask is a separate, audited capability.** Model promotion needs a second-person sign-off (promoter ≠ approver) and is **Model-Engineer-only** (Platform Admin is deploy-infra-only). Four-eyes on rule changes (proposer ≠ approver); **only a Compliance Officer approves** (Team Lead is propose-only). Analyst = assigned cases only; Model Engineer = de-identified data only.
+
+**Conditional (⚠️) cells are enforced at the route**, not just encoded: `view_audit` view-own (Senior/Model-Eng see only their own audit entries); disposition `override` (re-dispositioning a closed alert is Team-Lead-only); block-request `approve` (Team-Lead); rule `propose_only` vs `change_controlled` (approve = Compliance); `deploy_infra_only` (no model promotion); service-account `scoped_token`/`write_only` (a scoped token cannot read alerts or the audit trail).
 
 ## 5. EDD disposition / feedback (request → response) — Part 24.5c
 ```http

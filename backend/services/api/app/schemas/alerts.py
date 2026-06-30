@@ -38,14 +38,20 @@ class Alert(BaseModel):
     created_ts: str = Field(..., examples=["2026-06-30T02:41:55Z"])
     contributing_layers: list[ContributingLayer] = Field(default_factory=list)
     reason_codes: list[ReasonCode] = Field(default_factory=list)
-    exposure_inr: int = Field(0, ge=0, description="Integer INR (CONTEXT.md §6)", examples=[4800000])
+    exposure_inr: int = Field(
+        0, ge=0, description="Integer INR (CONTEXT.md §6)", examples=[4800000]
+    )
     sla_due_ts: str | None = Field(None, examples=["2026-07-30T02:41:55Z"])
-    pii_tokenized: bool = Field(True, description="Always True on egress; raw PII never in an alert")
+    pii_tokenized: bool = Field(
+        True, description="Always True on egress; raw PII never in an alert"
+    )
 
     # Internal-only fields (not part of the wire contract; excluded from public payloads).
     assignee: str | None = Field(None, exclude=True, description="Assigned investigator id")
     model_versions: dict[str, str] = Field(
-        default_factory=dict, exclude=True, description="Per-layer model_version for reproducibility"
+        default_factory=dict,
+        exclude=True,
+        description="Per-layer model_version for reproducibility",
     )
     ring_id: str | None = Field(None, exclude=True)
 

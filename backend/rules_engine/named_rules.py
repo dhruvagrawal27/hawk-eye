@@ -22,7 +22,7 @@ def fmt_inr(amount: int) -> str:
     if len(s) <= 3:
         return s
     head, tail = s[:-3], s[-3:]
-    parts = []
+    parts: list[str] = []
     while len(head) > 2:
         parts.insert(0, head[-2:])
         head = head[:-2]
@@ -42,7 +42,9 @@ def swift_cbs_mismatch(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     feature_flag = bool(ctx.feat("swift_without_cbs_match"))
     if (has_swift_ref and no_cbs) or feature_flag:
         ref = ctx.linkage.get("swift_ref", "<swift>")
-        return _hit(cfg, f"SWIFT message {ref} has no matching CBS transaction (recon mismatch)", 0.95)
+        return _hit(
+            cfg, f"SWIFT message {ref} has no matching CBS transaction (recon mismatch)", 0.95
+        )
     return None
 
 
@@ -70,7 +72,9 @@ def new_beneficiary_then_highvalue(ctx: RuleContext, cfg: RuleConfig) -> RuleHit
 
 def dormant_reactivation_drain(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     """A dormant account reactivated then drained."""
-    drain_verbs = set(cfg.params.get("drain_verbs", ["withdraw", "transfer", "payment", "approve_payment"]))
+    drain_verbs = set(
+        cfg.params.get("drain_verbs", ["withdraw", "transfer", "payment", "approve_payment"])
+    )
     if ctx.verb not in drain_verbs:
         return None
     dormant_days = float(cfg.params.get("dormant_days", 180))
@@ -92,7 +96,9 @@ def dormant_reactivation_drain(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | N
 
 def db_write_without_app_txn(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     """Direct DB write with no corresponding application transaction (linkage app-txn↔DB-write)."""
-    db_verbs = set(cfg.params.get("db_verbs", ["db_write", "direct_write", "update_record", "delete_record"]))
+    db_verbs = set(
+        cfg.params.get("db_verbs", ["db_write", "direct_write", "update_record", "delete_record"])
+    )
     is_db = ctx.channel in ("db", "database") or ctx.verb in db_verbs
     if not is_db:
         return None
@@ -108,7 +114,13 @@ def entitlement_self_grant(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     grant_verbs = set(
         cfg.params.get(
             "grant_verbs",
-            ["grant_entitlement", "add_entitlement", "role_assign", "privilege_escalation", "self_grant"],
+            [
+                "grant_entitlement",
+                "add_entitlement",
+                "role_assign",
+                "privilege_escalation",
+                "self_grant",
+            ],
         )
     )
     if ctx.verb not in grant_verbs:
@@ -122,7 +134,9 @@ def entitlement_self_grant(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     is_self = (target is not None and target == ctx.actor_id) or bool(ctx.feat("is_self_grant"))
     if is_self:
         ent = ctx.obj.get("entitlement") or ctx.obj.get("role") or "privileged entitlement"
-        return _hit(cfg, f"{ctx.actor_id} granted themselves {ent} (self-grant / privilege escalation)", 0.9)
+        return _hit(
+            cfg, f"{ctx.actor_id} granted themselves {ent} (self-grant / privilege escalation)", 0.9
+        )
     return None
 
 

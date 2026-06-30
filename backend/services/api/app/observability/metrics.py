@@ -91,7 +91,19 @@ class Gauge(_Metric):
 
 
 _DEFAULT_BUCKETS = (
-    0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 10.0,
+    0.005,
+    0.01,
+    0.025,
+    0.05,
+    0.075,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1.0,
+    2.5,
+    5.0,
+    10.0,
 )
 
 
@@ -132,7 +144,7 @@ class Histogram(_Metric):
         with self._lock:
             for key, counts in self._counts.items():
                 cumulative = 0
-                for edge, c in zip(self.buckets, counts):
+                for edge, c in zip(self.buckets, counts, strict=False):
                     cumulative += c
                     le = "+Inf" if math.isinf(edge) else _num(edge)
                     lines.append(
@@ -184,7 +196,9 @@ def _gauge(name: str, doc: str, labels: Iterable[str] = ()) -> Gauge:
     return metric
 
 
-def _histogram(name: str, doc: str, labels: Iterable[str] = (), buckets=_DEFAULT_BUCKETS) -> Histogram:
+def _histogram(
+    name: str, doc: str, labels: Iterable[str] = (), buckets=_DEFAULT_BUCKETS
+) -> Histogram:
     metric = Histogram(name, doc, labels, buckets)
     REGISTRY.register(metric)
     return metric
@@ -198,7 +212,9 @@ HTTP_LATENCY = _histogram(
     "hawkeye_http_request_duration_seconds", "HTTP request latency", ("method", "path")
 )
 ALERTS_EMITTED = _counter(
-    "hawkeye_alerts_emitted_total", "Alerts emitted by the fusion/short-circuit path", ("severity", "path")
+    "hawkeye_alerts_emitted_total",
+    "Alerts emitted by the fusion/short-circuit path",
+    ("severity", "path"),
 )
 RULE_HITS = _counter("hawkeye_rule_hits_total", "L1 rule hits", ("rule",))
 DISPOSITIONS = _counter("hawkeye_dispositions_total", "EDD dispositions written", ("outcome",))

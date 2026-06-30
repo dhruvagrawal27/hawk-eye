@@ -55,7 +55,8 @@ class LocalRegistry:
                 version=version,
                 stage=stage,
                 signature=sign(model_id, version),  # validly signed
-                training_data_hash="sha256:" + hashlib.sha256(f"{model_id}{version}".encode()).hexdigest()[:16],
+                training_data_hash="sha256:"
+                + hashlib.sha256(f"{model_id}{version}".encode()).hexdigest()[:16],
                 feature_set_version="fs-2026.06",
                 approving_reviewer=reviewer,
                 metrics=metrics,
@@ -63,14 +64,27 @@ class LocalRegistry:
             )
 
         self._artifacts = [
-            make("l2_isoforest", "L2_unsupervised", "stub-2026.06.30", "Production",
-                 {"pr_auc": 0.71}),
-            make("l3_lightgbm", "L3_gbdt", "stub-2026.06.30", "Production",
-                 {"pr_auc": 0.86, "precision_at_k": 0.62}),
+            make(
+                "l2_isoforest", "L2_unsupervised", "stub-2026.06.30", "Production", {"pr_auc": 0.71}
+            ),
+            make(
+                "l3_lightgbm",
+                "L3_gbdt",
+                "stub-2026.06.30",
+                "Production",
+                {"pr_auc": 0.86, "precision_at_k": 0.62},
+            ),
             make("l4_usad", "L4_sequence", "stub-2026.06.30", "Production", {"vus_pr": 0.64}),
-            make("l3_catboost", "L3_gbdt", "challenger-2026.06.30", "Challenger",
-                 {"pr_auc": 0.88, "precision_at_k": 0.64}),
-            make("l6_meta", "L6_fusion", "stub-2026.06.30", "Production", {"calibration_error": 0.03}),
+            make(
+                "l3_catboost",
+                "L3_gbdt",
+                "challenger-2026.06.30",
+                "Challenger",
+                {"pr_auc": 0.88, "precision_at_k": 0.64},
+            ),
+            make(
+                "l6_meta", "L6_fusion", "stub-2026.06.30", "Production", {"calibration_error": 0.03}
+            ),
         ]
 
     def list(self) -> list[ArtifactMeta]:

@@ -58,18 +58,38 @@ _CAPS = (
 # ruff: noqa: E241  (aligned matrix is intentional)
 _ROWS: dict[Role, tuple[Grant, ...]] = {
     # role:                view             triage   disp           block            unmask                       tune                          train/deploy                  audit               admin
-    Role.ANALYST:          (C("assigned_only"), A,   A,             C("request_only"), C("case_scoped_logged"),    X,                            X,                            X,                  X),
-    Role.SENIOR_INVESTIGATOR: (A,            A,       A,             A,               C("logged"),                 X,                            X,                            C("view_own"),      X),
-    Role.TEAM_LEAD:        (A,               A,       C("override"), C("approve"),    C("logged"),                 C("propose_only"),            X,                            A,                  X),
-    Role.COMPLIANCE_OFFICER: (A,             X,       X,             X,               C("logged"),                 C("change_controlled"),       X,                            A,                  X),
-    Role.AUDITOR:          (C("read_only"),  X,       X,             X,               X,                           X,                            X,                            A,                  X),
-    Role.MODEL_ENGINEER:   (C("de_identified_only"), X, X,          X,               X,                           X,                            C("with_signoff"),            C("view_own"),      X),
-    Role.PLATFORM_ADMIN:   (X,               X,       X,             X,               X,                           X,                            C("deploy_infra_only"),       A,                  A),
-    Role.SERVICE_ACCOUNT:  (C("scoped_token"), X,     X,             X,               X,                           X,                            X,                            C("write_only"),    X),
+    Role.ANALYST: (
+        C("assigned_only"),
+        A,
+        A,
+        C("request_only"),
+        C("case_scoped_logged"),
+        X,
+        X,
+        X,
+        X,
+    ),
+    Role.SENIOR_INVESTIGATOR: (A, A, A, A, C("logged"), X, X, C("view_own"), X),
+    Role.TEAM_LEAD: (A, A, C("override"), C("approve"), C("logged"), C("propose_only"), X, A, X),
+    Role.COMPLIANCE_OFFICER: (A, X, X, X, C("logged"), C("change_controlled"), X, A, X),
+    Role.AUDITOR: (C("read_only"), X, X, X, X, X, X, A, X),
+    Role.MODEL_ENGINEER: (
+        C("de_identified_only"),
+        X,
+        X,
+        X,
+        X,
+        X,
+        C("with_signoff"),
+        C("view_own"),
+        X,
+    ),
+    Role.PLATFORM_ADMIN: (X, X, X, X, X, X, C("deploy_infra_only"), A, A),
+    Role.SERVICE_ACCOUNT: (C("scoped_token"), X, X, X, X, X, X, C("write_only"), X),
 }
 
 MATRIX: dict[Role, dict[Capability, Grant]] = {
-    role: dict(zip(_CAPS, grants)) for role, grants in _ROWS.items()
+    role: dict(zip(_CAPS, grants, strict=True)) for role, grants in _ROWS.items()
 }
 
 
@@ -89,9 +109,7 @@ def capabilities_for(role: Role | str) -> dict[str, str]:
     """All permitted capabilities for a role → note (used to build the frontend capability set)."""
     role = Role(role)
     return {
-        cap.value: grant.note or "allowed"
-        for cap, grant in MATRIX[role].items()
-        if grant.permitted
+        cap.value: grant.note or "allowed" for cap, grant in MATRIX[role].items() if grant.permitted
     }
 
 

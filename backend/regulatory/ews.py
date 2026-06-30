@@ -26,7 +26,7 @@ EWS_INDICATORS = {
 def indicators_for(reason_codes: list[dict]) -> list[str]:
     out: list[str] = []
     for rc in reason_codes:
-        ind = EWS_INDICATORS.get(rc.get("code") or rc.get("typology"))
+        ind = EWS_INDICATORS.get(rc.get("code") or rc.get("typology") or "")
         if ind and ind not in out:
             out.append(ind)
     return out

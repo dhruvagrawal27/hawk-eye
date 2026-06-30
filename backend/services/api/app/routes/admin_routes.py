@@ -31,10 +31,20 @@ def create_user(
     body: CreateUserRequest,
     principal: Principal = Depends(require_capability(Capability.ADMIN)),
 ) -> UserRecord:
-    user = USER_STORE.add(User(user_id=body.user_id, display_name=body.display_name, role=body.role))
-    AUDIT.write(actor=principal.user_id, actor_role=principal.role, action="admin.user_create",
-                target=body.user_id, detail={"role": body.role.value})
+    user = USER_STORE.add(
+        User(user_id=body.user_id, display_name=body.display_name, role=body.role)
+    )
+    AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="admin.user_create",
+        target=body.user_id,
+        detail={"role": body.role.value},
+    )
     return UserRecord(
-        user_id=user.user_id, display_name=user.display_name, role=user.role, active=user.active,
+        user_id=user.user_id,
+        display_name=user.display_name,
+        role=user.role,
+        active=user.active,
         sod_constraints=constraints_for(user.role),
     )

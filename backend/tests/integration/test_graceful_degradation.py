@@ -33,9 +33,13 @@ def test_degrades_to_l1_only_when_serving_unavailable():
 def test_no_alert_when_degraded_and_no_rule_fires():
     p = OnlinePipeline(feature_reader=FeatureReader(), store=AlertStore())
     benign = {
-        "event_id": "evt_degrade_2", "ts": "2026-06-30T12:00:00Z",
-        "actor": {"employee_id": "EMP-7f3a"}, "action": {"verb": "view_dashboard"},
-        "object": {}, "context": {"is_off_hours": False}, "linkage": {},
+        "event_id": "evt_degrade_2",
+        "ts": "2026-06-30T12:00:00Z",
+        "actor": {"employee_id": "EMP-7f3a"},
+        "action": {"verb": "view_dashboard"},
+        "object": {},
+        "context": {"is_off_hours": False},
+        "linkage": {},
     }
     alert = p.process(benign, force_degraded=True)
     assert alert is None  # nothing fired; event marked for re-score, no alert fabricated

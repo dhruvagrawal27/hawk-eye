@@ -30,7 +30,9 @@ class SoDError(Exception):
 _DEPLOYER_ROLES = {Role.MODEL_ENGINEER, Role.PLATFORM_ADMIN}
 
 
-def check_disposition(principal: Principal, alert_owner: str | None, subject_entity: str | None) -> None:
+def check_disposition(
+    principal: Principal, alert_owner: str | None, subject_entity: str | None
+) -> None:
     """Guard ``POST /alerts/{id}/disposition`` (writing a label / closing an alert).
 
     * A model deployer cannot label data or close alerts (RBAC already denies disposition for
@@ -74,9 +76,13 @@ def check_four_eyes(proposer: str, approver: str) -> None:
 def check_promotion_signoff(requester: str, signoff_by: str) -> None:
     """Model promotion requires a second-person sign-off (Part 24.1 — promoter ≠ approver)."""
     if not signoff_by:
-        raise SoDError("promotion_requires_signoff", "model promotion requires a second-person sign-off")
+        raise SoDError(
+            "promotion_requires_signoff", "model promotion requires a second-person sign-off"
+        )
     if requester == signoff_by:
-        raise SoDError("promotion_signoff_distinct", f"sign-off {signoff_by} must differ from {requester}")
+        raise SoDError(
+            "promotion_signoff_distinct", f"sign-off {signoff_by} must differ from {requester}"
+        )
 
 
 def check_maker_checker(maker: str | None, checker: str | None) -> None:

@@ -57,5 +57,14 @@
 ## Blockers (mirror in TODO.md §7 + CONTEXT.md)
 - None blocking. Awaiting (non-blocking, contract honored via stubs): DATA Feast keys (§1a), ML signed ONNX + `narrate()`, DATABASE WORM + registry + DDL, PLATFORM Keycloak/Vault/Kong.
 
+## Validation pass (2026-06-30, post-build)
+Ran a 24-agent adversarial audit (12 areas × audit+verify) over BACKEND-1..29 against the §6/§7/§8/§9/§10 acceptance checks. 6 areas verified fully clean (serving/loader, Rust gateway+fusion, PII/vault, M4 routes, audit/models, regulatory, security-domain). Confirmed gaps were all **RBAC conditional-cell enforcement** (the ⚠️ notes encoded but not enforced at the route) + one literal missing verb. All fixed:
+- `PUT /rules/{code}` added (literal Part 24.2 verb); approve restricted to **Compliance only** (change-controlled); Team Lead is propose-only; `check_rule_tuning` SoD now wired into propose/update.
+- `view_audit` view-own enforced (Senior/Model-Eng filtered to self); service-account scoped/write-only enforced (cannot read alerts or audit).
+- Disposition **override** = Team-Lead-only on already-dispositioned alerts; **block-request approval** endpoint added (Team Lead; still `auto_blocked:false`).
+- Model **promotion** restricted to Model Engineer (Platform Admin = deploy-infra-only). Added a 2nd Compliance officer (EMP-co02) so four-eyes works within Compliance.
+- **All §8 Python checks now green:** `ruff` clean · `black --check` clean · `mypy` clean (97 files, 0 issues) · `pytest` 109 passed. `cargo fmt/clippy/test` for `gateway/` deferred to PLATFORM CI (Rust toolchain not installed locally; crate has per-module unit tests).
+
 ## Session log (newest first)
+- 2026-06-30 — Validation pass: adversarial audit + fixed all confirmed RBAC conditional-enforcement gaps; ruff/black/mypy/pytest all green (109 tests); docs re-synced; openapi regenerated.
 - 2026-06-30 — Built BACKEND-1..29 end-to-end on synthetic data; 102 tests green; `BACKEND.md`/`TODO.md`/`CONTEXT.md` synced; `openapi.json` generated; Rust gateway crate written.

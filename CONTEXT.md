@@ -55,6 +55,9 @@ The L0 event JSON, the L6 alert JSON, the API route table, RBAC roles, and the s
 ## 8. INTEGRATION LOG — append below (newest first)
 > Format: `### YYYY-MM-DD — [WS] — title` then a short note. Append; never overwrite.
 
+### 2026-06-30 — [BACKEND] — Validation pass: RBAC conditional cells now enforced + lint/type green
+Adversarial audit closed all gaps. Changes others should note: rule-change **approval is Compliance-only** (Team Lead proposes), there is now a **`PUT /rules/{code}`** verb and a **`POST /alerts/{id}/block-request/approve`** (Team Lead) endpoint, model **promotion is Model-Engineer-only**, `view_audit` is **view-own** for Senior/Model-Eng, and **service-account scoped tokens cannot read** alerts/audit. A 2nd Compliance officer (`EMP-co02`) was seeded so four-eyes works within Compliance. Full §8 checks green: ruff + black + mypy clean, 109 pytest. `BACKEND.md §3/§4` updated. (`cargo` checks for `gateway/` deferred to PLATFORM CI — Rust toolchain not local.)
+
 ### 2026-06-30 — [BACKEND] — Full backend workstream landed (BACKEND-1..29); BACKEND.md synced
 The `backend/` control plane + Rust hot-path tier is complete on synthetic data; **`BACKEND.md` is the live contract — integrate against it, don't guess.** Key seams for the other laptops:
 - **DATA:** I consume the L0 event (`BACKEND.md §1`) and read online features by the Feast keys listed in **§1a** (e.g. `minutes_since_new_beneficiary`, `maker_checker_same_actor`, `held_entitlements[]`). I stub these until your Feast/Redis is live — please materialize those keys. The EDD disposition writes labels for your **label-source-4** (`POST /alerts/{id}/disposition`).

@@ -20,6 +20,7 @@ authors = [{ name = "Hawk-Eye BACKEND laptop" }]
 # avoid a runtime dependency; everything else is the minimal set the control plane needs.
 dependencies = [
     "fastapi>=0.115,<1.0",        # API layer (Part 24.3: 0.115.x)
+    "starlette>=1.1.0",           # FastAPI transitive dep — floor avoids CVE-2026-48817 (fixed 1.1.0)
     "uvicorn[standard]>=0.32,<1.0",  # ASGI server (Part 24.3: 0.32.x)
     "pydantic>=2.7,<3",           # request/response schemas, OpenAPI (Part 24.3: 2.x)
     "pydantic-settings>=2.3,<3",  # config module
@@ -60,7 +61,11 @@ packages = [
 pythonpath = [".", "services/api"]
 testpaths = ["tests"]
 addopts = "-q -ra"
-filterwarnings = ["ignore::DeprecationWarning"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    # starlette 1.3+ TestClient deprecates httpx for httpx2 — cosmetic test-tooling notice only.
+    "ignore::starlette.exceptions.StarletteDeprecationWarning",
+]
 markers = [
     "unit: fast isolated unit tests",
     "integration: end-to-end / topology replay tests",
@@ -74,7 +79,10 @@ src = [".", "services/api"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "C4", "SIM"]
-ignore = ["E501"]  # black owns line length
+# E501: black owns line length. B008: FastAPI's `Depends(require_capability(...))` DI idiom is
+# intentional call-in-default-argument (the framework convention, not a bug). UP042/UP047: StrEnum
+# / PEP-695 generics are stylistic preferences (we keep (str, Enum) + TypeVar for clarity).
+ignore = ["E501", "B008", "UP042", "UP047"]
 
 [tool.black]
 line-length = 100

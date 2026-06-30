@@ -39,7 +39,9 @@ def fmr_line(case: dict) -> dict:
     }
 
 
-def generate(confirmed_fraud_cases: list[dict], *, period: str = "current", submission_enabled: bool = False) -> dict:
+def generate(
+    confirmed_fraud_cases: list[dict], *, period: str = "current", submission_enabled: bool = False
+) -> dict:
     items = [fmr_line(c) for c in confirmed_fraud_cases]
     return {
         "period": period,

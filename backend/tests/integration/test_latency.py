@@ -16,10 +16,13 @@ from rules_engine.engine import DEFAULT_ENGINE
 
 def _burst(eid="evt_lat"):
     return {
-        "event_id": eid, "ts": "2026-06-30T02:33:10Z",
-        "actor": {"employee_id": "EMP-7f3a"}, "action": {"verb": "approve_payment", "channel": "cbs"},
+        "event_id": eid,
+        "ts": "2026-06-30T02:33:10Z",
+        "actor": {"employee_id": "EMP-7f3a"},
+        "action": {"verb": "approve_payment", "channel": "cbs"},
         "object": {"beneficiary_id": "BEN-9b1c", "amount": 4_800_000},
-        "context": {"is_off_hours": True}, "linkage": {},
+        "context": {"is_off_hours": True},
+        "linkage": {},
     }
 
 

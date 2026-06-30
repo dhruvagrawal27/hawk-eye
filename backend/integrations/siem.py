@@ -27,12 +27,18 @@ class SiemConnector:
                 {
                     "event_id": row.get("id", f"siem_{len(events)}"),
                     "ts": row.get("timestamp"),
-                    "actor": {"employee_id": row.get("user", "EMP-unknown"),
-                              "privileged_flag": bool(row.get("privileged"))},
+                    "actor": {
+                        "employee_id": row.get("user", "EMP-unknown"),
+                        "privileged_flag": bool(row.get("privileged")),
+                    },
                     "action": {"verb": row.get("action", "siem_event"), "channel": "siem"},
                     "object": {},
-                    "context": {"src_ip": row.get("src_ip"), "device": row.get("host"),
-                                "layer": "siem", "is_off_hours": bool(row.get("off_hours"))},
+                    "context": {
+                        "src_ip": row.get("src_ip"),
+                        "device": row.get("host"),
+                        "layer": "siem",
+                        "is_off_hours": bool(row.get("off_hours")),
+                    },
                     "linkage": {},
                 }
             )

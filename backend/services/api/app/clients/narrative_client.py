@@ -29,9 +29,12 @@ _FALLBACK_TMPL = Template(
 
 
 def prompt_hash(ctx: dict) -> str:
-    return "sha256:" + hashlib.sha256(
-        json.dumps(ctx, sort_keys=True, default=str).encode("utf-8")
-    ).hexdigest()[:16]
+    return (
+        "sha256:"
+        + hashlib.sha256(json.dumps(ctx, sort_keys=True, default=str).encode("utf-8")).hexdigest()[
+            :16
+        ]
+    )
 
 
 class NarrativeClient:

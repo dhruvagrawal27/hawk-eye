@@ -39,10 +39,17 @@ def test_vault_round_trip_encrypts_at_rest():
 
 
 def test_tokenize_payload_before_egress_and_guard():
-    payload = {"name": "Asha Nair", "account_number": "99887766", "risk": 87, "nested": {"pan": "ABCDE1234F"}}
+    payload = {
+        "name": "Asha Nair",
+        "account_number": "99887766",
+        "risk": 87,
+        "nested": {"pan": "ABCDE1234F"},
+    }
     vault = ReidVault()
     out = tokenize_payload(payload, vault=vault)
-    assert is_token(out["name"]) and is_token(out["account_number"]) and is_token(out["nested"]["pan"])
+    assert (
+        is_token(out["name"]) and is_token(out["account_number"]) and is_token(out["nested"]["pan"])
+    )
     assert out["risk"] == 87  # non-PII untouched
     assert_no_raw_pii(out)  # must not raise — nothing raw remains
 

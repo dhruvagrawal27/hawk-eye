@@ -20,7 +20,7 @@ from app.clients.feature_client import FEATURE_READER, FeatureReader
 from app.clients.serving_client import SERVING_CLIENT, ServingClient
 from app.observability.metrics import ALERTS_EMITTED, RULE_HITS
 from app.schemas.alerts import Alert, ReasonCode
-from app.schemas.common import iso_z, new_alert_id, new_ring_id, utcnow
+from app.schemas.common import iso_z, new_alert_id, utcnow
 from app.store.alert_store import ALERTS, AlertStore
 from app.workflow.escalation import apply_sla
 from fusion.service import DEFAULT_FUSION, FusionService
@@ -100,9 +100,7 @@ class OnlinePipeline:
 
     def _emit_short_circuit(self, event, result, graph_ev, ring_id, alert_id, created_ts) -> Alert:
         """L1 hard-hit short-circuit: emit HIGH immediately, skip ML (BACKEND-11)."""
-        reason_codes = result.reason_codes + [
-            {"source": "graph", "detail": ev} for ev in graph_ev
-        ]
+        reason_codes = result.reason_codes + [{"source": "graph", "detail": ev} for ev in graph_ev]
         layers = ["L1_rules"] + (["L5_graph"] if graph_ev else [])
         risk = max(85, int(round(result.l1_score * 100)))
         confidence = round(min(0.95, 0.6 + 0.35 * result.l1_score), 2)
@@ -121,7 +119,15 @@ class OnlinePipeline:
         )
 
     def _emit_fused(
-        self, event, result: EvalResult, features, graph_ev, ring_id, alert_id, created_ts, force_degraded
+        self,
+        event,
+        result: EvalResult,
+        features,
+        graph_ev,
+        ring_id,
+        alert_id,
+        created_ts,
+        force_degraded,
     ) -> Alert | None:
         score_result = self._score(features, event.get("event_id", ""), force_degraded)
 
@@ -130,7 +136,9 @@ class OnlinePipeline:
             DEGRADATION.mark_for_rescore(event.get("event_id", ""))
             if not result.fired:
                 return None
-            reason_codes = result.reason_codes + [{"source": "graph", "detail": e} for e in graph_ev]
+            reason_codes = result.reason_codes + [
+                {"source": "graph", "detail": e} for e in graph_ev
+            ]
             layers = ["L1_rules"] + (["L5_graph"] if graph_ev else [])
             risk = max(1, int(round(result.l1_score * 100)))
             return self._emit(
@@ -156,7 +164,9 @@ class OnlinePipeline:
             l1_reason_codes=result.reason_codes,
             graph_evidence=graph_ev,
         )
-        emit = result.hard_hit or fusion.severity == "high" or fusion.risk_score >= self.emit_threshold
+        emit = (
+            result.hard_hit or fusion.severity == "high" or fusion.risk_score >= self.emit_threshold
+        )
         if not emit:
             return None  # recorded to ClickHouse, not surfaced as an alert
         return self._emit(
@@ -218,7 +228,10 @@ class OnlinePipeline:
         if features.get("maker_checker_pair_isolated"):
             partner = features.get("maker_checker_partner", "<partner>")
             ring = _ring_for(actor, partner)
-            return ([f"maker {actor} + checker {partner} recur as an isolated pair (ring {ring})"], ring)
+            return (
+                [f"maker {actor} + checker {partner} recur as an isolated pair (ring {ring})"],
+                ring,
+            )
         return ([], None)
 
 

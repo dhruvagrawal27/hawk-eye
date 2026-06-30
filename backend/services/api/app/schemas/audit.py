@@ -16,7 +16,9 @@ class AuditEvent(BaseModel):
     ts: str
     actor: str = Field(..., description="Who performed the action (tokenized user id)")
     actor_role: Role | str
-    action: str = Field(..., description="e.g. alert.view, alert.disposition, pii.unmask, rule.change")
+    action: str = Field(
+        ..., description="e.g. alert.view, alert.disposition, pii.unmask, rule.change"
+    )
     target: str | None = Field(None, description="Subject of the action (e.g. entity / alert id)")
     detail: dict = Field(default_factory=dict)
     immutable: bool = True

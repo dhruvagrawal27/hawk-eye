@@ -53,7 +53,14 @@ class FusionService:
         l3 = float(scores.get("L3_gbdt", 0.0) or 0.0)
         l4 = scores.get("L4_sequence")
         l4f = float(l4) if l4 is not None else None
-        sod = 1.0 if (features.get("maker_checker_same_actor") or features.get("maker_checker_pair_isolated")) else 0.0
+        sod = (
+            1.0
+            if (
+                features.get("maker_checker_same_actor")
+                or features.get("maker_checker_pair_isolated")
+            )
+            else 0.0
+        )
 
         prob = self._meta_prob(l1_score, l2, l3, l4f, sod)
         if l1_hard_hit:

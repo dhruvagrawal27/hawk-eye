@@ -33,15 +33,11 @@ def can_view_alert(principal: Principal, alert_id: str, assignee: str | None) ->
     if principal.role == Role.ANALYST:
         # Assigned-only: the alert must be in the analyst's case scope or assigned to them.
         return alert_id in principal.assigned_alerts or assignee == principal.user_id
-    if principal.role == Role.MODEL_ENGINEER:
-        # De-identified only — view is permitted but the route must de-identify the payload.
-        return True
-    return False
+    # Model Engineer: de-identified view permitted (route de-identifies the payload).
+    return principal.role == Role.MODEL_ENGINEER
 
 
-def filter_visible(
-    principal: Principal, alerts: Iterable[T], *, id_of, assignee_of
-) -> list[T]:
+def filter_visible(principal: Principal, alerts: Iterable[T], *, id_of, assignee_of) -> list[T]:
     """Filter an iterable of alerts down to those the principal may see."""
     if sees_all_cases(principal) or principal.role == Role.MODEL_ENGINEER:
         return list(alerts)

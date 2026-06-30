@@ -10,7 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.audit.writer import AUDIT
-from app.auth.deps import get_principal, require_capability
+from app.auth.deps import require_capability
 from app.auth.principal import Principal
 from app.auth.rbac import decision
 from app.pii.vault import VAULT
@@ -29,8 +29,12 @@ router = APIRouter(tags=["entities"])
 
 
 def _view_audit(principal: Principal, entity_id: str, what: str) -> None:
-    AUDIT.write(actor=principal.user_id, actor_role=principal.role, action=f"entity.{what}",
-                target=entity_id)
+    AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action=f"entity.{what}",
+        target=entity_id,
+    )
 
 
 @router.get("/entities/{entity_id}", response_model=EntityProfile)
@@ -87,8 +91,14 @@ def unmask(
 ) -> UnmaskResponse:
     """Re-identify tokenized PII (audited). Analyst must provide a justification (case-scoped)."""
     grant = decision(principal.role, Capability.UNMASK_PII)
-    if principal.role == Role.ANALYST and grant.note == "case_scoped_logged" and not body.justification:
-        raise HTTPException(status_code=403, detail="Analyst unmask requires a case-scoped justification")
+    if (
+        principal.role == Role.ANALYST
+        and grant.note == "case_scoped_logged"
+        and not body.justification
+    ):
+        raise HTTPException(
+            status_code=403, detail="Analyst unmask requires a case-scoped justification"
+        )
 
     tokens = body.tokens or VAULT.known_tokens()
     mapping = VAULT.resolve_many(tokens)

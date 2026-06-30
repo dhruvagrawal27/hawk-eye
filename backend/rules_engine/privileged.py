@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from rules_engine.context import RuleContext
 from rules_engine.named_rules import Predicate, _hit, fmt_inr
+from rules_engine.rule import RuleConfig, RuleHit
 
 
-def privileged_session_correlation(ctx: RuleContext, cfg) -> "object | None":
+def privileged_session_correlation(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     """A privileged session correlated with anomalous/off-hours/sensitive activity."""
     privileged = bool(ctx.actor.get("privileged_flag")) or bool(ctx.feat("privileged_session"))
     if not privileged:
@@ -32,7 +33,7 @@ def privileged_session_correlation(ctx: RuleContext, cfg) -> "object | None":
     return None
 
 
-def orphaned_account_use(ctx: RuleContext, cfg) -> "object | None":
+def orphaned_account_use(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     """Use of an orphaned / leaver / never-deprovisioned account."""
     orphaned = bool(ctx.feat("account_orphaned")) or bool(ctx.actor.get("leaver_flag"))
     if orphaned and ctx.verb:
@@ -40,7 +41,7 @@ def orphaned_account_use(ctx: RuleContext, cfg) -> "object | None":
     return None
 
 
-def least_privilege_violation(ctx: RuleContext, cfg) -> "object | None":
+def least_privilege_violation(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     """Action exercising an entitlement the actor should not hold (least-privilege breach)."""
     if bool(ctx.feat("least_privilege_violation")) or bool(ctx.feat("entitlement_not_required")):
         ent = ctx.obj.get("entitlement") or ctx.feat("violated_entitlement") or "an entitlement"
@@ -48,7 +49,7 @@ def least_privilege_violation(ctx: RuleContext, cfg) -> "object | None":
     return None
 
 
-def leaver_window_exfil(ctx: RuleContext, cfg) -> "object | None":
+def leaver_window_exfil(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     """Bulk export/exfil proxy inside a leaver's notice window."""
     exfil_verbs = set(cfg.params.get("exfil_verbs", ["export", "bulk_export", "download", "copy"]))
     if ctx.verb not in exfil_verbs:
@@ -65,7 +66,7 @@ def leaver_window_exfil(ctx: RuleContext, cfg) -> "object | None":
     return None
 
 
-def no_leave_streak(ctx: RuleContext, cfg) -> "object | None":
+def no_leave_streak(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     """No-leave-streak proxy (a classic embezzlement tell) combined with sensitive access."""
     streak = ctx.feat("no_leave_days", 0)
     threshold = int(cfg.params.get("no_leave_days_threshold", 365))

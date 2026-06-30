@@ -41,20 +41,32 @@ def report_fmr(principal: Principal = Depends(_COMPLIANCE)) -> FmrReport:
         _case(a) for a in ALERTS.all() if str(a.status) == AlertStatus.CONFIRMED_FRAUD.value
     ]
     report = fmr.generate(confirmed, submission_enabled=settings.rbi_submission_enabled)
-    AUDIT.write(actor=principal.user_id, actor_role=principal.role, action="report.fmr",
-                detail={"lines": len(report["items"])})
+    AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="report.fmr",
+        detail={"lines": len(report["items"])},
+    )
     return FmrReport(generated_ts=iso_z(utcnow()), **report)
 
 
 @router.get("/reports/crilc", response_model=CrilcReport)
 def report_crilc(principal: Principal = Depends(_COMPLIANCE)) -> CrilcReport:
     exposures = [
-        {"entity_id": a.entity_id, "exposure_inr": a.exposure_inr, "detected_ts": a.created_ts,
-         "rfa_tagged": _case(a)["rfa_tagged"]}
+        {
+            "entity_id": a.entity_id,
+            "exposure_inr": a.exposure_inr,
+            "detected_ts": a.created_ts,
+            "rfa_tagged": _case(a)["rfa_tagged"],
+        }
         for a in ALERTS.all()
         if a.exposure_inr > 0
     ]
     report = crilc.generate(exposures, submission_enabled=settings.rbi_submission_enabled)
-    AUDIT.write(actor=principal.user_id, actor_role=principal.role, action="report.crilc",
-                detail={"lines": len(report["items"])})
+    AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="report.crilc",
+        detail={"lines": len(report["items"])},
+    )
     return CrilcReport(generated_ts=iso_z(utcnow()), **report)

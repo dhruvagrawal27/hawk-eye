@@ -31,7 +31,11 @@ def _signals(fv: dict) -> dict:
     lat_risk = 0.0
     if latency is not None:
         lat_risk = max(0.0, 1.0 - float(latency) / 120.0)
-    sod = 1.0 if (fv.get("maker_checker_same_actor") or fv.get("maker_checker_pair_isolated")) else 0.0
+    sod = (
+        1.0
+        if (fv.get("maker_checker_same_actor") or fv.get("maker_checker_pair_isolated"))
+        else 0.0
+    )
     privileged = 1.0 if fv.get("privileged_session") else 0.0
     return {"off": off, "amount_z": amount_z, "lat_risk": lat_risk, "sod": sod, "priv": privileged}
 

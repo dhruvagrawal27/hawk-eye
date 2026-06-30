@@ -11,11 +11,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.audit.writer import AUDIT
-from app.auth.deps import require_capability
+from app.auth.deps import require_capability, require_role
 from app.auth.principal import Principal
 from app.auth.sod import SoDError, check_disposition
 from app.observability.metrics import DISPOSITIONS
-from app.schemas.common import AlertStatus, Capability, DispositionOutcome
+from app.schemas.common import AlertStatus, Capability, DispositionOutcome, Role
 from app.schemas.disposition import (
     AssignRequest,
     BlockRequest,
@@ -26,6 +26,12 @@ from app.schemas.disposition import (
 from app.store.alert_store import ALERTS
 
 router = APIRouter(tags=["disposition"])
+
+_TERMINAL_DISPOSITIONS = {
+    AlertStatus.CONFIRMED_FRAUD.value,
+    AlertStatus.FALSE_POSITIVE.value,
+    AlertStatus.INCONCLUSIVE.value,
+}
 
 _OUTCOME_STATUS = {
     DispositionOutcome.FRAUD: AlertStatus.CONFIRMED_FRAUD,
@@ -49,9 +55,19 @@ def assign(
 ) -> dict:
     _alert_or_404(alert_id)
     ALERTS.assign(alert_id, body.assignee)
-    audit = AUDIT.write(actor=principal.user_id, actor_role=principal.role, action="alert.assign",
-                        target=alert_id, detail={"assignee": body.assignee})
-    return {"alert_id": alert_id, "assignee": body.assignee, "status": "assigned", "audit_id": audit.audit_id}
+    audit = AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="alert.assign",
+        target=alert_id,
+        detail={"assignee": body.assignee},
+    )
+    return {
+        "alert_id": alert_id,
+        "assignee": body.assignee,
+        "status": "assigned",
+        "audit_id": audit.audit_id,
+    }
 
 
 @router.post("/alerts/{alert_id}/disposition", response_model=DispositionResponse)
@@ -61,6 +77,13 @@ def disposition(
     principal: Principal = Depends(require_capability(Capability.DISPOSITION)),
 ) -> DispositionResponse:
     alert = _alert_or_404(alert_id)
+    # RBAC ⚠️ "override" (Part 24.1): re-dispositioning an already-dispositioned alert is an
+    # override action reserved for the Team Lead / MLRO. Analysts/Seniors dispose open alerts only.
+    if str(alert.status) in _TERMINAL_DISPOSITIONS and principal.role != Role.TEAM_LEAD:
+        raise HTTPException(
+            status_code=403,
+            detail=f"alert already dispositioned ({alert.status}); only Team Lead may override",
+        )
     # SoD: deployers cannot label/close; no self-review (Part 19.6).
     try:
         check_disposition(principal, alert.assignee, alert.entity_id)
@@ -70,15 +93,26 @@ def disposition(
     new_status = _OUTCOME_STATUS[body.outcome]
     ALERTS.set_status(alert_id, new_status)
     audit = AUDIT.write(
-        actor=principal.user_id, actor_role=principal.role, action="alert.disposition",
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="alert.disposition",
         target=alert.entity_id,
-        detail={"alert_id": alert_id, "outcome": body.outcome.value, "evidence_ids": body.evidence_ids},
+        detail={
+            "alert_id": alert_id,
+            "outcome": body.outcome.value,
+            "evidence_ids": body.evidence_ids,
+        },
     )
     # Write the label + queue for retraining (DATA label-source-4 / ML feedback loop).
     label_record = {
-        "alert_id": alert_id, "entity_id": alert.entity_id, "label": body.outcome.value,
-        "notes": body.notes, "evidence_ids": body.evidence_ids, "labeled_by": principal.user_id,
-        "audit_id": audit.audit_id, "source": "edd_disposition",
+        "alert_id": alert_id,
+        "entity_id": alert.entity_id,
+        "label": body.outcome.value,
+        "notes": body.notes,
+        "evidence_ids": body.evidence_ids,
+        "labeled_by": principal.user_id,
+        "audit_id": audit.audit_id,
+        "source": "edd_disposition",
     }
     ALERTS.record_disposition(alert_id, label_record)
     ALERTS.queue_feedback(label_record)
@@ -102,11 +136,48 @@ def block_request(
     alert = _alert_or_404(alert_id)
     ALERTS.set_status(alert_id, AlertStatus.BLOCK_REQUESTED)
     audit = AUDIT.write(
-        actor=principal.user_id, actor_role=principal.role, action="alert.block_request",
-        target=alert.entity_id, detail={"alert_id": alert_id, "reason": body.reason, "auto_blocked": False},
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="alert.block_request",
+        target=alert.entity_id,
+        detail={"alert_id": alert_id, "reason": body.reason, "auto_blocked": False},
     )
-    ALERTS.record_block_request(alert_id, {"requested_by": principal.user_id, "reason": body.reason})
+    ALERTS.record_block_request(
+        alert_id, {"requested_by": principal.user_id, "reason": body.reason}
+    )
     return BlockRequestResponse(
-        alert_id=alert_id, status="block_requested", requires_approval_by="team_lead",
-        auto_blocked=False, audit_id=audit.audit_id,
+        alert_id=alert_id,
+        status="block_requested",
+        requires_approval_by="team_lead",
+        auto_blocked=False,
+        audit_id=audit.audit_id,
     )
+
+
+@router.post("/alerts/{alert_id}/block-request/approve")
+def approve_block_request(
+    alert_id: str,
+    principal: Principal = Depends(require_role(Role.TEAM_LEAD)),
+) -> dict:
+    """Team Lead APPROVES a raised block request (Part 24.1: Lead = ✅ approve for Request block).
+
+    This is the human approval of the *request* — it is still **never an auto-block of money**.
+    Actioning a block remains a manual, out-of-band step; the system only records the approval.
+    """
+    alert = _alert_or_404(alert_id)
+    if str(alert.status) != AlertStatus.BLOCK_REQUESTED.value:
+        raise HTTPException(status_code=409, detail="no pending block request for this alert")
+    audit = AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="alert.block_approved",
+        target=alert.entity_id,
+        detail={"alert_id": alert_id, "auto_blocked": False},
+    )
+    return {
+        "alert_id": alert_id,
+        "approved": True,
+        "approved_by": principal.user_id,
+        "auto_blocked": False,
+        "audit_id": audit.audit_id,
+    }

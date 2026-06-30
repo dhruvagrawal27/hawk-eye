@@ -18,6 +18,7 @@ ROLE_USER = {
     "senior": "EMP-sr01",
     "lead": "EMP-tl01",
     "compliance": "EMP-co01",
+    "compliance2": "EMP-co02",
     "auditor": "EMP-au01",
     "model_engineer": "EMP-me01",
     "admin": "EMP-pa01",
@@ -89,7 +90,9 @@ def auth(client):
 
     def _auth(role: str) -> dict:
         user_id = ROLE_USER[role]
-        resp = client.post("/api/v1/auth/login", json={"username": user_id, "password": DEV_PASSWORD})
+        resp = client.post(
+            "/api/v1/auth/login", json={"username": user_id, "password": DEV_PASSWORD}
+        )
         assert resp.status_code == 200, resp.text
         return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 

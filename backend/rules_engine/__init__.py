@@ -12,7 +12,13 @@ from rules_engine.sod_matrix import DEFAULT_SOD_MATRIX, SoDFlag, SoDMatrix, SoDR
 
 __all__ = [
     "RuleContext",
-    "RulesEngine", "EvalResult", "DEFAULT_ENGINE",
-    "RuleConfig", "RuleHit",
-    "SoDMatrix", "SoDResult", "SoDFlag", "DEFAULT_SOD_MATRIX",
+    "RulesEngine",
+    "EvalResult",
+    "DEFAULT_ENGINE",
+    "RuleConfig",
+    "RuleHit",
+    "SoDMatrix",
+    "SoDResult",
+    "SoDFlag",
+    "DEFAULT_SOD_MATRIX",
 ]

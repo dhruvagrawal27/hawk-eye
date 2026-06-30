@@ -13,6 +13,7 @@ def test_narrative_returns_labelled_ai_output_and_memo(client, auth):
     assert body["narrative"]
 
     from app.store.alert_store import ALERTS
+
     memos = ALERTS.narrative_memos("alr_demo01")
     assert memos, "an audit memo must be persisted"
     memo = memos[-1]
@@ -21,6 +22,7 @@ def test_narrative_returns_labelled_ai_output_and_memo(client, auth):
     assert memo.ts.endswith("Z")
 
     from app.audit.writer import AUDIT
+
     assert any(e.action == "narrative.generate" for e in AUDIT.all())
 
 

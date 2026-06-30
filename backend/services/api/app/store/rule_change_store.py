@@ -46,7 +46,9 @@ class RuleChangeStore:
     def list(self) -> list[ChangeProposal]:
         return list(self._proposals.values())
 
-    def resolve(self, change_id: str, approver: str, approved: bool, new_version: str | None) -> ChangeProposal | None:
+    def resolve(
+        self, change_id: str, approver: str, approved: bool, new_version: str | None
+    ) -> ChangeProposal | None:
         proposal = self._proposals.get(change_id)
         if proposal:
             proposal.status = "approved" if approved else "rejected"

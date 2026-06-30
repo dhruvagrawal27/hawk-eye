@@ -40,13 +40,21 @@ def list_alerts(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> AlertPage:
-    items, _ = ALERTS.list(status=status, risk_gte=risk_gte, assignee=assignee, limit=10_000, offset=0)
-    visible = filter_visible(principal, items, id_of=lambda a: a.alert_id, assignee_of=lambda a: a.assignee)
+    items, _ = ALERTS.query(
+        status=status, risk_gte=risk_gte, assignee=assignee, limit=10_000, offset=0
+    )
+    visible = filter_visible(
+        principal, items, id_of=lambda a: a.alert_id, assignee_of=lambda a: a.assignee
+    )
     total = len(visible)
     page = visible[offset : offset + limit]
     page = [_deidentify(a, principal) for a in page]
-    AUDIT.write(actor=principal.user_id, actor_role=principal.role, action="alert.list",
-                detail={"returned": len(page), "filters": {"status": status, "risk_gte": risk_gte}})
+    AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="alert.list",
+        detail={"returned": len(page), "filters": {"status": status, "risk_gte": risk_gte}},
+    )
     next_offset = offset + limit if offset + limit < total else None
     return AlertPage(items=page, total=total, limit=limit, offset=offset, next_offset=next_offset)
 
@@ -62,6 +70,11 @@ def get_alert(
     if not can_view_alert(principal, alert_id, alert.assignee):
         raise HTTPException(status_code=403, detail="alert outside your case scope")
     # who-viewed-whom (Part 19.3 / 29.2)
-    AUDIT.write(actor=principal.user_id, actor_role=principal.role, action="alert.view",
-                target=alert.entity_id, detail={"alert_id": alert_id})
+    AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="alert.view",
+        target=alert.entity_id,
+        detail={"alert_id": alert_id},
+    )
     return _deidentify(alert, principal)
