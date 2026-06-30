@@ -1,0 +1,45 @@
+[project]
+name = "hawkeye-data"
+version = "0.1.0"
+description = "Hawk-Eye DATA workstream: L0 event model, synthetic simulator, feature catalogue, connectors, governance"
+requires-python = ">=3.12"
+# Core deps are intentionally light so the package imports and the simulator runs
+# with no heavy infra. Heavy streaming/feature-store/quality deps are optional extras.
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "pyarrow>=15.0",
+]
+
+[project.optional-dependencies]
+sim = ["simpy>=4.1"]                       # agent-based simulator (a pure-python fallback ships in-tree)
+streaming = ["confluent-kafka>=2.5", "apache-flink>=1.20"]
+featurestore = ["feast>=0.40", "redis>=5.0"]
+clickhouse = ["clickhouse-connect>=0.7"]
+labels = ["snorkel>=0.10"]
+augment = ["sdv>=1.15"]
+features = ["featuretools>=1.31"]
+quality = ["great-expectations>=1.0", "pandera>=0.20"]
+versioning = ["dvc>=3.50", "mlflow>=2.18"]
+dev = ["pytest>=8.0", "ruff>=0.6", "black>=24.0", "mypy>=1.11", "jsonschema>=4.23", "fastavro>=1.9"]
+
+[project.scripts]
+hawkeye-sim = "data.sim.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["data"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.black]
+line-length = 110
+
+[tool.pytest.ini_options]
+testpaths = ["data/tests"]
+addopts = "-q"
