@@ -57,11 +57,16 @@ jobs:
       - name: Install platform test deps
         run: pip install -r tools/requirements.txt
       - name: Unit tests (sizing, switch, tee, pam, governance, hitl, rbac, tools)
-        run: python -m pytest tests -q -m "not perf and not chaos" --ignore=tests/uat
+        # PLATFORM's own suite. tests/ml + tests/data are run by their dedicated gates
+        # below (they need ML/DATA deps); tests/redteam rbac/sod needs the backend venv —
+        # its static checks run as a separate step here.
+        run: python -m pytest tests -q -m "not perf and not chaos" --ignore=tests/uat --ignore=tests/ml --ignore=tests/data --ignore=tests/redteam
       - name: Integration — topology smoke (synthetic L0 -> alert)
         run: python tests/integration/topology_smoke.py
       - name: Contract — governance-api routes vs BACKEND.md (gates the build)
         run: python -m pytest tests/contract -q
+      - name: Red-team — cross-contract conformance + alert-only/secrets (static, any venv)
+        run: python -m pytest tests/redteam/test_contract_conformance.py tests/redteam/test_alert_only_and_secrets.py -q
 
   data-validation:
     name: Data validation (DATA gate — Great Expectations/Pandera)

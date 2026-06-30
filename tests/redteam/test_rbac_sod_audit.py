@@ -29,7 +29,7 @@ for _p in (str(_BACKEND), str(_BACKEND / "services" / "api")):
 from app.audit.writer import AUDIT  # noqa: E402
 from app.auth import sod  # noqa: E402
 from app.auth.principal import Principal  # noqa: E402
-from app.auth.rbac import MATRIX, decision, is_allowed  # noqa: E402
+from app.auth.rbac import MATRIX, is_allowed  # noqa: E402
 from app.schemas.alerts import Alert  # noqa: E402
 from app.schemas.audit import AuditEvent  # noqa: E402
 from app.schemas.common import Capability, Role  # noqa: E402
@@ -123,7 +123,9 @@ def test_garbage_and_tampered_tokens_rejected(client):
     """A forged / non-JWT bearer token must be rejected (signature validation)."""
     for tok in ("not-a-jwt", "Bearer", "a.b.c", "x" * 64):
         r = client.get("/api/v1/alerts", headers={"Authorization": f"Bearer {tok}"})
-        assert r.status_code == 401, f"forged token accepted: {tok!r} -> {r.status_code}"
+        assert (
+            r.status_code == 401
+        ), f"forged token accepted: {tok!r} -> {r.status_code}"
 
 
 def test_analyst_cannot_reach_higher_capability_routes(client, auth):
@@ -167,9 +169,9 @@ def test_analyst_cannot_unmask_senior_only_pii_without_justification(client, aut
     """PII unmask: Analyst is case-scoped+logged and MUST justify; bare unmask => 403."""
     a = auth("analyst")
     r = client.post("/api/v1/entities/EMP-7f3a/unmask", headers=a, json={})
-    assert r.status_code == 403, (
-        f"analyst unmasked PII with no justification: {r.status_code}"
-    )
+    assert (
+        r.status_code == 403
+    ), f"analyst unmasked PII with no justification: {r.status_code}"
 
 
 def test_model_engineer_cannot_unmask_pii_at_all(client, auth):
@@ -234,7 +236,11 @@ def test_sod_no_self_review_via_route(client, auth):
     r = client.post(
         "/api/v1/alerts/alr_self/disposition",
         headers=auth("senior"),
-        json={"outcome": "false_positive", "notes": "clearing myself", "evidence_ids": []},
+        json={
+            "outcome": "false_positive",
+            "notes": "clearing myself",
+            "evidence_ids": [],
+        },
     )
     assert r.status_code == 403, f"self-review disposition allowed: {r.status_code}"
     assert "self_review" in r.text or "own case" in r.text
@@ -256,7 +262,11 @@ def test_sod_four_eyes_self_approval_rejected_on_rules(client, auth):
     r = client.post(
         "/api/v1/rules",
         headers=co,
-        json={"code": "OFF_HOURS_ACTIVITY", "change_reason": "tighten", "params": {"window": 2}},
+        json={
+            "code": "OFF_HOURS_ACTIVITY",
+            "change_reason": "tighten",
+            "params": {"window": 2},
+        },
     )
     assert r.status_code == 201, r.text
     change_id = r.json()["change_id"]
@@ -274,7 +284,11 @@ def test_sod_only_compliance_approves_rule_change_team_lead_propose_only(client,
     change_id = client.post(
         "/api/v1/rules",
         headers=co,
-        json={"code": "OFF_HOURS_ACTIVITY", "change_reason": "x", "params": {"window": 3}},
+        json={
+            "code": "OFF_HOURS_ACTIVITY",
+            "change_reason": "x",
+            "params": {"window": 3},
+        },
     ).json()["change_id"]
     # Team Lead has tune_rules (propose_only) but MUST NOT be able to approve.
     r = client.post(
@@ -330,9 +344,9 @@ def test_sod_pii_unmask_is_a_separate_capability_not_implied_by_view():
             pass
     # The Auditor can read alerts (read_only) yet must NOT be able to unmask.
     assert is_allowed(Role.AUDITOR, Capability.VIEW_ALERTS)
-    assert not is_allowed(Role.AUDITOR, Capability.UNMASK_PII), (
-        "view-only Auditor was granted PII unmask — separation broken"
-    )
+    assert not is_allowed(
+        Role.AUDITOR, Capability.UNMASK_PII
+    ), "view-only Auditor was granted PII unmask — separation broken"
 
 
 # ======================================================================================
@@ -346,7 +360,9 @@ def test_sensitive_actions_write_who_viewed_whom_audit(client, auth):
     client.get("/api/v1/alerts/alr_demo01", headers=auth("senior"))
     view_events = [e for e in AUDIT.all() if e.action == "alert.view"]
     assert view_events, "single-alert view did not write a who-viewed-whom audit event"
-    assert any(e.target == "EMP-7f3a" for e in view_events), "viewed entity not recorded"
+    assert any(
+        e.target == "EMP-7f3a" for e in view_events
+    ), "viewed entity not recorded"
     # PII unmask is audited
     client.post(
         "/api/v1/entities/EMP-7f3a/unmask",
@@ -389,7 +405,8 @@ def test_audit_entries_are_tamper_evident_or_immutable():
     tamper_visible_in_store = after.actor != original_actor
 
     has_integrity_field = any(
-        f in AuditEvent.model_fields for f in ("hash", "prev_hash", "signature", "digest")
+        f in AuditEvent.model_fields
+        for f in ("hash", "prev_hash", "signature", "digest")
     )
 
     assert tamper_blocked or not tamper_visible_in_store or has_integrity_field, (
@@ -402,7 +419,9 @@ def test_audit_entries_are_tamper_evident_or_immutable():
 
 def test_audit_query_and_all_do_not_let_caller_delete_history():
     """Reading the trail must not expose a handle that deletes/clears prior history."""
-    AUDIT.write(actor="EMP-a", actor_role=Role.ANALYST, action="alert.view", target="E1")
+    AUDIT.write(
+        actor="EMP-a", actor_role=Role.ANALYST, action="alert.view", target="E1"
+    )
     n = len(AUDIT.all())
     # The public list returned by all()/query() must be a copy: clearing it must NOT
     # wipe the underlying trail.
@@ -418,21 +437,23 @@ def test_reading_audit_is_itself_audited(client, auth):
     """watch-the-watchers: reading the audit trail writes an audit.view event."""
     auditor = auth("auditor")
     client.get("/api/v1/audit", headers=auditor)
-    assert any(e.action == "audit.view" for e in AUDIT.all()), (
-        "reading the audit trail was not itself audited"
-    )
+    assert any(
+        e.action == "audit.view" for e in AUDIT.all()
+    ), "reading the audit trail was not itself audited"
 
 
 def test_view_own_audit_scope_enforced_for_senior(client, auth):
     """Senior Investigator gets view_own audit only — cannot read others' entries."""
     # Seed an audit entry by a different actor.
-    AUDIT.write(actor="EMP-other", actor_role=Role.ANALYST, action="alert.view", target="E9")
+    AUDIT.write(
+        actor="EMP-other", actor_role=Role.ANALYST, action="alert.view", target="E9"
+    )
     r = client.get("/api/v1/audit", headers=auth("senior"))
     assert r.status_code == 200, r.text
     for item in r.json()["items"]:
-        assert item["actor"] == "EMP-sr01", (
-            f"senior saw another actor's audit entry: {item['actor']} (view_own breached)"
-        )
+        assert (
+            item["actor"] == "EMP-sr01"
+        ), f"senior saw another actor's audit entry: {item['actor']} (view_own breached)"
 
 
 # ======================================================================================
@@ -445,9 +466,9 @@ def test_every_seeded_alert_carries_reason_codes(client, auth):
     r = client.get("/api/v1/alerts", headers=auth("senior"))
     assert r.status_code == 200, r.text
     for alert in r.json()["items"]:
-        assert alert["reason_codes"], (
-            f"alert {alert['alert_id']} served with NO reason codes — not contestable"
-        )
+        assert alert[
+            "reason_codes"
+        ], f"alert {alert['alert_id']} served with NO reason codes — not contestable"
 
 
 def test_alert_without_reason_codes_is_rejected_or_flagged(client, auth):
@@ -484,7 +505,9 @@ def test_alert_without_reason_codes_is_rejected_or_flagged(client, auth):
 
         USER_STORE.assign_alert("EMP-an01", "alr_noreason")
         r = client.get("/api/v1/alerts/alr_noreason", headers=auth("senior"))
-        served_without_reasons = r.status_code == 200 and not r.json().get("reason_codes")
+        served_without_reasons = r.status_code == 200 and not r.json().get(
+            "reason_codes"
+        )
 
     assert rejected_at_construction or not served_without_reasons, (
         "An alert with EMPTY reason_codes was accepted by the schema/store and served by "
@@ -503,5 +526,7 @@ def test_block_request_is_never_auto_executed(client, auth):
     )
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["auto_blocked"] is False, "block-request auto-blocked money (ALERT-ONLY breach)"
+    assert (
+        body["auto_blocked"] is False
+    ), "block-request auto-blocked money (ALERT-ONLY breach)"
     assert body["requires_approval_by"] == "team_lead"

@@ -5,6 +5,7 @@ BACKEND Alert schema, and the narrate() response all agree with the canonical BA
 contract. Drift here = silent integration breakage. Static (reads source), runs in any venv.
 Blueprint: BACKEND.md §1/§2/§7, Part 5.1, Part 24.5, Part 25.6.
 """
+
 from __future__ import annotations
 
 import os
@@ -21,8 +22,18 @@ def _read(rel: str) -> str:
 
 # Canonical contracts (BACKEND.md is the source of truth).
 L6_ALERT_KEYS = {
-    "alert_id", "entity_id", "risk_score", "severity", "confidence", "status",
-    "created_ts", "contributing_layers", "reason_codes", "exposure_inr", "sla_due_ts", "pii_tokenized",
+    "alert_id",
+    "entity_id",
+    "risk_score",
+    "severity",
+    "confidence",
+    "status",
+    "created_ts",
+    "contributing_layers",
+    "reason_codes",
+    "exposure_inr",
+    "sla_due_ts",
+    "pii_tokenized",
 }
 NARRATE_KEYS = {"narrative", "provider", "tee_attested", "attestation_id", "model"}
 L0_GROUPS = {"actor", "action", "object", "context", "linkage"}
@@ -47,7 +58,9 @@ def test_backend_alert_schema_matches_backend_md():
     """backend Alert pydantic model must declare every BACKEND.md §2 alert key."""
     src = _read("backend/services/api/app/schemas/alerts.py")
     for k in L6_ALERT_KEYS:
-        assert re.search(rf"\b{k}\b", src), f"backend Alert schema missing contract key {k!r}"
+        assert re.search(
+            rf"\b{k}\b", src
+        ), f"backend Alert schema missing contract key {k!r}"
 
 
 def test_reason_code_shape_agrees_across_ml_and_backend():
@@ -83,5 +96,9 @@ def test_l0_event_groups_agree_across_data_and_backend_md():
 
 def test_pii_tokenized_is_always_true_on_egress_contract():
     """pii_tokenized must default True in both alert schemas (raw PII never on egress)."""
-    assert re.search(r"pii_tokenized.*=.*True|pii_tokenized.*True", _read("ml/base/interfaces.py"))
-    assert re.search(r"pii_tokenized.*True", _read("backend/services/api/app/schemas/alerts.py"))
+    assert re.search(
+        r"pii_tokenized.*=.*True|pii_tokenized.*True", _read("ml/base/interfaces.py")
+    )
+    assert re.search(
+        r"pii_tokenized.*True", _read("backend/services/api/app/schemas/alerts.py")
+    )
