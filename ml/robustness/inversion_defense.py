@@ -53,11 +53,11 @@ class BandedScore:
         }
 
 
-_BAND_ORDER = (Severity.LOW, Severity.MEDIUM, Severity.HIGH, Severity.CRITICAL)
+_BAND_ORDER = (Severity.LOW, Severity.MEDIUM, Severity.HIGH)
 
 
 def band_score(score: float, *, model_version: str = "") -> BandedScore:
-    """Coarsen a raw [0,1] score into a 4-way band (reuses the L6 severity bands).
+    """Coarsen a raw [0,1] score into a 3-way band (reuses the L6 severity bands).
 
     The raw probability is discarded; only the band survives, so a membership/inversion
     attacker cannot read the fine-grained signal they need.

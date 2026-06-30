@@ -27,7 +27,7 @@ def test_end_to_end_walking_skeleton():
     ):
         assert key in alert
     assert 0 <= alert["risk_score"] <= 100
-    assert alert["severity"] in ("low", "medium", "high", "critical")
+    assert alert["severity"] in ("low", "medium", "high")  # BACKEND.md §2 contract
     assert alert["pii_tokenized"] is True
     # alert is contestable: it carries reason codes (Part 29.2)
     assert alert["reason_codes"]

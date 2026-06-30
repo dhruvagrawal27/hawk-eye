@@ -129,7 +129,11 @@ def test_fuse_one_matches_backend_alert_shape():
     ):
         assert key in d
     assert 0 <= d["risk_score"] <= 100
-    assert d["severity"] in ("low", "medium", "high", "critical")
+    assert d["severity"] in (
+        "low",
+        "medium",
+        "high",
+    )  # BACKEND.md §2 contract (no 'critical')
     assert d["pii_tokenized"] is True and d["exposure_inr"] == 4800000
     # reason codes are assembled (rules first) and match BACKEND.md §2 shape
     assert d["reason_codes"] and d["reason_codes"][0]["source"] == "rule"
@@ -159,4 +163,6 @@ def test_severity_banding_in_alert():
         contributing_layers=["L3_gbdt"],
         reason_codes=[],
     )
-    assert a.severity == "critical" and a.risk_score == 95
+    assert (
+        a.severity == "high" and a.risk_score == 95
+    )  # top band is 'high' (BACKEND.md §2)

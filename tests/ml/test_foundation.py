@@ -68,10 +68,14 @@ def test_alert_to_dict_matches_backend_keys():
 
 
 def test_severity_banding():
-    assert severity_from_score(95) == Severity.CRITICAL
+    # BACKEND.md §2 contract: severity is {low, medium, high} only (no 'critical' band).
+    assert severity_from_score(95) == Severity.HIGH
     assert severity_from_score(87) == Severity.HIGH
     assert severity_from_score(50) == Severity.MEDIUM
     assert severity_from_score(10) == Severity.LOW
+    assert "critical" not in {
+        s.value for s in Severity
+    }  # conforms to backend Severity enum
 
 
 def test_normalize_scores_rank_to_unit_interval():

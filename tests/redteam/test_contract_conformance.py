@@ -38,6 +38,27 @@ L6_ALERT_KEYS = {
 NARRATE_KEYS = {"narrative", "provider", "tee_attested", "attestation_id", "model"}
 L0_GROUPS = {"actor", "action", "object", "context", "linkage"}
 REASON_SOURCES = {"rule", "shap", "graph", "attention"}
+# BACKEND.md §2 + backend Severity enum: alerts on the wire use exactly these.
+WIRE_SEVERITIES = {"low", "medium", "high"}
+
+
+def test_ml_severity_values_conform_to_backend_enum():
+    """ML must not emit a severity backend would reject. BACKEND.md §2 = {low,medium,high};
+    ML's Severity enum + severity_from_score must stay within that set (no 'critical').
+    """
+    ml_src = _read("ml/base/interfaces.py")
+    be_src = _read("backend/services/api/app/schemas/common.py")
+    # backend declares exactly low/medium/high
+    for sev in WIRE_SEVERITIES:
+        assert f'"{sev}"' in be_src, f"backend Severity missing {sev!r}"
+    # ML must not define or emit 'critical' as an alert severity (would be rejected at the seam)
+    assert (
+        '"critical"'
+        not in ml_src.split("def severity_from_score")[0].split("class Severity")[-1]
+    ), "ml Severity enum still defines 'critical' — not a valid wire severity (BACKEND.md §2)"
+    assert (
+        "Severity.CRITICAL" not in ml_src
+    ), "ml still emits Severity.CRITICAL (drifts from backend)"
 
 
 def test_backend_md_defines_the_alert_contract():
