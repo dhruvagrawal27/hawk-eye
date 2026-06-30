@@ -18,6 +18,7 @@ import {
   Globe,
   Phone,
   MapPin,
+  Server,
   Sparkles,
   ShieldAlert,
   Spline,
@@ -102,6 +103,13 @@ export const GRAPH_NODE_STYLE: Record<GraphNodeType, NodeStyle> = {
     shape: 'round-rectangle',
     icon: MapPin,
     label: 'Address',
+  },
+  system: {
+    colorVar: '--ai',
+    fallback: 'hsl(271 76% 70%)',
+    shape: 'round-rectangle',
+    icon: Server,
+    label: 'System',
   },
 }
 

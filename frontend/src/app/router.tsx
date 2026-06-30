@@ -39,6 +39,9 @@ const ReportingView = lazy(() =>
 const OrgChartView = lazy(() =>
   import('@/views/OrgChartView').then((m) => ({ default: m.OrgChartView })),
 )
+const GraphExplorer = lazy(() =>
+  import('@/views/GraphExplorer').then((m) => ({ default: m.GraphExplorer })),
+)
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -90,6 +93,12 @@ export const router = createBrowserRouter([
           {
             element: <RoleShell roles={ROUTE_ROLES.reporting} />,
             children: [{ path: 'reporting', element: <ReportingView /> }],
+          },
+
+          // Graph explorer — cross-entity link analysis (investigative + management, read-only)
+          {
+            element: <RoleShell roles={ROUTE_ROLES.graph} />,
+            children: [{ path: 'graph', element: <GraphExplorer /> }],
           },
 
           // Org chart — reporting tree by Lines of Defense (managers + exec, read-only)

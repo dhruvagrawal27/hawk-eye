@@ -28,6 +28,7 @@ import type {
   ExplanationResponse,
   FeedbackBody,
   FeedbackResponse,
+  GraphOverviewResponse,
   GraphResponse,
   HealthResponse,
   KriResponse,
@@ -89,11 +90,21 @@ export const apiClient = {
   getEntityTimeline(id: string): Promise<TimelineResponse> {
     return request(`/entities/${encodeURIComponent(id)}/timeline`)
   },
-  getEntityGraph(id: string): Promise<GraphResponse> {
-    return request(`/entities/${encodeURIComponent(id)}/graph`)
+  /** `depth` widens the subgraph by N hops (depth-expand control); the server clamps the radius. */
+  getEntityGraph(id: string, opts: { depth?: number } = {}): Promise<GraphResponse> {
+    return request(`/entities/${encodeURIComponent(id)}/graph`, { query: { depth: opts.depth } })
   },
   getEntityPeers(id: string): Promise<PeerComparisonResponse> {
     return request(`/entities/${encodeURIComponent(id)}/peers`)
+  },
+  /**
+   * [FE-proposed] GET /graph — global top-risk subgraph for the Graph Explorer. `minScore` filters
+   * the seed entities by risk; `limit` caps the seed count. One-line swap to the real route later.
+   */
+  getGraphOverview(
+    opts: { minScore?: number; limit?: number } = {},
+  ): Promise<GraphOverviewResponse> {
+    return request('/graph', { query: { min_score: opts.minScore, limit: opts.limit } })
   },
   /** Audited re-identification (Part 25.3). Server logs it; UI surfaces the audit_id. */
   unmaskEntity(id: string, body: UnmaskBody = {}): Promise<UnmaskResponse> {

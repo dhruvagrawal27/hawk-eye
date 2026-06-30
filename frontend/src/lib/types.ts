@@ -256,7 +256,15 @@ export interface NarrativeMemo {
 /* ───────────────────────────── Graph / link view [BACKEND.md §3 / Part 24.5 + 11] ─────────── */
 /** [FE-proposed] GET /entities/{id}/graph */
 export type GraphNodeType =
-  'employee' | 'customer' | 'beneficiary' | 'account' | 'device' | 'ip' | 'phone' | 'address'
+  | 'employee'
+  | 'customer'
+  | 'beneficiary'
+  | 'account'
+  | 'device'
+  | 'ip'
+  | 'phone'
+  | 'address'
+  | 'system'
 export type GraphEdgeType =
   | 'maker_checker'
   | 'shared_device'
@@ -303,6 +311,15 @@ export interface GraphResponse {
   edges: GraphEdge[]
   rings?: GraphRing[]
   explainer?: GraphExplainer
+}
+
+/**
+ * [FE-proposed] GET /graph — a global, non-entity-centred subgraph for the Graph Explorer. Reuses
+ * the same node/edge encoding as the entity subgraph (so one canvas renders both); `entity_id` is a
+ * synthetic overview marker rather than a focus entity. Swaps to the real `/graph` route later.
+ */
+export interface GraphOverviewResponse extends GraphResponse {
+  min_score?: number
 }
 
 /* ───────────────────────────── Peer comparison [BACKEND.md §3 / Part 11 + 24.4] ───────────── */

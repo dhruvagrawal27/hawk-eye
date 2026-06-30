@@ -17,6 +17,7 @@ import { useAuth } from '@/auth/rbac'
 import { PageHeader } from '@/components/PageHeader'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { KriDashboard } from '@/components/KriDashboard'
+import { AlertHeatmap } from '@/components/AlertHeatmap'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -43,6 +44,13 @@ export function ReportingView() {
 
   const krisQuery = useQuery({ queryKey: queryKeys.kris(), queryFn: () => apiClient.getKris() })
   const generatedTs = krisQuery.data?.generated_ts
+
+  // Org-wide alert list feeds the temporal heatmap (when alerts land, by IST day/hour).
+  const alertsQuery = useQuery({
+    queryKey: queryKeys.alerts({ page_size: 200 }),
+    queryFn: () => apiClient.listAlerts({ page_size: 200 }),
+  })
+  const alerts = alertsQuery.data?.items ?? []
 
   return (
     <div className="space-y-4">
@@ -95,6 +103,8 @@ export function ReportingView() {
       >
         {krisQuery.data ? <KriDashboard data={krisQuery.data} /> : null}
       </QueryBoundary>
+
+      {alerts.length > 0 ? <AlertHeatmap alerts={alerts} /> : null}
     </div>
   )
 }

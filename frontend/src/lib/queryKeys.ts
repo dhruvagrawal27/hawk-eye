@@ -6,8 +6,10 @@ export const queryKeys = {
   alert: (id: string) => ['alert', id] as const,
   entity: (id: string) => ['entity', id] as const,
   entityTimeline: (id: string) => ['entity', id, 'timeline'] as const,
-  entityGraph: (id: string) => ['entity', id, 'graph'] as const,
+  entityGraph: (id: string, depth = 1) => ['entity', id, 'graph', depth] as const,
   entityPeers: (id: string) => ['entity', id, 'peers'] as const,
+  graphOverview: (minScore = 0, limit?: number) =>
+    ['graph', 'overview', minScore, limit ?? null] as const,
   explanation: (alertId: string) => ['explanation', alertId] as const,
   narrative: (alertId: string) => ['narrative', alertId] as const,
   rules: () => ['rules'] as const,

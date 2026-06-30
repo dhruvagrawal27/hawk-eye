@@ -116,9 +116,8 @@ function buildTimeline(entityId: string): TimelineResponse {
   }
 }
 
-function buildGraph(entityId: string): GraphResponse {
-  if (GRAPHS[entityId]) return GRAPHS[entityId]
-  return {
+function buildGraph(entityId: string, depth = 1): GraphResponse {
+  const base: GraphResponse = GRAPHS[entityId] ?? {
     entity_id: entityId,
     nodes: [
       {
@@ -152,6 +151,109 @@ function buildGraph(entityId: string): GraphResponse {
       },
     ],
   }
+
+  // Depth-expand: each extra hop attaches a fresh ring of synthetic neighbours to the existing
+  // leaf nodes, widening the subgraph the way a real N-hop traversal would. depth=1 is the base.
+  const hops = Math.max(1, Math.min(3, Math.round(depth)))
+  if (hops === 1) return base
+
+  const nodes = [...base.nodes]
+  const edges = [...base.edges]
+  const seen = new Set(nodes.map((n) => n.id))
+  const neighbourTypes = ['account', 'device', 'ip', 'customer'] as const
+
+  let frontier = nodes.filter((n) => n.id !== entityId).map((n) => n.id)
+  for (let hop = 2; hop <= hops; hop += 1) {
+    const next: string[] = []
+    frontier.forEach((srcId, idx) => {
+      const type = neighbourTypes[(hop + idx) % neighbourTypes.length]
+      const nid = `${type.toUpperCase().slice(0, 4)}-${entityId.slice(-4)}-h${hop}-${idx}`
+      if (seen.has(nid)) return
+      seen.add(nid)
+      next.push(nid)
+      nodes.push({
+        id: nid,
+        type,
+        label: nid,
+        risk: Math.max(20, 70 - hop * 12 - idx * 3),
+        tokenized: type === 'customer',
+      })
+      edges.push({
+        id: `g_h${hop}_${idx}`,
+        source: srcId,
+        target: nid,
+        type:
+          type === 'account' ? 'transaction' : `shared_${type === 'customer' ? 'address' : type}`,
+      })
+    })
+    frontier = next
+  }
+
+  return { ...base, nodes, edges }
+}
+
+/**
+ * Synthesize a global top-risk overview subgraph from the existing ENTITIES pool: the riskiest
+ * employees (risk ≥ minScore) plus the shared systems/accounts they touch. Reuses GraphResponse so
+ * one canvas renders it; `entity_id` is a synthetic overview marker (no single focus). Swap to the
+ * real `GET /graph` route later by deleting this builder.
+ */
+function buildGraphOverview(minScore: number, limit: number): GraphResponse {
+  const seeds = Object.values(ENTITIES)
+    .filter((e) => e.risk_score >= minScore)
+    .sort((a, b) => b.risk_score - a.risk_score)
+    .slice(0, limit)
+
+  const nodes: GraphResponse['nodes'] = []
+  const edges: GraphResponse['edges'] = []
+  // A small shared-systems backbone every high-risk employee can attach to.
+  const systems = [
+    { id: 'SYS-CBS', label: 'Core Banking (CBS)', risk: 0 },
+    { id: 'SYS-SWIFT', label: 'SWIFT Gateway', risk: 0 },
+    { id: 'SYS-IAM', label: 'Identity (IAM)', risk: 0 },
+  ]
+  for (const s of systems) {
+    nodes.push({ id: s.id, type: 'system', label: s.label, risk: s.risk })
+  }
+
+  seeds.forEach((e, i) => {
+    nodes.push({
+      id: e.entity_id,
+      type: 'employee',
+      label: e.entity_id,
+      risk: e.risk_score,
+      tokenized: true,
+    })
+    // Wire each employee to a couple of shared systems (round-robin) — that overlap is the signal.
+    const a = systems[i % systems.length]
+    const b = systems[(i + 1) % systems.length]
+    edges.push({
+      id: `ov_${e.entity_id}_a`,
+      source: e.entity_id,
+      target: a.id,
+      type: 'shared_device',
+    })
+    edges.push({
+      id: `ov_${e.entity_id}_b`,
+      source: e.entity_id,
+      target: b.id,
+      type: 'transaction',
+    })
+    // The two riskiest seeds share a maker-checker collusion edge to seed the find-path demo.
+    if (i > 0 && i < 2) {
+      edges.push({
+        id: `ov_mc_${i}`,
+        source: seeds[i - 1].entity_id,
+        target: e.entity_id,
+        type: 'maker_checker',
+        label: 'maker→checker',
+        collusion: true,
+        weight: 10,
+      })
+    }
+  })
+
+  return { entity_id: 'OVERVIEW', nodes, edges }
 }
 
 function buildPeers(entityId: string): PeerComparisonResponse {
@@ -321,9 +423,18 @@ export const handlers = [
   http.get(api('/entities/:id/timeline'), ({ params }) =>
     HttpResponse.json(buildTimeline(String(params.id))),
   ),
-  http.get(api('/entities/:id/graph'), ({ params }) =>
-    HttpResponse.json(buildGraph(String(params.id))),
-  ),
+  http.get(api('/entities/:id/graph'), ({ params, request }) => {
+    const depth = Number(new URL(request.url).searchParams.get('depth') ?? '1') || 1
+    return HttpResponse.json(buildGraph(String(params.id), depth))
+  }),
+
+  // Global graph overview (Graph Explorer)
+  http.get(api('/graph'), ({ request }) => {
+    const url = new URL(request.url)
+    const minScore = Number(url.searchParams.get('min_score') ?? '0') || 0
+    const limit = Number(url.searchParams.get('limit') ?? '12') || 12
+    return HttpResponse.json(buildGraphOverview(minScore, limit))
+  }),
   http.get(api('/entities/:id/peers'), ({ params }) =>
     HttpResponse.json(buildPeers(String(params.id))),
   ),

@@ -7,6 +7,7 @@ import {
   Boxes,
   BarChart3,
   Network,
+  Waypoints,
   ServerCog,
   type LucideIcon,
 } from 'lucide-react'
@@ -56,6 +57,16 @@ const REPORTING_VIEWERS: Role[] = [
   'executive_director',
   'managing_director',
   'it_admin',
+]
+
+/** Investigative + management roles who can drive the cross-entity graph explorer. */
+const GRAPH_VIEWERS: Role[] = [
+  'relationship_manager',
+  'branch_manager',
+  'cluster_head',
+  'agm_vigilance',
+  'dgm_compliance',
+  'cgm_risk',
 ]
 
 /** Managers + executives who can read the org chart (reporting tree, Lines of Defense). */
@@ -129,6 +140,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: BarChart3,
     roles: REPORTING_VIEWERS,
   },
+  { to: '/graph', label: 'Graph explorer', icon: Waypoints, roles: GRAPH_VIEWERS },
   { to: '/org', label: 'Org chart', icon: Network, roles: ORG_VIEWERS },
   { to: '/admin', label: 'Admin', icon: ServerCog, roles: ['it_admin'], screen: 8 },
 ]
@@ -147,6 +159,7 @@ export const ROUTE_ROLES = {
   audit: AUDIT_VIEWERS,
   models: ['data_science_lead', 'it_admin'] as Role[],
   reporting: REPORTING_VIEWERS,
+  graph: GRAPH_VIEWERS,
   org: ORG_VIEWERS,
   admin: ['it_admin'] as Role[],
 }

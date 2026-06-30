@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { ChevronRight, ListChecks, ScaleIcon, ArrowLeft, ShieldQuestion } from 'lucide-react'
@@ -7,6 +8,7 @@ import type { Alert } from '@/lib/types'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { AlertHeader } from '@/components/AlertHeader'
 import { Entity360Timeline } from '@/components/Entity360Timeline'
+import { AlertHeatmap } from '@/components/AlertHeatmap'
 import { ExplanationPanel } from '@/components/ExplanationPanel'
 import { GraphView } from '@/components/GraphView'
 import { PeerComparison } from '@/components/PeerComparison'
@@ -64,6 +66,19 @@ export function AlertDetail() {
 }
 
 function AlertDetailBody({ alert }: { alert: Alert }) {
+  // Reuse the existing alert list to plot this entity's alerts by IST day/hour. The current alert is
+  // always included so the heatmap shows a signal even before the wider list resolves.
+  const entityAlertsQuery = useQuery({
+    queryKey: queryKeys.alerts({ page_size: 200 }),
+    queryFn: () => apiClient.listAlerts({ page_size: 200 }),
+  })
+  const entityAlerts = useMemo(() => {
+    const others = (entityAlertsQuery.data?.items ?? []).filter(
+      (a) => a.entity_id === alert.entity_id && a.alert_id !== alert.alert_id,
+    )
+    return [alert, ...others]
+  }, [entityAlertsQuery.data, alert])
+
   return (
     <div className="space-y-4">
       <AlertHeader alert={alert} />
@@ -90,7 +105,8 @@ function AlertDetailBody({ alert }: { alert: Alert }) {
             <TabsTrigger value="peers">Peers</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="timeline">
+          <TabsContent value="timeline" className="space-y-4">
+            <AlertHeatmap alerts={entityAlerts} />
             <PanelCard>
               <Entity360Timeline entityId={alert.entity_id} alertId={alert.alert_id} />
             </PanelCard>
