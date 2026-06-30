@@ -45,6 +45,15 @@ echo "==> Waiting for health..."
 sleep 8
 sudo docker compose -f "$COMPOSE" ps
 
+# Deploy gate: prove the A→Z vertical (ingest → alert → narrative → disposition → stream) is live.
+echo "==> Preflight (A→Z vertical via nginx :80)..."
+if python3 deploy/preflight.py http://localhost; then
+  echo "    preflight OK"
+else
+  echo "    !! preflight reported failures — the stack is up but the vertical isn't fully green."
+  echo "       inspect: sudo docker compose -f ${COMPOSE} logs -f backend gateway"
+fi
+
 PUB_IP="$(curl -fsS http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo '<your-lightsail-ip>')"
 cat <<EOF
 
