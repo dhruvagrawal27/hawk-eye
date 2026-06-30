@@ -1,0 +1,55 @@
+# ArgoCD GitOps Applications (PLATFORM-18, blueprint Part 31.2). Three environments share
+# the same Helm base (deploy/k8s/charts/hawk-eye) for dev->staging->prod PARITY; only the
+# values overlay differs (staging uses MASKED data). Canary/blue-green + SLO-gated rollback
+# are driven by cd.yml + Argo Rollouts.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hawk-eye-dev
+  namespace: argocd
+  labels: { data-residency: in-india, env: dev }
+spec:
+  project: hawk-eye
+  source:
+    repoURL: https://github.com/your-org/hawk-eye
+    path: deploy/k8s/charts/hawk-eye
+    targetRevision: HEAD
+    helm: { valueFiles: ["values.yaml", "../../argocd/overlays/dev/values.yaml"] }
+  destination: { server: https://kubernetes.default.svc, namespace: hawk-eye-dev }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: ["CreateNamespace=true"]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hawk-eye-staging
+  namespace: argocd
+  labels: { data-residency: in-india, env: staging }
+spec:
+  project: hawk-eye
+  source:
+    repoURL: https://github.com/your-org/hawk-eye
+    path: deploy/k8s/charts/hawk-eye
+    targetRevision: HEAD
+    helm: { valueFiles: ["values.yaml", "../../argocd/overlays/staging/values.yaml"] }
+  destination: { server: https://kubernetes.default.svc, namespace: hawk-eye-staging }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }   # staging-masked: prod-like, masked data
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hawk-eye-production
+  namespace: argocd
+  labels: { data-residency: in-india, env: production }
+spec:
+  project: hawk-eye
+  source:
+    repoURL: https://github.com/your-org/hawk-eye
+    path: deploy/k8s/charts/hawk-eye
+    targetRevision: HEAD
+    helm: { valueFiles: ["values.yaml", "../../argocd/overlays/production/values.yaml"] }
+  destination: { server: https://kubernetes.default.svc, namespace: hawk-eye-prod }
+  syncPolicy: {}   # production: MANUAL sync (CAB-gated, Part 31.3) — no auto-sync

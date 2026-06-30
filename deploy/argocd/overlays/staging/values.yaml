@@ -1,0 +1,4 @@
+# staging overlay (PLATFORM-18) — PROD-LIKE but with MASKED data (Part 31.2). HA pair.
+global: { environment: staging, dataMasking: true }   # masked data — never real PII
+replicaCount: 2
+featureFlags: { newFusionModel: canary, llmNarrative: on, graphLayer: on }

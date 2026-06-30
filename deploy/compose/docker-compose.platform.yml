@@ -158,3 +158,33 @@ services:
       timeout: 10s
       retries: 5
       start_period: 20s
+
+  # --- OpenTelemetry collector: traces event->feature->score->alert (PLATFORM-29) ---
+  otel-collector:
+    image: ${OTEL_IMAGE}
+    container_name: hawkeye-otel-collector
+    networks: [hawkeye]
+    command: ["--config=/etc/otel/config.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # prometheus exporter (scraped)
+    volumes:
+      - ../../observability/otel/otel-collector-config.yaml:/etc/otel/config.yaml:ro
+
+  # --- Alertmanager: severity-tiered on-call routing (PLATFORM-30) -----------
+  alertmanager:
+    image: ${ALERTMANAGER_IMAGE}
+    container_name: hawkeye-alertmanager
+    networks: [hawkeye]
+    ports:
+      - "9093:9093"
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    volumes:
+      - ../../ops/oncall/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9093/-/healthy || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 15s

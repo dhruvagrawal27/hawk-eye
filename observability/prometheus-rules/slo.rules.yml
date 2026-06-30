@@ -1,0 +1,39 @@
+# SLO recording + alerting rules (PLATFORM-29, blueprint Part 30.2). Mirrors
+# observability/slo-definitions.yaml. Mounted into Prometheus (/etc/prometheus/rules).
+groups:
+  - name: hawkeye-slo
+    rules:
+      # --- recording: p99 scoring latency (ms) ---
+      - record: hawkeye:scoring_latency_p99_ms
+        expr: histogram_quantile(0.99, sum by (le) (rate(serving_infer_latency_seconds_bucket[5m]))) * 1000
+
+      # --- recording: degradation state (1 = rules-only) ---
+      - record: hawkeye:degraded
+        expr: max(degradation_rules_only)
+
+      # --- alerting: p99 latency over budget (SLO 250ms) ---
+      - alert: ScoringLatencyP99High
+        expr: hawkeye:scoring_latency_p99_ms > 250
+        for: 10m
+        labels: { severity: warning, slo: p99-scoring-latency }
+        annotations:
+          summary: "p99 scoring latency over budget"
+          description: "p99 {{ $value }}ms > 250ms SLO for 10m (cd auto-rollback may trigger)."
+
+      # --- alerting: pipeline degraded to rules-only ---
+      - alert: PipelineDegraded
+        expr: hawkeye:degraded == 1
+        for: 5m
+        labels: { severity: warning, slo: pipeline-availability }
+        annotations:
+          summary: "Pipeline running L1-rules-only (ML serving degraded)"
+          description: "Degradation switch is in rules-only mode (BCP continuity, Part 18/30.1)."
+
+      # --- alerting: a component is down (golden signal: errors/availability) ---
+      - alert: ComponentDown
+        expr: up == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "Scrape target {{ $labels.job }} ({{ $labels.component }}) down >2m."

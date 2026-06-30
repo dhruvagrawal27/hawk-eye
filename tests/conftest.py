@@ -19,6 +19,7 @@ for p in (
     ROOT / "services" / "hitl-gate",
     ROOT / "governance" / "db",
     ROOT / "governance" / "go-live",
+    ROOT / "governance" / "rbac",
     ROOT / "security" / "vuln-mgmt",
 ):
     sys.path.insert(0, str(p))
