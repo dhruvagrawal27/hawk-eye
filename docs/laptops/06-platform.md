@@ -4,7 +4,14 @@
 
 ## Status
 - Branch: `hawk-eye/platform` · Owns: `platform/`, `infra/`, `.github/`, root `docker-compose.yml`, `tests/` harness, `deploy/`, `observability/`, `security/`, `governance/`, `ops/`, `ci/`, `tools/`, `services/`
-- Milestone progress: **M1 DONE** ✓ · M2 next.
+- Milestone progress: **M1 ✓ · M2 ✓ · M3 ✓ · M4 ✓ · M5 ✓** (final doc-suite landing; integration pass next).
+- **73 unit/contract tests pass**; 26-service compose validates; smoke + degradation + DR-drill + go-live (GATE: GO) all green.
+
+## Orchestration note
+Two multi-agent **workflows** were used to fan out the bulky, independent artifacts (token cost not a constraint, per ultracode):
+- WF-1 (M2 IaC): Terraform tree (aws|onprem|lightsail, 24 modules, validates+plans for all 3, no creds), Helm chart (80 objects, residency labels, conftest 400/400), zero-trust + admin-access policy, mTLS/SPIFFE + SPIRE.
+- WF-2 (M3/M5 docs): threat-model + framework-mapping + VAPT/red-team/model-risk reports, governance policy docs (AI policy/DPIA/DPO/lawful-basis/breach/transparency), vendor-risk, operating-model (org/Three-Lines/RACI/SOPs), documentation suite (coverage-map/honest-limits/bibliography) + DR/incident runbooks.
+The integration-critical services + the governance DB backbone + all tests were built and validated directly.
 
 ## Decisions
 - **DEV-001 (deviation): Deployment target = AWS Lightsail** for the pilot/demo, overriding the blueprint Part 26 default of EC2-in-VPC. Documented in `docs/adr/ADR-0001-ec2-in-vpc.md` and CONTEXT.md integration log. EC2-in-VPC + on-prem paths retained. Terraform `target = aws | onprem | lightsail`.
@@ -32,6 +39,28 @@
 
 ## Tests passing
 - `tests/test_sizing_calculator.py` (8) · `tests/test_degradation_switch.py` (9, incl. **alert-only invariant**) · `tests/integration/topology_smoke.py` · `scripts/degradation_demo.sh`.
+- M2/M5: `test_tee_attestation.py` (10) · `test_pam_shim.py` (4) · `test_governance.py` (7) · `test_hitl_gate.py` (3) · `test_rbac_sod.py` (5).
+- M3/M4: `test_tools.py` (9) · `tests/security/test_siem_rules.py` (7) · `test_ops_tools.py` (7) · `tests/contract/test_contracts.py` (4).
+
+## Blueprint validation (M2–M5 highlights)
+- **Part 25.2/25.3/25.4 → PLATFORM-14**: TEE dual TDX+H200 quote issuer/verifier (Ed25519), enclave-mode, **tokenize-before-egress** refusal of raw PII. ✓
+- **Part 9.3/19.3 → PLATFORM-13/15**: SoftHSM PKCS#11 key custody; PAM shim (session recording, no shared accounts, least-privilege). ✓
+- **Part 26.1/26.2/26.4 → PLATFORM-7/8/10**: Terraform `target=aws|onprem|lightsail`; AWS security svcs (WAF/GuardDuty/SecurityHub/Inspector/CloudTrail); NAT egress allow-list (NEAR AI+Groq only); migration map + ADR-0001 (Lightsail = chosen pilot, documented deviation). ✓
+- **Part 16/9.3 → PLATFORM-9**: Helm residency labels on every workload; OPA/Conftest residency gate. ✓
+- **Part 19.1/19.2/19.6/27.1 → PLATFORM-20**: STRIDE + 3 attacker classes; ML-attack→ATLAS→mitigation table; OWASP/NIST/RBI alignment; 7-Sutra→control map. ✓ (WF-2)
+- **Part 19.4/19.5/31.1 → PLATFORM-17/21/22/23**: SBOM(SPDX+CycloneDX)/CVE/SAST/secrets/IaC scans; perf p99 gate; chaos (broker+serving kill survives); 4 SIEM attack detectors; vuln tracker (critical ≤7d); VAPT/red-team/model-risk reports. ✓
+- **Part 31.2/31.3/34.3 → PLATFORM-16/18/19**: CI pyramid + CD blue-green/canary + SLO rollback + 3-env parity; release + change-governance + scheduled windows + rollback runbook. ✓
+- **Part 30 → PLATFORM-25/26/27/28/29/30/31**: RTO/RPO matrix + HA configs; immutable backup/restore; DR drill (RTO/RPO report, rows validated); BCP + **real** rules-only degradation; OTel + golden-signals + SLOs/error-budgets; Alertmanager severity routing + incident runbooks; capacity forecast + ITSC assessment. ✓
+- **Part 27.2/22.4 → PLATFORM-32/34**: governance DB inventory; independent-validation sign-off gate blocks prod promotion. ✓
+- **Part 27.1/28.1/29.2/19.6 → PLATFORM-35/36**: committees + board records; AI policy/DPIA/DPO/lawful-basis/breach/transparency docs with seeded approvals. ✓ (WF-2)
+- **Part 15/16/19.6/29.2 → PLATFORM-37**: HITL natural-justice gate (pending_review, DPIA-bound, alert-only proven). ✓
+- **Part 32/34.4/27.1 → PLATFORM-38**: vendor-risk (AWS/NEAR AI/Groq) DD/SLA/exit/concentration + AI clauses + SBOM linkage. ✓ (WF-2)
+- **Part 33/34.1/34.2 → PLATFORM-39**: org/Three-Lines/RACI/SOPs; staffing (Erlang); FinOps; override-rate/alert-fatigue panel. ✓
+- **Part 12/17.D/34.3 → PLATFORM-40**: detection-coverage map; honest-limits; bibliography; ADR/runbook/data-dictionary/model-card indexes. ✓ (WF-2)
+- **Part 34.5/34.6 → PLATFORM-41**: DB-backed go-live checklist (**GATE: GO**, 17/17 ticks) + threat-intel feedback hand-off. ✓
+
+## MOCK artifacts produced (the 24 human/legal/hardware items)
+TEE attestation (14), SoftHSM (13), PAM (15), SoD personas (33), validation sign-off (34), AI/Model-Risk + ethics committees + incident form (35), AI policy + DPIA + DPO + lawful-basis + breach + transparency/whistleblowing/works-council (36 — 6 docs), HITL gate (37), vendor DD + AI clauses (38), operating-model/RACI/SOPs/staffing/training (39), VAPT + red-team + model-risk (23), investigator UAT (24), BCP board approval (28), DR drill (27), go-live checklist (41). All seeded with approval/evidence records keyed to model version `fusion-2026.2.0` where relevant.
 
 ## MOCK artifacts produced (the 24 human/legal/hardware items)
 - (none yet — M5)
