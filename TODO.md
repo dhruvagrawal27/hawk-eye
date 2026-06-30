@@ -25,11 +25,12 @@
   - SCAFFOLD (code-complete on synthetic; await live external resource): BACKEND-24/25 (RBI submission channel), 27 (live SIEM), 29 (TEE hardware + legal jurisdiction).
   - 102 backend tests green (unit + integration + contract); `openapi.json` generated; `BACKEND.md` synced. Rust `gateway/` crate written (cargo not installed locally → `cargo test` deferred to PLATFORM CI).
 
-## 4. 🖥️ FRONTEND (13 tasks — see prompts/04_FRONTEND.md)
-- [ ] M1 App shell, SSO/login, routing, API client, RBAC-aware views
-- [ ] M2 Triage queue + alert/case detail + entity-360 timeline
-- [ ] M3 Explanation panel + graph view + peer comparison
-- [ ] M4 Compliance/auditor/model-engineer/admin views + reporting/KRI UI
+## 4. 🖥️ FRONTEND (13 tasks — see prompts/04_FRONTEND.md) — **M1–M4 built, REAL, all §8 gates green (tsc/eslint/prettier/vitest 112/Playwright e2e 3/build), branch hawk-eye/frontend**
+- [x] M1 App shell, SSO/login (OIDC PKCE + mock SSO), RBAC routing (Part 24.1 8×9 matrix + SoD), typed API client, MSW mocks, audited `<MaskedPII>` (FRONTEND-1,2,3)
+- [x] M2 Triage queue (ranked risk×exposure×confidence, dedup, SLA timer, claim) + alert/case detail + case management + entity-360 timeline (FRONTEND-4,5,6,7)
+- [x] M3 Explanation panel (SHAP + rule provenance + LAXCAT attention + AI narrative w/ TEE badge) + graph/link view (Cytoscape, collusion/ring/GNNExplainer) + peer comparison + EDD action panel (alert-only, audit+relabel) (FRONTEND-8,9,10,11)
+- [x] M4 Compliance (rules four-eyes change-control + EWS/RFA coverage + CRILC/FMR export) + auditor + model-engineer + admin (Grafana embed) + reporting/board-KRI views (FRONTEND-12,13)
+- Renders the Part 24.5 worked burst end-to-end on MSW (`VITE_USE_MOCKS=true`); contract needs flagged in CONTEXT.md (newest entry) — `[FE-proposed]` bodies + `/cases`, `/reports/ews-coverage`, `/reports/kris` tagged BACKEND.
 
 ## 5. 🗄️ DATABASE (9 tasks — see prompts/05_DATABASE.md)
 - [ ] M1 ClickHouse (events/history) + hot-cold tiering
@@ -50,3 +51,4 @@
 - [!] **[DATA→BACKEND]** EDD label-source-4 (DATA-23) stubbed against `BACKEND.md` §5 — needs real `POST /alerts/{id}/disposition`.
 - [!] **[DATA→DATABASE]** ClickHouse events DDL + object-store buckets (`datasets`, `feature-snapshots`) + retention tiering — DATA uses local fallback meanwhile (DATA-5/25).
 - [x] **[DATA→PLATFORM]** Kafka/Redis/MinIO runtime + schema-registry hosting — **RESOLVED by PLATFORM-1/2** (`make core-up` brings real Kafka/Redis/MinIO/Postgres/ClickHouse/Flink/schema-registry). DATA can swap its in-memory fallbacks. *Open:* topic-name convergence (`hawkeye.*` vs DATA's `events.raw/signals`) — see CONTEXT.md log.
+- [~] **[FRONTEND→BACKEND]** Existing route bodies are ALREADY finalised in `backend/openapi.json` (FE: align `[FE-proposed]` types to it; I invented no fields). Genuinely net-new routes FE needs that BACKEND does not yet expose: `GET /cases`, `GET /cases/{id}`, `POST /cases/{id}/{status,assign,notes}`, `GET /reports/ews-coverage`, `GET /reports/kris`. FE renders on MSW meanwhile (`VITE_USE_MOCKS`). See CONTEXT.md newest entry.
