@@ -2,12 +2,12 @@
 
 > Each laptop keeps its own section current (`[ ]` todo, `[~]` in-progress, `[x]` done, `[!]` blocked). Task IDs and the full task lists live in [`BUILD_PLAN.md`](BUILD_PLAN.md) and in each laptop's prompt under `prompts/`. **A task is `[x]` only when its blueprint requirement is validated.** Put cross-laptop blockers in §7.
 
-## 1. 📥 DATA (28 tasks — see prompts/01_DATA.md)
-- [ ] M1 Foundations: L0 schema, schema registry, Kafka, Flink, normalizer, Feast+Redis
-- [ ] M2 Simulator + public datasets (red-team typology library, labels, augmentation, loaders)
-- [ ] M3 Source connectors (SCAFFOLD) + reliable ingestion + SWIFT↔CBS recon
-- [ ] M4 Feature engineering catalogue + feature store materialization
-- [ ] M5 Data governance / quality / lineage / label store
+## 1. 📥 DATA (28 tasks — see prompts/01_DATA.md) — **M1–M5 built & tested (90/90), branch hawk-eye/data**
+- [x] M1 Foundations: L0 schema (+avsc/sample), schema registry, Kafka(topics+clients), Flink(window job), normalizer, Feast+Redis (pure-python fallbacks for infra)
+- [x] M2 Simulator + public datasets: 12-typology red-team library (8 fast + 4 slow), ground-truth labels, worked burst, augmentation, 6 dataset loaders
+- [x] M3 Source connectors (SCAFFOLD: CBS/payments/IAM-PAM/DLP-DBaudit/HR-IGA/real-telemetry + mock fixtures) + reliability/dedupe/DLQ/count-recon + [x] SWIFT↔CBS recon (REAL)
+- [x] M4 Feature engineering catalogue (every 6.1–6.6 + slow-lane) + three-way baselines + DFS + online/offline parity
+- [~] M5 Governance/quality/lineage/MDM/retention (REAL); label store: gold=MOCK, EDD source-4 **[!] stubbed — awaits BACKEND `POST /alerts/{id}/disposition`**
 
 ## 2. 🤖 ML (29 tasks — see prompts/02_ML.md)
 - [ ] M1 L2 unsupervised (IsoForest/ECOD/COPOD/AE) + baselines
@@ -44,4 +44,6 @@
 - [ ] M5 Governance MOCKS (24 items): policies, committees, DPIA, model-risk/validation, fairness program, operating model, go-live checklist
 
 ## 7. Cross-laptop blockers / coordination needed
-- [ ] (none yet — add here, tag the owning laptop, and mirror in CONTEXT.md)
+- [!] **[DATA→BACKEND]** EDD label-source-4 (DATA-23) stubbed against `BACKEND.md` §5 — needs real `POST /alerts/{id}/disposition`.
+- [!] **[DATA→DATABASE]** ClickHouse events DDL + object-store buckets (`datasets`, `feature-snapshots`) + retention tiering — DATA uses local fallback meanwhile (DATA-5/25).
+- [!] **[DATA→PLATFORM]** Kafka/Redis/MinIO runtime (PLATFORM-1 docker-compose) + schema-registry hosting — DATA uses InProcessBus/in-memory fallback.

@@ -55,5 +55,12 @@ The L0 event JSON, the L6 alert JSON, the API route table, RBAC roles, and the s
 ## 8. INTEGRATION LOG — append below (newest first)
 > Format: `### YYYY-MM-DD — [WS] — title` then a short note. Append; never overwrite.
 
+### 2026-06-30 — [DATA] — DATA workstream M1–M5 landed on `hawk-eye/data`
+L0 event model is live in `data/schemas/l0_event.py` (+ `.avsc`, `sample_event.json`) and matches `BACKEND.md` §1 field-for-field (groups Actor/Action/Object/Context/Linkage). **Consumers (BACKEND/ML/DATABASE/FRONTEND): import from `data.schemas`.** Conventions in `data/config.py`: IDs via `make_id`, topics `events.raw`/`events.signals`/`alerts`/`audit` (partition by `employee_id`), **feature-key format `<entity>:<feature>:<window>`**, lanes `fast|slow`.
+- **Synthetic data:** `python -m data.sim.cli --employees N --days D` → `data/out/<run>/{events,labels}.{parquet,jsonl}`. Events carry **no label** (leakage-safe); labels are separate, keyed by `event_id`. All 12 typologies (8 fast + 4 slow) emitted; worked burst = `approve_payment` amount **4800000** INR.
+- **Feature store (ML/BACKEND read):** `data/features/*` implements every Part-6 feature + slow-lane; `data/feature_store/` exposes a pure-python online store (Redis optional, port 6379).
+- **Recon signal:** SWIFT↔CBS mismatch emits `recon_mismatch` on `events.signals` (`data/ingest/recon/swift_cbs_join.py`) — BACKEND L1 turns it into a rule.
+- **Runtime:** only numpy/pandas/pyarrow are hard deps; Kafka/Flink/Feast/Redis/ClickHouse/MinIO are guarded with local fallbacks → swap to real infra is a config change. **Stubs awaiting:** PLATFORM-1 (Kafka/Redis/MinIO runtime), DATABASE (ClickHouse DDL + buckets + retention), BACKEND (`POST /alerts/{id}/disposition` for EDD label-source-4). Tests: `python -m data.tests.run` (90 passing; pytest unavailable in env).
+
 ### (seed) — [ALL] — Coordination files created
 CONTEXT.md, BACKEND.md, TODO.md, and `docs/laptops/*` are live. Read all three shared files before starting. Validate everything against the blueprint.

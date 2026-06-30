@@ -1,0 +1,38 @@
+[
+  {
+    "desk": "fx",
+    "trade_ref": "TRD-FX-3001",
+    "ts": "2026-06-30T16:45:00Z",
+    "trader_id": "EMP-9a01",
+    "trader_role": "trader",
+    "branch": "HO",
+    "verb": "book_trade",
+    "instrument": "FX_FWD",
+    "notional_minor": 1500000000,
+    "currency": "INR",
+    "reported_mark_minor": 1502000000,
+    "observed_mark_minor": 1470000000,
+    "rebooked": true,
+    "src_ip": "10.20.1.9",
+    "device": "WS-401",
+    "session_id": "sess_trd1"
+  },
+  {
+    "desk": "rates",
+    "trade_ref": "TRD-IR-3002",
+    "ts": "2026-06-30T17:30:00Z",
+    "trader_id": "EMP-9b02",
+    "trader_role": "trader",
+    "branch": "HO",
+    "verb": "book_trade",
+    "instrument": "IRS",
+    "notional_minor": 800000000,
+    "currency": "INR",
+    "reported_mark_minor": 800500000,
+    "observed_mark_minor": 800300000,
+    "rebooked": false,
+    "src_ip": "10.20.1.10",
+    "device": "WS-402",
+    "session_id": "sess_trd2"
+  }
+]

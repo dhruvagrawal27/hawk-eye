@@ -1,0 +1,40 @@
+[
+  {
+    "ledger": "suspense",
+    "entry_ref": "GL-SUS-1001",
+    "ts": "2026-06-30T03:20:00Z",
+    "operator_id": "EMP-5d77",
+    "operator_role": "gl_ops",
+    "branch": "BR-104",
+    "verb": "post_suspense_item",
+    "maker_checker": "maker",
+    "gl_account": "ACCT-SUS-001",
+    "amount_minor": 1200000,
+    "currency": "INR",
+    "aging_days": 47,
+    "reconciled_by": "EMP-5d77",
+    "privileged": true,
+    "src_ip": "10.20.8.9",
+    "device": "WS-221",
+    "session_id": "sess_gl01"
+  },
+  {
+    "ledger": "nostro",
+    "entry_ref": "GL-NOS-2002",
+    "ts": "2026-06-30T10:05:00Z",
+    "operator_id": "EMP-6e88",
+    "operator_role": "gl_ops",
+    "branch": "HO",
+    "verb": "reconcile_nostro",
+    "maker_checker": "checker",
+    "gl_account": "ACCT-NOS-USD",
+    "amount_minor": 9900000,
+    "currency": "INR",
+    "aging_days": 3,
+    "reconciled_by": "EMP-6e88",
+    "privileged": true,
+    "src_ip": "10.20.1.4",
+    "device": "WS-300",
+    "session_id": "sess_gl02"
+  }
+]

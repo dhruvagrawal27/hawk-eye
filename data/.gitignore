@@ -1,0 +1,4 @@
+# DATA workstream local run artifacts (do not commit generated data)
+out/
+**/__pycache__/
+*.pyc
