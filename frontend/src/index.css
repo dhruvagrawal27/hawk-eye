@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Hawk-Eye design tokens (blueprint Part 11). Dark-first investigator console: deep navy-slate
+ * surfaces, a cyan primary, and a domain palette for severity / SLA bands / reason-code provenance
+ * (rule·shap·graph) / AI·TEE accents. Light theme provided for accessibility/print parity.
+ */
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 199 89% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 30% 94%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 30% 94%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 210 30% 92%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 25% 86%;
+    --input: 214 25% 86%;
+    --ring: 199 89% 42%;
+    --radius: 0.6rem;
+
+    --sidebar: 222 32% 13%;
+    --sidebar-foreground: 210 30% 84%;
+    --sidebar-accent: 217 25% 22%;
+    --sidebar-border: 217 25% 20%;
+
+    --severity-critical: 348 83% 47%;
+    --severity-high: 21 90% 48%;
+    --severity-medium: 38 92% 45%;
+    --severity-low: 142 55% 38%;
+    --severity-info: 199 89% 45%;
+
+    --sla-ok: 142 55% 38%;
+    --sla-warn: 38 92% 45%;
+    --sla-urgent: 21 90% 48%;
+    --sla-breached: 348 83% 47%;
+
+    --reason-rule: 199 89% 45%;
+    --reason-shap: 271 60% 52%;
+    --reason-graph: 161 60% 38%;
+
+    --ai: 271 70% 56%;
+    --tee: 161 70% 36%;
+  }
+
+  .dark {
+    --background: 222 32% 7%;
+    --foreground: 210 38% 95%;
+    --card: 222 28% 10%;
+    --card-foreground: 210 38% 95%;
+    --popover: 222 30% 9%;
+    --popover-foreground: 210 38% 95%;
+    --primary: 199 89% 52%;
+    --primary-foreground: 222 47% 9%;
+    --secondary: 217 25% 17%;
+    --secondary-foreground: 210 38% 95%;
+    --muted: 217 24% 15%;
+    --muted-foreground: 215 18% 64%;
+    --accent: 217 25% 20%;
+    --accent-foreground: 210 38% 95%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 24% 18%;
+    --input: 217 24% 19%;
+    --ring: 199 89% 52%;
+
+    --sidebar: 222 34% 8%;
+    --sidebar-foreground: 210 28% 80%;
+    --sidebar-accent: 217 26% 15%;
+    --sidebar-border: 217 24% 14%;
+
+    --severity-critical: 348 83% 60%;
+    --severity-high: 25 95% 57%;
+    --severity-medium: 43 96% 58%;
+    --severity-low: 142 60% 47%;
+    --severity-info: 199 89% 55%;
+
+    --sla-ok: 142 60% 47%;
+    --sla-warn: 43 96% 58%;
+    --sla-urgent: 25 95% 57%;
+    --sla-breached: 348 83% 62%;
+
+    --reason-rule: 199 89% 58%;
+    --reason-shap: 271 76% 70%;
+    --reason-graph: 161 70% 50%;
+
+    --ai: 271 76% 70%;
+    --tee: 161 84% 46%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1,
+      'tnum' 1;
+  }
+
+  /* Slim, themed scrollbars for the dense investigation surfaces. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-border;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::selection {
+    @apply bg-primary/30;
+  }
+}
+
+@layer components {
+  /* Tokenized PII chip (EMP-7f3a / ACCT-4d22 / BEN-9b1c) — monospaced, subtly boxed. */
+  .tok {
+    @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[0.82em] tracking-tight text-foreground/90;
+  }
+
+  /* Focus ring shared by interactive primitives. */
+  .focus-ring {
+    @apply outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+}

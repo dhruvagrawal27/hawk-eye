@@ -23,11 +23,12 @@
 - [ ] M4 Alert/case store, EDD feedback loop, PII tokenization + re-id vault
 - [ ] M5 EWS/RFA/CRILC/FMR generators + audit-write + narrative gateway route
 
-## 4. 🖥️ FRONTEND (13 tasks — see prompts/04_FRONTEND.md)
-- [ ] M1 App shell, SSO/login, routing, API client, RBAC-aware views
-- [ ] M2 Triage queue + alert/case detail + entity-360 timeline
-- [ ] M3 Explanation panel + graph view + peer comparison
-- [ ] M4 Compliance/auditor/model-engineer/admin views + reporting/KRI UI
+## 4. 🖥️ FRONTEND (13 tasks — see prompts/04_FRONTEND.md) — **M1–M4 built, REAL, all §8 gates green (tsc/eslint/prettier/vitest 112/Playwright e2e 3/build), branch hawk-eye/frontend**
+- [x] M1 App shell, SSO/login (OIDC PKCE + mock SSO), RBAC routing (Part 24.1 8×9 matrix + SoD), typed API client, MSW mocks, audited `<MaskedPII>` (FRONTEND-1,2,3)
+- [x] M2 Triage queue (ranked risk×exposure×confidence, dedup, SLA timer, claim) + alert/case detail + case management + entity-360 timeline (FRONTEND-4,5,6,7)
+- [x] M3 Explanation panel (SHAP + rule provenance + LAXCAT attention + AI narrative w/ TEE badge) + graph/link view (Cytoscape, collusion/ring/GNNExplainer) + peer comparison + EDD action panel (alert-only, audit+relabel) (FRONTEND-8,9,10,11)
+- [x] M4 Compliance (rules four-eyes change-control + EWS/RFA coverage + CRILC/FMR export) + auditor + model-engineer + admin (Grafana embed) + reporting/board-KRI views (FRONTEND-12,13)
+- Renders the Part 24.5 worked burst end-to-end on MSW (`VITE_USE_MOCKS=true`); contract needs flagged in CONTEXT.md (newest entry) — `[FE-proposed]` bodies + `/cases`, `/reports/ews-coverage`, `/reports/kris` tagged BACKEND.
 
 ## 5. 🗄️ DATABASE (9 tasks — see prompts/05_DATABASE.md)
 - [ ] M1 ClickHouse (events/history) + hot-cold tiering
@@ -47,3 +48,4 @@
 - [!] **[DATA→BACKEND]** EDD label-source-4 (DATA-23) stubbed against `BACKEND.md` §5 — needs real `POST /alerts/{id}/disposition`.
 - [!] **[DATA→DATABASE]** ClickHouse events DDL + object-store buckets (`datasets`, `feature-snapshots`) + retention tiering — DATA uses local fallback meanwhile (DATA-5/25).
 - [!] **[DATA→PLATFORM]** Kafka/Redis/MinIO runtime (PLATFORM-1 docker-compose) + schema-registry hosting — DATA uses InProcessBus/in-memory fallback.
+- [!] **[FRONTEND→BACKEND]** Finalise `[FE-proposed]` response bodies (`/explanations`, `/entities/*`, `/rules`, `/models`, `/drift`, `/metrics/model`, `/audit`, `/admin/users`, `/reports/{fmr,crilc}`) and add routes `GET /cases` + `GET /cases/{id}` + `POST /cases/{id}/{status,assign,notes}`, `GET /reports/ews-coverage`, `GET /reports/kris`. FE renders against MSW mocks meanwhile (`VITE_USE_MOCKS`); shapes in `frontend/src/lib/types.ts`. See CONTEXT.md newest entry.
