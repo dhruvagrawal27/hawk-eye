@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Data / models / artifacts (do NOT commit large binaries or real data)
+data/raw/
+data/generated/
+*.parquet
+*.csv
+*.onnx
+*.pt
+*.pth
+*.cbm
+*.bin
+*.joblib
+mlruns/
+.feast/
+
+# Secrets (NEVER commit)
+*secret*
+*.pem
+*.key
+secrets/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
