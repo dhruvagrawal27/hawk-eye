@@ -20,7 +20,7 @@ from regulatory import crilc, fmr, rfa
 
 router = APIRouter(tags=["reports"])
 
-_COMPLIANCE = require_role(Role.COMPLIANCE_OFFICER, Role.TEAM_LEAD)
+_COMPLIANCE = require_role(Role.DGM_COMPLIANCE, Role.AGM_VIGILANCE)
 
 
 def _case(alert) -> dict:

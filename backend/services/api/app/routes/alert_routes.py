@@ -10,19 +10,20 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.audit.writer import AUDIT
-from app.auth.case_scope import can_view_alert, filter_visible
+from app.auth.case_scope import _DEIDENTIFIED_ROLES, can_view_alert, filter_visible
 from app.auth.deps import require_capability
 from app.auth.principal import Principal
 from app.schemas.alerts import Alert, AlertPage
-from app.schemas.common import Capability, Role
+from app.schemas.common import Capability
 from app.store.alert_store import ALERTS
 
 router = APIRouter(tags=["alerts"])
 
 
 def _deidentify(alert: Alert, principal: Principal) -> Alert:
-    """Model Engineers see de-identified alerts (no exposure value, no entity linkage detail)."""
-    if principal.role != Role.MODEL_ENGINEER:
+    """De-identified roles (Data Science + exec/board) see de-identified alerts: no exposure value,
+    no entity linkage detail (docs/BANK_ROLES.md view = C("de_identified_only"))."""
+    if principal.role not in _DEIDENTIFIED_ROLES:
         return alert
     clone = alert.model_copy(deep=True)
     clone.entity_id = "EMP-deident"

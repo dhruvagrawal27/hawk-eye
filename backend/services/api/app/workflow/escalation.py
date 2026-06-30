@@ -15,11 +15,12 @@ from app.schemas.common import Role
 # Internal TAT per severity (days) — used to PRIORITIZE the queue, never exceeding the RBI cap.
 _INTERNAL_TAT_DAYS = {"high": 7, "medium": 15, "low": 30}
 
-# Severity → owning role/queue.
+# Severity → owning role/queue (FROZEN roles docs/BANK_ROLES.md: high escalates to the Branch
+# Manager; medium/low sit with the Relationship Manager in the branch triage queue).
 _ROUTING = {
-    "high": Role.SENIOR_INVESTIGATOR,
-    "medium": Role.ANALYST,
-    "low": Role.ANALYST,
+    "high": Role.BRANCH_MANAGER,
+    "medium": Role.RELATIONSHIP_MANAGER,
+    "low": Role.RELATIONSHIP_MANAGER,
 }
 
 
@@ -45,7 +46,7 @@ def internal_tat_days(severity: str) -> int:
 
 
 def route_for_severity(severity: str) -> Role:
-    return _ROUTING.get(severity, Role.ANALYST)
+    return _ROUTING.get(severity, Role.RELATIONSHIP_MANAGER)
 
 
 def apply_sla(alert: Alert) -> Alert:

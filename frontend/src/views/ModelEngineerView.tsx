@@ -1,7 +1,7 @@
 /**
  * Model Engineer view (FRONTEND-13; blueprint Part 24.4 screen 7 + Part 24.2 RBAC).
  *
- * Three panels against de-identified model telemetry only (the model_engineer role is
+ * Three panels against de-identified model telemetry only (the data_science_lead role is
  * `view_alerts: de-identified only`, `train_models: with sign-off`, and crucially **cannot**
  * disposition/triage — SoD, Part 19.6):
  *   - Registry: champion / challenger entries with stage badge, signed flag, and quality metrics.

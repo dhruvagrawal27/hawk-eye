@@ -235,11 +235,11 @@ export const handlers = [
     const body = (await request.json().catch(() => ({}))) as { assignee?: string }
     const a = findAlert(id)
     if (!a) return new HttpResponse('alert not found', { status: 404 })
-    a.assignee = body.assignee ?? 'analyst.demo'
+    a.assignee = body.assignee ?? 'rm.demo'
     if (a.status === 'open') a.status = 'assigned'
     const audit_id = recordAudit({
       actor: a.assignee,
-      actor_role: 'analyst',
+      actor_role: 'relationship_manager',
       action: 'assign',
       alert_id: id,
       entity_id: a.entity_id,
@@ -255,8 +255,8 @@ export const handlers = [
     if (!a) return new HttpResponse('alert not found', { status: 404 })
     a.status = outcomeToStatus[body.outcome]
     const audit_id = recordAudit({
-      actor: 'analyst.demo',
-      actor_role: 'analyst',
+      actor: 'rm.demo',
+      actor_role: 'relationship_manager',
       action: 'disposition',
       alert_id: id,
       entity_id: a.entity_id,
@@ -278,8 +278,8 @@ export const handlers = [
     const a = findAlert(id)
     if (!a) return new HttpResponse('alert not found', { status: 404 })
     const audit_id = recordAudit({
-      actor: 'analyst.demo',
-      actor_role: 'analyst',
+      actor: 'rm.demo',
+      actor_role: 'relationship_manager',
       action: 'block_request',
       alert_id: id,
       entity_id: a.entity_id,
@@ -331,8 +331,8 @@ export const handlers = [
     const id = String(params.id)
     const body = (await request.json().catch(() => ({}))) as { alert_id?: string }
     recordAudit({
-      actor: 'senior.demo',
-      actor_role: 'senior_investigator',
+      actor: 'branch.demo',
+      actor_role: 'branch_manager',
       action: 'unmask_pii',
       entity_id: id,
       alert_id: body.alert_id ?? null,
@@ -353,8 +353,8 @@ export const handlers = [
   http.post(api('/feedback'), async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as { alert_id?: string }
     const audit_id = recordAudit({
-      actor: 'analyst.demo',
-      actor_role: 'analyst',
+      actor: 'rm.demo',
+      actor_role: 'relationship_manager',
       action: 'feedback',
       alert_id: body.alert_id ?? null,
     })
@@ -378,7 +378,7 @@ export const handlers = [
       status: 'pending_approval' as const,
       version: 1,
       params: body.params ?? [],
-      updated_by: 'compliance.demo',
+      updated_by: 'dgm.demo',
       updated_ts: new Date().toISOString(),
     }
     RULES.unshift(rule)
@@ -403,7 +403,7 @@ export const handlers = [
       {
         version: rule.version,
         status: 'pending_approval',
-        proposed_by: 'compliance.demo',
+        proposed_by: 'dgm.demo',
         approved_by: null,
         ts: rule.updated_ts,
         summary: body.summary ?? 'Threshold change proposed — awaiting four-eyes approval',
@@ -411,8 +411,8 @@ export const handlers = [
       ...(rule.history ?? []),
     ]
     recordAudit({
-      actor: 'compliance.demo',
-      actor_role: 'compliance_officer',
+      actor: 'dgm.demo',
+      actor_role: 'dgm_compliance',
       action: 'rule_change_proposed',
       target: rule.code ?? rule.id,
     })
@@ -426,8 +426,8 @@ export const handlers = [
     const m = MODELS.find((x) => x.id === id)
     if (!m) return new HttpResponse('model not found', { status: 404 })
     const audit_id = recordAudit({
-      actor: 'modeleng.demo',
-      actor_role: 'model_engineer',
+      actor: 'datasci.demo',
+      actor_role: 'data_science_lead',
       action: 'promote_model',
       target: id,
       outcome: 'pending_signoff',
@@ -472,8 +472,8 @@ export const handlers = [
     }
     USERS.push(user)
     recordAudit({
-      actor: 'admin.demo',
-      actor_role: 'platform_admin',
+      actor: 'itadmin.demo',
+      actor_role: 'it_admin',
       action: 'create_user',
       target: body.username,
     })
@@ -508,8 +508,8 @@ export const handlers = [
       {
         id: `h_${Date.now().toString(16)}`,
         ts: c.updated_ts,
-        actor: 'analyst.demo',
-        actor_role: 'analyst',
+        actor: 'rm.demo',
+        actor_role: 'relationship_manager',
         action: 'status_changed',
         detail: `→ ${body.status}`,
       },
@@ -533,8 +533,8 @@ export const handlers = [
       ...c.notes,
       {
         id: `n_${Date.now().toString(16)}`,
-        author: 'analyst.demo',
-        author_role: 'analyst',
+        author: 'rm.demo',
+        author_role: 'relationship_manager',
         ts: new Date().toISOString(),
         body: body.body,
       },

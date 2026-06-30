@@ -53,12 +53,12 @@ def promote_model(
     version: str = Query(..., description="Artifact version to promote"),
     principal: Principal = Depends(require_capability(Capability.TRAIN_DEPLOY_MODELS)),
 ) -> PromoteResult:
-    # Only the Model Engineer promotes models (Part 24.1: ✅ with sign-off). Platform Admin's
-    # train/deploy is ⚠️ deploy-infra-only — it does not extend to promoting a model artifact.
-    if principal.role != Role.MODEL_ENGINEER:
+    # Only the Data Science / Model Risk lead promotes models (Part 24.1: ✅ with sign-off). The IT
+    # Admin's train/deploy is ⚠️ deploy-infra-only — it does not extend to promoting a model artifact.
+    if principal.role != Role.DATA_SCIENCE_LEAD:
         raise HTTPException(
             status_code=403,
-            detail=f"model promotion is a Model Engineer action; role {principal.role.value} "
+            detail=f"model promotion is a Data Science Lead action; role {principal.role.value} "
             "may deploy infra but not promote models",
         )
     # SoD: promotion requires a second-person sign-off (promoter ≠ approver) — Part 24.1.

@@ -27,7 +27,10 @@ class SoDError(Exception):
 
 
 # Roles that deploy/train models — they must not also label data or close their own alerts.
-_DEPLOYER_ROLES = {Role.MODEL_ENGINEER, Role.PLATFORM_ADMIN}
+_DEPLOYER_ROLES = {Role.DATA_SCIENCE_LEAD, Role.IT_ADMIN}
+
+# Investigator/branch roles that may not unilaterally tune a rule generating their own alerts.
+_INVESTIGATOR_ROLES = {Role.RELATIONSHIP_MANAGER, Role.BRANCH_MANAGER, Role.CLUSTER_HEAD}
 
 
 def check_disposition(
@@ -36,7 +39,7 @@ def check_disposition(
     """Guard ``POST /alerts/{id}/disposition`` (writing a label / closing an alert).
 
     * A model deployer cannot label data or close alerts (RBAC already denies disposition for
-      Model Engineer; this is defence-in-depth for any future role that has both capabilities).
+      Data Science Lead; this is defence-in-depth for any future role that has both capabilities).
     * No one may disposition an alert about themselves (self-review), nor one they personally own
       as the deployer.
     """
@@ -47,7 +50,11 @@ def check_disposition(
         )
     if subject_entity and principal.user_id == subject_entity:
         raise SoDError("no_self_review", f"{principal.user_id} may not disposition their own case")
-    if alert_owner and principal.user_id == alert_owner and principal.role == Role.MODEL_ENGINEER:
+    if (
+        alert_owner
+        and principal.user_id == alert_owner
+        and principal.role == Role.DATA_SCIENCE_LEAD
+    ):
         raise SoDError("deployer_cannot_close_own", "deployer may not close their own alert")
 
 
@@ -57,7 +64,7 @@ def check_rule_tuning(principal: Principal, generated_alerts: set[str]) -> None:
     Tuning must go through four-eyes (``check_four_eyes``); an investigator who owns alerts
     produced by a rule cannot self-approve a change to it.
     """
-    if principal.role in (Role.ANALYST, Role.SENIOR_INVESTIGATOR):
+    if principal.role in _INVESTIGATOR_ROLES:
         overlap = principal.assigned_alerts & generated_alerts
         if overlap:
             raise SoDError(
@@ -101,7 +108,7 @@ def constraints_for(role: Role) -> list[str]:
     out: list[str] = []
     if role in _DEPLOYER_ROLES:
         out += ["cannot_label_data", "cannot_close_own_alerts"]
-    if role in (Role.ANALYST, Role.SENIOR_INVESTIGATOR):
+    if role in _INVESTIGATOR_ROLES:
         out += ["cannot_tune_own_alert_rules"]
     out += ["pii_unmask_is_separate_audited"]
     return out

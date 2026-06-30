@@ -77,12 +77,13 @@ def disposition(
     principal: Principal = Depends(require_capability(Capability.DISPOSITION)),
 ) -> DispositionResponse:
     alert = _alert_or_404(alert_id)
-    # RBAC ⚠️ "override" (Part 24.1): re-dispositioning an already-dispositioned alert is an
-    # override action reserved for the Team Lead / MLRO. Analysts/Seniors dispose open alerts only.
-    if str(alert.status) in _TERMINAL_DISPOSITIONS and principal.role != Role.TEAM_LEAD:
+    # RBAC ⚠️ "override" (Part 24.1 / docs/BANK_ROLES.md): re-dispositioning an already-dispositioned
+    # alert is an override action reserved for the AGM — Vigilance (fraud-function lead / MLRO).
+    # The RM and Branch Manager dispose open alerts only.
+    if str(alert.status) in _TERMINAL_DISPOSITIONS and principal.role != Role.AGM_VIGILANCE:
         raise HTTPException(
             status_code=403,
-            detail=f"alert already dispositioned ({alert.status}); only Team Lead may override",
+            detail=f"alert already dispositioned ({alert.status}); only AGM Vigilance may override",
         )
     # SoD: deployers cannot label/close; no self-review (Part 19.6).
     try:
@@ -148,7 +149,7 @@ def block_request(
     return BlockRequestResponse(
         alert_id=alert_id,
         status="block_requested",
-        requires_approval_by="team_lead",
+        requires_approval_by="agm_vigilance",
         auto_blocked=False,
         audit_id=audit.audit_id,
     )
@@ -157,9 +158,9 @@ def block_request(
 @router.post("/alerts/{alert_id}/block-request/approve")
 def approve_block_request(
     alert_id: str,
-    principal: Principal = Depends(require_role(Role.TEAM_LEAD)),
+    principal: Principal = Depends(require_role(Role.AGM_VIGILANCE)),
 ) -> dict:
-    """Team Lead APPROVES a raised block request (Part 24.1: Lead = ✅ approve for Request block).
+    """AGM Vigilance APPROVES a raised block request (Part 24.1: ✅ approve for Request block).
 
     This is the human approval of the *request* — it is still **never an auto-block of money**.
     Actioning a block remains a manual, out-of-band step; the system only records the approval.

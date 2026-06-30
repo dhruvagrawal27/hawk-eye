@@ -79,7 +79,8 @@ def test_queue_deduped_per_entity():
     assert dupe_ids == ["alr_dupeB"]  # the higher-ranked one survives
 
 
-def test_case_scope_analyst_sees_only_assigned(client, auth):
-    analyst_total = client.get("/api/v1/alerts", headers=auth("analyst")).json()["total"]
-    senior_total = client.get("/api/v1/alerts", headers=auth("senior")).json()["total"]
-    assert analyst_total < senior_total  # need-to-know
+def test_case_scope_relationship_manager_sees_only_assigned(client, auth):
+    # Relationship Manager (view = assigned_only) sees fewer alerts than the Branch Manager (all).
+    rm_total = client.get("/api/v1/alerts", headers=auth("analyst")).json()["total"]
+    branch_total = client.get("/api/v1/alerts", headers=auth("senior")).json()["total"]
+    assert rm_total < branch_total  # need-to-know

@@ -14,7 +14,7 @@ import { AiNarrative } from '@/components/AiNarrative'
 
 describe('AlertHeader renders the sample alert (Part 24.5b)', () => {
   it('shows risk, entity token and exposure', () => {
-    renderWithProviders(<AlertHeader alert={SAMPLE_ALERT} />, { role: 'analyst' })
+    renderWithProviders(<AlertHeader alert={SAMPLE_ALERT} />, { role: 'relationship_manager' })
     expect(screen.getByText('87')).toBeInTheDocument()
     expect(screen.getByText('EMP-7f3a')).toBeInTheDocument()
     expect(screen.getByText('₹48,00,000')).toBeInTheDocument()
@@ -23,7 +23,7 @@ describe('AlertHeader renders the sample alert (Part 24.5b)', () => {
 
 describe('Explanation panel (Part 11 / Part 24.5)', () => {
   it('renders rule provenance and the labelled AI narrative', async () => {
-    renderWithProviders(<ExplanationPanel alertId="alr_3d7e22" />, { role: 'analyst' })
+    renderWithProviders(<ExplanationPanel alertId="alr_3d7e22" />, { role: 'relationship_manager' })
     expect(await screen.findByText(/NEW_BENEFICIARY_THEN_HIGHVALUE/i)).toBeInTheDocument()
     expect(await screen.findByText(/AI-generated/i)).toBeInTheDocument()
   })
@@ -31,7 +31,7 @@ describe('Explanation panel (Part 11 / Part 24.5)', () => {
 
 describe('AI narrative degradation (Part 25)', () => {
   it('renders the deterministic template honestly as Not TEE-attested', async () => {
-    renderWithProviders(<AiNarrative alertId="alr_4d88" />, { role: 'analyst' })
+    renderWithProviders(<AiNarrative alertId="alr_4d88" />, { role: 'relationship_manager' })
     expect(await screen.findByText(/AI-generated/i)).toBeInTheDocument()
     expect(await screen.findByText(/not tee-attested/i)).toBeInTheDocument()
   })
@@ -39,7 +39,7 @@ describe('AI narrative degradation (Part 25)', () => {
 
 describe('EDD panel — alert-only + RBAC/SoD invariants', () => {
   it('analyst sees disposition + a *request*-block (never an auto-block)', () => {
-    renderWithProviders(<EddActionPanel alert={SAMPLE_ALERT} />, { role: 'analyst' })
+    renderWithProviders(<EddActionPanel alert={SAMPLE_ALERT} />, { role: 'relationship_manager' })
     expect(screen.getByRole('button', { name: /mark fraud/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /request block/i })).toBeInTheDocument()
     // Alert-only: no control that blocks money outright.
@@ -47,14 +47,14 @@ describe('EDD panel — alert-only + RBAC/SoD invariants', () => {
     expect(screen.getByText(/never auto-blocks|routed to a Team Lead/i)).toBeInTheDocument()
   })
 
-  it('model engineer cannot disposition (SoD Part 19.6) — controls absent', () => {
-    renderWithProviders(<EddActionPanel alert={SAMPLE_ALERT} />, { role: 'model_engineer' })
+  it('data science lead cannot disposition (SoD Part 19.6) — controls absent', () => {
+    renderWithProviders(<EddActionPanel alert={SAMPLE_ALERT} />, { role: 'data_science_lead' })
     expect(screen.queryByRole('button', { name: /mark fraud/i })).not.toBeInTheDocument()
     expect(screen.getByText(/separation of duties|read-only/i)).toBeInTheDocument()
   })
 
-  it('auditor (read-only) sees no mutation controls', () => {
-    renderWithProviders(<EddActionPanel alert={SAMPLE_ALERT} />, { role: 'auditor' })
+  it('chief internal auditor (read-only) sees no mutation controls', () => {
+    renderWithProviders(<EddActionPanel alert={SAMPLE_ALERT} />, { role: 'chief_internal_auditor' })
     expect(screen.queryByRole('button', { name: /mark fraud/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /request block/i })).not.toBeInTheDocument()
   })

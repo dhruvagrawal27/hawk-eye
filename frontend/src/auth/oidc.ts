@@ -74,22 +74,46 @@ export async function signoutRedirect(): Promise<void> {
   await um.signoutRedirect()
 }
 
-/** Map IdP role claims (Keycloak realm_access.roles / a `roles` claim) onto our Role union. */
+/**
+ * Map IdP role claims (Keycloak realm_access.roles / a `roles` claim) onto our Role union.
+ * Keys are the bank org-chart role identities plus IdP synonyms AND the legacy console role names
+ * (old → new per docs/BANK_ROLES.md), so existing realms/tests stay green during the migration.
+ */
 const ROLE_CLAIM_MAP: Record<string, Role> = {
-  analyst: 'analyst',
-  l1_investigator: 'analyst',
-  senior_investigator: 'senior_investigator',
-  senior: 'senior_investigator',
-  team_lead: 'team_lead',
-  mlro: 'team_lead',
-  compliance_officer: 'compliance_officer',
-  compliance: 'compliance_officer',
-  auditor: 'auditor',
-  model_engineer: 'model_engineer',
-  data_scientist: 'model_engineer',
-  platform_admin: 'platform_admin',
-  admin: 'platform_admin',
+  // ── bank org-chart roles (identity) + synonyms ──
+  relationship_manager: 'relationship_manager',
+  rm: 'relationship_manager',
+  branch_manager: 'branch_manager',
+  cluster_head: 'cluster_head',
+  zonal_manager: 'cluster_head',
+  agm_vigilance: 'agm_vigilance',
+  mlro: 'agm_vigilance',
+  vigilance: 'agm_vigilance',
+  dgm_compliance: 'dgm_compliance',
+  compliance: 'dgm_compliance',
+  data_science_lead: 'data_science_lead',
+  data_scientist: 'data_science_lead',
+  model_risk: 'data_science_lead',
+  cgm_risk: 'cgm_risk',
+  cro: 'cgm_risk',
+  chief_internal_auditor: 'chief_internal_auditor',
+  internal_audit: 'chief_internal_auditor',
+  executive_director: 'executive_director',
+  managing_director: 'managing_director',
+  md_ceo: 'managing_director',
+  it_admin: 'it_admin',
+  admin: 'it_admin',
   service_account: 'service_account',
+  // ── legacy console role names (old → new), kept as aliases ──
+  analyst: 'relationship_manager',
+  l1_investigator: 'relationship_manager',
+  senior_investigator: 'branch_manager',
+  senior: 'branch_manager',
+  team_lead: 'agm_vigilance',
+  compliance_officer: 'dgm_compliance',
+  auditor: 'chief_internal_auditor',
+  model_engineer: 'data_science_lead',
+  platform_admin: 'it_admin',
 }
 
 export function mapClaimsToUser(user: User): AuthUser {
@@ -106,6 +130,6 @@ export function mapClaimsToUser(user: User): AuthUser {
     name:
       (user.profile.name as string) ?? (profile['preferred_username'] as string) ?? 'Investigator',
     email: user.profile.email,
-    roles: roles.length ? roles : ['analyst'],
+    roles: roles.length ? roles : ['relationship_manager'],
   }
 }

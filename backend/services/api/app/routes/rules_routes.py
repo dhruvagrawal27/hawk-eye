@@ -149,12 +149,13 @@ def approve_rule_change(
     if proposal.status != "pending_approval":
         raise HTTPException(status_code=409, detail=f"change already {proposal.status}")
 
-    # Only the Compliance Officer is the change-controlled authority that may APPROVE (Part 24.1:
-    # Compliance = ✅ change-controlled; Team Lead = ⚠️ propose-only). Others may propose, not approve.
-    if principal.role != Role.COMPLIANCE_OFFICER:
+    # Only the DGM — Risk & Compliance is the change-controlled authority that may APPROVE (Part
+    # 24.1: DGM Compliance = ✅ change-controlled; AGM Vigilance = ⚠️ propose-only). Others may
+    # propose, not approve.
+    if principal.role != Role.DGM_COMPLIANCE:
         raise HTTPException(
             status_code=403,
-            detail="rule changes are approved by a Compliance Officer (change-controlled); "
+            detail="rule changes are approved by the DGM — Risk & Compliance (change-controlled); "
             f"role {principal.role.value} may propose but not approve",
         )
     # Four-eyes: the approver must differ from the proposer (Part 31.3).

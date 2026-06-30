@@ -89,15 +89,16 @@ def unmask(
     body: UnmaskRequest,
     principal: Principal = Depends(require_capability(Capability.UNMASK_PII)),
 ) -> UnmaskResponse:
-    """Re-identify tokenized PII (audited). Analyst must provide a justification (case-scoped)."""
+    """Re-identify tokenized PII (audited). The RM must provide a justification (case-scoped)."""
     grant = decision(principal.role, Capability.UNMASK_PII)
     if (
-        principal.role == Role.ANALYST
+        principal.role == Role.RELATIONSHIP_MANAGER
         and grant.note == "case_scoped_logged"
         and not body.justification
     ):
         raise HTTPException(
-            status_code=403, detail="Analyst unmask requires a case-scoped justification"
+            status_code=403,
+            detail="Relationship Manager unmask requires a case-scoped justification",
         )
 
     tokens = body.tokens or VAULT.known_tokens()

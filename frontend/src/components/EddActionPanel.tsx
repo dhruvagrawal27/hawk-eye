@@ -56,7 +56,8 @@ import { AuditConfirmation } from '@/components/AuditConfirmation'
  *  - ALERT-ONLY: no auto-block / auto-classify. "Request block" is a *request* routed to a Lead —
  *    it never blocks. Every disposition needs an explicit human click.
  *  - RBAC + SoD: action controls are gated by `useAuth().can(...)` and `violatesSoD(role, cap)`.
- *    Read-only roles (auditor, compliance, model_engineer per SoD) never see mutation controls.
+ *    Read-only roles (chief_internal_auditor, dgm_compliance, data_science_lead per SoD) never see
+ *    mutation controls.
  *  - Proportionality / human-in-the-loop: fraud and escalate require notes *and* ≥1 evidence id.
  *  - Every disposition is written to the immutable audit log AND becomes a label feeding the L3/L4
  *    relabeling loop (Part 10) — surfaced via <AuditConfirmation>.
@@ -612,7 +613,7 @@ function ReadOnlyNotice({
   reason: string | null
   canDisposition: boolean
 }) {
-  // SoD reason (e.g. model_engineer) takes priority; otherwise a plain capability gap.
+  // SoD reason (e.g. data_science_lead) takes priority; otherwise a plain capability gap.
   const message =
     reason ??
     (canDisposition

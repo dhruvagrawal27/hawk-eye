@@ -1,8 +1,9 @@
 """User directory (BACKEND-2/22).
 
 # STUB: DATABASE (Postgres users table) + PLATFORM (Keycloak realm). Seeded synthetic users, one
-per role, used for local auth and /admin/users. Passwords are a single synthetic dev secret —
-there is NO real credential here. In keycloak mode the directory is read from Keycloak instead.
+per human role + the service account (plus legacy login aliases), used for local auth and
+/admin/users. Passwords are a single synthetic dev secret — there is NO real credential here. In
+keycloak mode the directory is read from Keycloak instead.
 """
 
 from __future__ import annotations
@@ -35,20 +36,40 @@ class UserStore:
         self._seed()
 
     def _seed(self) -> None:
+        # Demo personas (mock login / seed users) — username → role, per docs/BANK_ROLES.md.
+        # One user per human role + the service account; top-of-chart names mirror a PSB org chart.
         seed = [
-            User("EMP-an01", "Asha Nair (Analyst)", Role.ANALYST, assigned_alerts={"alr_demo01"}),
-            User("EMP-sr01", "Sunil Rao (Senior Investigator)", Role.SENIOR_INVESTIGATOR),
-            User("EMP-tl01", "Tara Iyer (Team Lead / MLRO)", Role.TEAM_LEAD),
-            User("EMP-co01", "Carla D'Souza (Compliance Officer)", Role.COMPLIANCE_OFFICER),
-            User("EMP-co02", "Rohit Menon (Compliance Officer)", Role.COMPLIANCE_OFFICER),
-            User("EMP-au01", "Anil Verma (Auditor)", Role.AUDITOR),
+            User("EMP-rm01", "Asha Nair (Relationship Manager)", Role.RELATIONSHIP_MANAGER),
+            User("EMP-bm01", "Sunil Rao (Branch Manager)", Role.BRANCH_MANAGER),
+            User("EMP-ch01", "Priya Deshmukh (Cluster Head / Zonal Manager)", Role.CLUSTER_HEAD),
+            User("EMP-agm1", "Tara Iyer (AGM — Vigilance & Fraud Risk / MLRO)", Role.AGM_VIGILANCE),
+            User("EMP-dgm1", "Carla D'Souza (DGM — Risk & Compliance)", Role.DGM_COMPLIANCE),
             User(
-                "EMP-me01",
-                "Maya Krishnan (Model Engineer)",
-                Role.MODEL_ENGINEER,
+                "EMP-ds01",
+                "Maya Krishnan (Head — Data Science / Model Risk)",
+                Role.DATA_SCIENCE_LEAD,
                 de_identified_only=True,
             ),
-            User("EMP-pa01", "Pat Sharma (Platform Admin)", Role.PLATFORM_ADMIN),
+            User(
+                "EMP-cgm1",
+                "Vikram Rao (CGM — Chief Risk Officer)",
+                Role.CGM_RISK,
+                de_identified_only=True,
+            ),
+            User("EMP-cia1", "Anil Verma (Chief Internal Auditor)", Role.CHIEF_INTERNAL_AUDITOR),
+            User(
+                "EMP-ed01",
+                "Lakshmi Menon (Executive Director)",
+                Role.EXECUTIVE_DIRECTOR,
+                de_identified_only=True,
+            ),
+            User(
+                "EMP-md01",
+                "Rajan Pillai (Managing Director & CEO)",
+                Role.MANAGING_DIRECTOR,
+                de_identified_only=True,
+            ),
+            User("EMP-it01", "Pat Sharma (IT / Platform Administrator)", Role.IT_ADMIN),
             User(
                 "svc-ingest",
                 "Ingest Service Account",
@@ -56,7 +77,24 @@ class UserStore:
                 scopes=["events:write", "audit:write"],
             ),
         ]
-        for u in seed:
+        # Legacy demo logins kept as ALIASES (same role, capability profile preserved) so the
+        # A→Z flow and existing tests stay green — docs/BANK_ROLES.md old→new mapping.
+        aliases = [
+            User("EMP-an01", "Asha Nair (Analyst → RM)", Role.RELATIONSHIP_MANAGER),
+            User("EMP-sr01", "Sunil Rao (Senior Investigator → Branch Mgr)", Role.BRANCH_MANAGER),
+            User("EMP-tl01", "Tara Iyer (Team Lead / MLRO → AGM Vigilance)", Role.AGM_VIGILANCE),
+            User("EMP-co01", "Carla D'Souza (Compliance Officer → DGM)", Role.DGM_COMPLIANCE),
+            User("EMP-co02", "Rohit Menon (Compliance Officer → DGM)", Role.DGM_COMPLIANCE),
+            User("EMP-au01", "Anil Verma (Auditor → Chief Internal Auditor)", Role.CHIEF_INTERNAL_AUDITOR),
+            User(
+                "EMP-me01",
+                "Maya Krishnan (Model Engineer → Data Science Lead)",
+                Role.DATA_SCIENCE_LEAD,
+                de_identified_only=True,
+            ),
+            User("EMP-pa01", "Pat Sharma (Platform Admin → IT Admin)", Role.IT_ADMIN),
+        ]
+        for u in (*seed, *aliases):
             self._users[u.user_id] = u
 
     def authenticate(self, user_id: str, password: str) -> User | None:

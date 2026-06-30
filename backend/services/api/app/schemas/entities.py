@@ -78,7 +78,9 @@ class UnmaskRequest(BaseModel):
     tokens: list[str] = Field(
         default_factory=list, description="Tokens to re-identify; empty = all on the entity"
     )
-    justification: str = Field("", description="Case-scoped reason (required for Analyst, logged)")
+    justification: str = Field(
+        "", description="Case-scoped reason (required for Relationship Manager, logged)"
+    )
 
 
 class UnmaskResponse(BaseModel):

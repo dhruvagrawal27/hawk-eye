@@ -3,8 +3,9 @@ import { test, expect, type Page } from '@playwright/test'
 /**
  * e2e (§8) — the full vertical slice against the MSW-mocked app (VITE_USE_MOCKS=true):
  * login → triage (worked burst) → claim → alert detail → entity-360 → explanation → graph → peer
- * → disposition, plus the RBAC and alert-only invariants. The worked burst is Part 24.5(d):
- * alr_3d7e22 / EMP-7f3a / risk 87 / ₹48,00,000.
+ * → disposition, plus the RBAC and alert-only invariants. Personas are the bank org-chart roles
+ * (docs/BANK_ROLES.md): RM (Relationship Manager), CIA (Chief Internal Auditor), IT Admin. The
+ * worked burst is Part 24.5(d): alr_3d7e22 / EMP-7f3a / risk 87 / ₹48,00,000.
  */
 
 async function loginAs(page: Page, persona: RegExp) {
@@ -13,10 +14,12 @@ async function loginAs(page: Page, persona: RegExp) {
 }
 
 test.describe('Investigator vertical slice (worked burst)', () => {
-  test('analyst: login → triage → alert detail → explanation → disposition', async ({ page }) => {
-    await loginAs(page, /Analyst/)
+  test('relationship manager: login → triage → alert detail → explanation → disposition', async ({
+    page,
+  }) => {
+    await loginAs(page, /\bRM\b/)
 
-    // Triage queue (Analyst home) shows the worked-burst alert.
+    // Triage queue (Relationship Manager home) shows the worked-burst alert.
     await expect(page).toHaveURL(/\/triage/)
     await expect(page.getByText('EMP-7f3a').first()).toBeVisible()
     await expect(page.getByText('87').first()).toBeVisible()
@@ -49,9 +52,9 @@ test.describe('Investigator vertical slice (worked burst)', () => {
 })
 
 test.describe('RBAC (Part 24.1) — forbidden routes/controls are absent', () => {
-  test('auditor cannot reach triage and has no triage nav', async ({ page }) => {
-    await loginAs(page, /Auditor/)
-    // Auditor lands on the audit view and sees the Auditor nav, not Triage.
+  test('chief internal auditor cannot reach triage and has no triage nav', async ({ page }) => {
+    await loginAs(page, /\bCIA\b/)
+    // CIA lands on the audit view and sees the Auditor nav, not Triage.
     await expect(page.getByRole('link', { name: /auditor/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /triage queue/i })).toHaveCount(0)
 
@@ -61,8 +64,8 @@ test.describe('RBAC (Part 24.1) — forbidden routes/controls are absent', () =>
     await expect(page.getByText(/not permitted/i)).toBeVisible()
   })
 
-  test('platform admin sees Admin but no case data (no triage)', async ({ page }) => {
-    await loginAs(page, /Admin/)
+  test('IT admin sees Admin but no case data (no triage)', async ({ page }) => {
+    await loginAs(page, /IT Admin/)
     await expect(page.getByRole('link', { name: /admin/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /triage queue/i })).toHaveCount(0)
   })

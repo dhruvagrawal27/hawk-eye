@@ -406,7 +406,7 @@ function RulesEditorSkeleton() {
  * Rule / threshold editor (FRONTEND-12; blueprint Part 24.4 screen 5, l.956). Lists
  * `apiClient.listRules()` as editable cards. Edits are submitted via `apiClient.updateRule` and routed
  * to **pending approval** (four-eyes, enforced server-side) — never straight to active. Edit controls are
- * gated on `can('tune_rules')`; for team_lead the matrix constraint is "propose".
+ * gated on `can('tune_rules')`; for cluster_head the matrix constraint is "propose_only".
  */
 export function RulesEditor() {
   const { can, constraintFor } = useAuth()

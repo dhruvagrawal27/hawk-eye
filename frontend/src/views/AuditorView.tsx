@@ -1,11 +1,12 @@
 /**
  * Auditor view (FRONTEND-13; blueprint Part 24.4 screen 6 + Part 24.2 RBAC).
  *
- * A **read-only** window onto the immutable WORM audit trail (`GET /audit`). The Auditor role holds
- * `view_audit: full` and nothing else — there are deliberately **no** mutation controls here. The
- * whole point is "watch-the-watchers": every actor, including investigators and even other auditors,
- * is logged. Filters narrow by actor / entity / action / date; the table highlights the two
- * accountability-critical action families (who-viewed-which-employee, who-closed-what).
+ * A **read-only** window onto the immutable WORM audit trail (`GET /audit`). The Chief Internal
+ * Auditor role holds `view_audit: full` and nothing else — there are deliberately **no** mutation
+ * controls here. The whole point is "watch-the-watchers": every actor, including investigators and
+ * even other auditors, is logged. Filters narrow by actor / entity / action / date; the table
+ * highlights the two accountability-critical action families (who-viewed-which-employee,
+ * who-closed-what).
  */
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -137,9 +138,10 @@ export function AuditorView() {
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-tee" />
         <p className="text-muted-foreground">
           <span className="font-medium text-foreground">Watch the watchers.</span> Everyone is
-          audited — analysts, senior investigators, leads, compliance, model engineers, admins, and
-          auditors alike. This trail cannot be edited or deleted from the console; it records who
-          viewed which employee and who closed what.
+          audited — relationship &amp; branch managers, cluster heads, vigilance and compliance,
+          data science, risk and board, and the auditors themselves alike. This trail cannot be
+          edited or deleted from the console; it records who viewed which employee and who closed
+          what.
         </p>
       </div>
 
@@ -152,7 +154,7 @@ export function AuditorView() {
             </Label>
             <Input
               id="audit-actor"
-              placeholder="e.g. senior.demo"
+              placeholder="e.g. branch.demo"
               value={draft.actor}
               onChange={(e) => setDraft((d) => ({ ...d, actor: e.target.value }))}
               onKeyDown={(e) => e.key === 'Enter' && apply()}

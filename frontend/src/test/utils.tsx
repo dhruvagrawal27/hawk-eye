@@ -13,9 +13,9 @@ import type { AuthUser, Role } from '@/lib/types'
 
 /**
  * Test harness: render a component with Query + Router + a synthetic AuthContext for a chosen role,
- * so RBAC-dependent components (MaskedPII, EDD actions, role views) can be tested per the Part 24.1
- * matrix without the real login flow. The capability helpers come from the real matrix, so guards
- * behave exactly as in production.
+ * so RBAC-dependent components (MaskedPII, EDD actions, role views) can be tested per the bank
+ * org-chart matrix (docs/BANK_ROLES.md) without the real login flow. The capability helpers come
+ * from the real matrix, so guards behave exactly as in production.
  */
 export function makeAuthValue(
   role: Role | null,
@@ -55,7 +55,7 @@ interface ProviderOptions extends Omit<RenderOptions, 'wrapper'> {
 }
 
 export function renderWithProviders(ui: ReactElement, options: ProviderOptions = {}) {
-  const { role = 'analyst', route = '/', authValue, queryClient, ...rest } = options
+  const { role = 'relationship_manager', route = '/', authValue, queryClient, ...rest } = options
   const client = queryClient ?? makeQueryClient()
   const value = authValue ?? makeAuthValue(role)
   function Wrapper({ children }: { children: ReactNode }) {

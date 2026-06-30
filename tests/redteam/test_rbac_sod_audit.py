@@ -1,8 +1,8 @@
 """RED-TEAM: RBAC + Separation-of-Duties + immutable audit + contestability.
 
 Adversarial probes of the Hawk-Eye backend control-plane invariants
-(blueprint Part 24.1 RBAC 8x9, Part 19.6 SoD, Part 16 natural justice, Part 29.2
-contestability; BACKEND.md sections 3/4).
+(FROZEN bank-org-chart RBAC 12x9 — docs/BANK_ROLES.md, Part 19.6 SoD, Part 16 natural
+justice, Part 29.2 contestability; BACKEND.md sections 3/4).
 
 Every test ASSERTS that a blueprint invariant HOLDS. A FAILING assert is a real
 violation. We exercise the real FastAPI handlers via TestClient where possible, and
@@ -37,7 +37,11 @@ from app.store.alert_store import ALERTS  # noqa: E402
 
 DEV_PASSWORD = "hawk-eye"
 
-# Seeded synthetic users, one per role (mirrors backend/tests/conftest.py ROLE_USER).
+# Seeded synthetic users (mirrors backend/tests/conftest.py ROLE_USER). The friendly keys are
+# legacy test labels resolving to the FROZEN bank-org-chart personas / login aliases
+# (docs/BANK_ROLES.md old→new): analyst→relationship_manager, senior→branch_manager,
+# lead→agm_vigilance, compliance→dgm_compliance, auditor→chief_internal_auditor,
+# model_engineer→data_science_lead, admin→it_admin.
 ROLE_USER = {
     "analyst": "EMP-an01",
     "senior": "EMP-sr01",
@@ -73,7 +77,7 @@ def _reset_state() -> None:
     RULE_CHANGES._proposals.clear()
     AUDIT._events.clear()
     for u in USER_STORE.list():
-        if u.role == Role.ANALYST:
+        if u.role == Role.RELATIONSHIP_MANAGER:
             u.assigned_alerts.clear()
             u.assigned_alerts.add("alr_demo01")
     seed_demo()
@@ -129,7 +133,7 @@ def test_garbage_and_tampered_tokens_rejected(client):
 
 
 def test_analyst_cannot_reach_higher_capability_routes(client, auth):
-    """Analyst has neither tune_rules / train_deploy_models / view_audit / admin."""
+    """Relationship Manager has neither tune_rules / train_deploy_models / view_audit / admin."""
     a = auth("analyst")
     forbidden = [
         ("get", "/api/v1/rules"),
@@ -144,7 +148,7 @@ def test_analyst_cannot_reach_higher_capability_routes(client, auth):
 
 
 def test_auditor_is_read_only_cannot_write(client, auth):
-    """Auditor may view_audit but NOT disposition / assign / unmask (read-only role)."""
+    """Chief Internal Auditor may view_audit but NOT disposition / assign / unmask (read-only)."""
     a = auth("auditor")
     r = client.post(
         "/api/v1/alerts/alr_demo01/disposition",
@@ -159,14 +163,14 @@ def test_auditor_is_read_only_cannot_write(client, auth):
 
 
 def test_platform_admin_sees_no_case_data(client, auth):
-    """Platform Admin = deploy-infra + admin only; VIEW_ALERTS is DENY (Part 24.1)."""
+    """IT Admin = deploy-infra + admin only; VIEW_ALERTS is DENY (docs/BANK_ROLES.md)."""
     a = auth("admin")
     assert client.get("/api/v1/alerts", headers=a).status_code == 403
     assert client.get("/api/v1/alerts/alr_demo01", headers=a).status_code == 403
 
 
 def test_analyst_cannot_unmask_senior_only_pii_without_justification(client, auth):
-    """PII unmask: Analyst is case-scoped+logged and MUST justify; bare unmask => 403."""
+    """PII unmask: Relationship Manager is case-scoped+logged and MUST justify; bare unmask => 403."""
     a = auth("analyst")
     r = client.post("/api/v1/entities/EMP-7f3a/unmask", headers=a, json={})
     assert (
@@ -175,7 +179,7 @@ def test_analyst_cannot_unmask_senior_only_pii_without_justification(client, aut
 
 
 def test_model_engineer_cannot_unmask_pii_at_all(client, auth):
-    """unmask_pii is DENY for Model Engineer (de-identified-only). Must be 403."""
+    """unmask_pii is DENY for Data Science Lead (de-identified-only). Must be 403."""
     a = auth("model_engineer")
     r = client.post(
         "/api/v1/entities/EMP-7f3a/unmask",
@@ -192,9 +196,10 @@ def test_service_account_scoped_token_cannot_read_alerts_or_audit(client, auth):
     assert client.get("/api/v1/audit", headers=a).status_code == 403
 
 
-def test_rbac_matrix_is_complete_8x9(client):
-    """Defence: the matrix must encode all 8 roles x 9 capabilities (no missing cell)."""
-    assert len(MATRIX) == 8
+def test_rbac_matrix_is_complete_12x9(client):
+    """Defence: the matrix must encode all 12 roles x 9 capabilities (no missing cell)."""
+    assert len(MATRIX) == 12
+    assert set(MATRIX) == set(Role)
     for role, row in MATRIX.items():
         assert len(row) == 9, f"{role} has {len(row)} caps"
         for cap in Capability:
@@ -204,7 +209,7 @@ def test_rbac_matrix_is_complete_8x9(client):
 # ======================================================================================
 # 2. Separation of Duties (BACKEND.md §4 / Part 19.6). Attack each SoD rule directly +
 #    via routes: deployer cannot label/close; no self-review; four-eyes on rule changes
-#    (approve = Compliance only); model promotion needs a distinct second-person signoff.
+#    (approve = DGM Compliance only); model promotion needs a distinct second-person signoff.
 # ======================================================================================
 def _principal(user_id: str, role: Role, **kw) -> Principal:
     return Principal(user_id=user_id, role=role, **kw)
@@ -212,11 +217,11 @@ def _principal(user_id: str, role: Role, **kw) -> Principal:
 
 def test_sod_deployer_cannot_label_or_close_alerts():
     """A model deployer (train_deploy_models) may not write labels / close alerts."""
-    me = _principal("EMP-me01", Role.MODEL_ENGINEER, de_identified_only=True)
+    me = _principal("EMP-me01", Role.DATA_SCIENCE_LEAD, de_identified_only=True)
     with pytest.raises(sod.SoDError):
         sod.check_disposition(me, alert_owner=None, subject_entity="EMP-7f3a")
     # And at RBAC level disposition itself is DENY for the deployer.
-    assert not is_allowed(Role.MODEL_ENGINEER, Capability.DISPOSITION)
+    assert not is_allowed(Role.DATA_SCIENCE_LEAD, Capability.DISPOSITION)
 
 
 def test_sod_no_self_review_via_route(client, auth):
@@ -248,12 +253,12 @@ def test_sod_no_self_review_via_route(client, auth):
 
 def test_sod_investigator_cannot_tune_own_alert_rules():
     """An investigator may not unilaterally tune a rule that generated THEIR alert."""
-    an = _principal("EMP-an01", Role.ANALYST, assigned_alerts={"alr_demo01"})
+    an = _principal("EMP-an01", Role.RELATIONSHIP_MANAGER, assigned_alerts={"alr_demo01"})
     with pytest.raises(sod.SoDError):
         sod.check_rule_tuning(an, generated_alerts={"alr_demo01", "alr_other"})
-    # Defence-in-depth at RBAC: investigators lack tune_rules entirely.
-    assert not is_allowed(Role.ANALYST, Capability.TUNE_RULES)
-    assert not is_allowed(Role.SENIOR_INVESTIGATOR, Capability.TUNE_RULES)
+    # Defence-in-depth at RBAC: branch-line investigators lack tune_rules entirely.
+    assert not is_allowed(Role.RELATIONSHIP_MANAGER, Capability.TUNE_RULES)
+    assert not is_allowed(Role.BRANCH_MANAGER, Capability.TUNE_RULES)
 
 
 def test_sod_four_eyes_self_approval_rejected_on_rules(client, auth):
@@ -279,7 +284,7 @@ def test_sod_four_eyes_self_approval_rejected_on_rules(client, auth):
 
 
 def test_sod_only_compliance_approves_rule_change_team_lead_propose_only(client, auth):
-    """approve = Compliance only; Team Lead is propose-only and must be rejected on approve."""
+    """approve = DGM Compliance only; AGM Vigilance is propose-only and rejected on approve."""
     co = auth("compliance")
     change_id = client.post(
         "/api/v1/rules",
@@ -290,14 +295,14 @@ def test_sod_only_compliance_approves_rule_change_team_lead_propose_only(client,
             "params": {"window": 3},
         },
     ).json()["change_id"]
-    # Team Lead has tune_rules (propose_only) but MUST NOT be able to approve.
+    # AGM Vigilance has tune_rules (propose_only) but MUST NOT be able to approve.
     r = client.post(
         f"/api/v1/rules/{change_id}/approve",
         headers=auth("lead"),
         json={"change_id": change_id, "approve": True},
     )
-    assert r.status_code == 403, f"team lead approved a rule change: {r.status_code}"
-    # A SECOND, distinct compliance officer is the proper four-eyes approver.
+    assert r.status_code == 403, f"AGM Vigilance approved a rule change: {r.status_code}"
+    # A SECOND, distinct DGM Compliance is the proper four-eyes approver.
     r2 = client.post(
         f"/api/v1/rules/{change_id}/approve",
         headers=auth("compliance2"),
@@ -326,13 +331,13 @@ def test_sod_model_promotion_requires_distinct_signoff(client, auth):
 
 
 def test_sod_platform_admin_cannot_promote_models(client, auth):
-    """Platform Admin is deploy-infra-only; promoting a model artifact is Model-Eng-only."""
+    """IT Admin is deploy-infra-only; promoting a model artifact is Data-Science-Lead-only."""
     r = client.post(
         "/api/v1/models/l3_lightgbm/promote?version=stub-2026.06.30",
         headers=auth("admin"),
         json={"to_stage": "Production", "signoff_by": "EMP-me01"},
     )
-    assert r.status_code == 403, f"platform admin promoted a model: {r.status_code}"
+    assert r.status_code == 403, f"IT admin promoted a model: {r.status_code}"
 
 
 def test_sod_pii_unmask_is_a_separate_capability_not_implied_by_view():
@@ -342,11 +347,11 @@ def test_sod_pii_unmask_is_a_separate_capability_not_implied_by_view():
             # If a role can unmask, that is an explicit grant, but the converse must hold:
             # viewing alerts must NEVER on its own confer unmask.
             pass
-    # The Auditor can read alerts (read_only) yet must NOT be able to unmask.
-    assert is_allowed(Role.AUDITOR, Capability.VIEW_ALERTS)
+    # The Chief Internal Auditor can read alerts (read_only) yet must NOT be able to unmask.
+    assert is_allowed(Role.CHIEF_INTERNAL_AUDITOR, Capability.VIEW_ALERTS)
     assert not is_allowed(
-        Role.AUDITOR, Capability.UNMASK_PII
-    ), "view-only Auditor was granted PII unmask — separation broken"
+        Role.CHIEF_INTERNAL_AUDITOR, Capability.UNMASK_PII
+    ), "view-only Chief Internal Auditor was granted PII unmask — separation broken"
 
 
 # ======================================================================================
@@ -384,7 +389,7 @@ def test_audit_entries_are_tamper_evident_or_immutable():
     """
     ev = AUDIT.write(
         actor="EMP-snoop",
-        actor_role=Role.SENIOR_INVESTIGATOR,
+        actor_role=Role.BRANCH_MANAGER,
         action="pii.unmask",
         target="EMP-victim",
         detail={"tokens": ["EMP-victim"]},
@@ -420,7 +425,7 @@ def test_audit_entries_are_tamper_evident_or_immutable():
 def test_audit_query_and_all_do_not_let_caller_delete_history():
     """Reading the trail must not expose a handle that deletes/clears prior history."""
     AUDIT.write(
-        actor="EMP-a", actor_role=Role.ANALYST, action="alert.view", target="E1"
+        actor="EMP-a", actor_role=Role.RELATIONSHIP_MANAGER, action="alert.view", target="E1"
     )
     n = len(AUDIT.all())
     # The public list returned by all()/query() must be a copy: clearing it must NOT
@@ -443,10 +448,10 @@ def test_reading_audit_is_itself_audited(client, auth):
 
 
 def test_view_own_audit_scope_enforced_for_senior(client, auth):
-    """Senior Investigator gets view_own audit only — cannot read others' entries."""
+    """Branch Manager gets view_own audit only — cannot read others' entries."""
     # Seed an audit entry by a different actor.
     AUDIT.write(
-        actor="EMP-other", actor_role=Role.ANALYST, action="alert.view", target="E9"
+        actor="EMP-other", actor_role=Role.RELATIONSHIP_MANAGER, action="alert.view", target="E9"
     )
     r = client.get("/api/v1/audit", headers=auth("senior"))
     assert r.status_code == 200, r.text
@@ -529,4 +534,4 @@ def test_block_request_is_never_auto_executed(client, auth):
     assert (
         body["auto_blocked"] is False
     ), "block-request auto-blocked money (ALERT-ONLY breach)"
-    assert body["requires_approval_by"] == "team_lead"
+    assert body["requires_approval_by"] == "agm_vigilance"

@@ -23,15 +23,21 @@ export type RingId = string // RNG-*
 export type AuditId = string // aud_*
 export type IsoTimestamp = string // UTC ISO-8601, e.g. "2026-06-30T02:41:55Z"
 
-/* ───────────────────────────── RBAC roles [BACKEND.md §4 / Part 24.1] ─────────────────────── */
+/* ───────────────────────────── RBAC roles [BANK_ROLES.md / BACKEND.md §4 / Part 24.1] ──────── */
+// Bank org-chart console/RBAC roles (12: 11 human + 1 service), mapped onto RBI's Three Lines of
+// Defense. FROZEN — see docs/BANK_ROLES.md. (Distinct from actor/subject roles in data/sim/*.)
 export type Role =
-  | 'analyst'
-  | 'senior_investigator'
-  | 'team_lead'
-  | 'compliance_officer'
-  | 'auditor'
-  | 'model_engineer'
-  | 'platform_admin'
+  | 'relationship_manager'
+  | 'branch_manager'
+  | 'cluster_head'
+  | 'agm_vigilance'
+  | 'dgm_compliance'
+  | 'data_science_lead'
+  | 'cgm_risk'
+  | 'chief_internal_auditor'
+  | 'executive_director'
+  | 'managing_director'
+  | 'it_admin'
   | 'service_account'
 
 /* ───────────────────────────── L0 unified event [BACKEND.md §1 / Part 24.5a] ──────────────── */

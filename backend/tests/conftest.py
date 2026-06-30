@@ -12,17 +12,33 @@ import pathlib
 import pytest
 from fastapi.testclient import TestClient
 
-# Seeded synthetic users (one per role) — password is the synthetic dev secret.
+# Seeded synthetic users (one per role) — password is the synthetic dev secret. The friendly keys
+# are test labels, not role enum values; they resolve to the FROZEN bank-org-chart personas /
+# legacy login aliases in docs/BANK_ROLES.md (e.g. EMP-tl01 → agm_vigilance, EMP-an01 →
+# relationship_manager) so the existing A→Z flow and call sites stay green.
 ROLE_USER = {
-    "analyst": "EMP-an01",
-    "senior": "EMP-sr01",
-    "lead": "EMP-tl01",
-    "compliance": "EMP-co01",
-    "compliance2": "EMP-co02",
-    "auditor": "EMP-au01",
-    "model_engineer": "EMP-me01",
-    "admin": "EMP-pa01",
-    "service": "svc-ingest",
+    # legacy labels → new roles via the old→new mapping (kept so existing tests don't churn)
+    "analyst": "EMP-an01",  # relationship_manager
+    "senior": "EMP-sr01",  # branch_manager
+    "lead": "EMP-tl01",  # agm_vigilance (fraud-function lead / MLRO)
+    "compliance": "EMP-co01",  # dgm_compliance
+    "compliance2": "EMP-co02",  # dgm_compliance (second person for four-eyes)
+    "auditor": "EMP-au01",  # chief_internal_auditor
+    "model_engineer": "EMP-me01",  # data_science_lead
+    "admin": "EMP-pa01",  # it_admin
+    "service": "svc-ingest",  # service_account
+    # canonical bank-org-chart personas (top-of-chart first) — including the 4 new roles
+    "relationship_manager": "EMP-rm01",
+    "branch_manager": "EMP-bm01",
+    "cluster_head": "EMP-ch01",
+    "agm_vigilance": "EMP-agm1",
+    "dgm_compliance": "EMP-dgm1",
+    "data_science_lead": "EMP-ds01",
+    "cgm_risk": "EMP-cgm1",
+    "chief_internal_auditor": "EMP-cia1",
+    "executive_director": "EMP-ed01",
+    "managing_director": "EMP-md01",
+    "it_admin": "EMP-it01",
 }
 DEV_PASSWORD = "hawk-eye"
 
@@ -62,7 +78,7 @@ def _reset_state() -> None:
     DEDUPE.reset()
     DEGRADATION.recover()
     for u in USER_STORE.list():
-        if u.role == Role.ANALYST:
+        if u.role == Role.RELATIONSHIP_MANAGER:
             u.assigned_alerts.clear()
     _clean_persisted_rules()
     DEFAULT_ENGINE.reload()

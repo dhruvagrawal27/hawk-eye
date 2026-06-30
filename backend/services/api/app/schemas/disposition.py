@@ -56,13 +56,13 @@ class BlockRequest(BaseModel):
 
 
 class BlockRequestResponse(BaseModel):
-    """A *request*, never an executed block. Requires Lead approval to action downstream."""
+    """A *request*, never an executed block. Requires AGM Vigilance approval to action downstream."""
 
     alert_id: str
     status: str = Field(
-        "block_requested", description="Pending Lead approval — never auto-executed"
+        "block_requested", description="Pending AGM Vigilance approval — never auto-executed"
     )
-    requires_approval_by: str = "team_lead"
+    requires_approval_by: str = "agm_vigilance"
     auto_blocked: bool = Field(
         False, description="Always False — the system never auto-blocks money"
     )

@@ -18,56 +18,88 @@ import {
 import { handleSigninCallback, mapClaimsToUser, signinRedirect, signoutRedirect } from './oidc'
 import { useIdleLogout, useRefreshBeforeExpiry } from './session'
 
-/** Demo identities for mock SSO — usernames match the audit fixtures so "who-did-what" lines up. */
+/**
+ * Demo identities for mock SSO — one per bank org-chart role (docs/BANK_ROLES.md demo personas).
+ * Usernames match the audit fixtures so "who-did-what" lines up. Covers all 12 roles (11 human +
+ * 1 service); the human roles are surfaced in the login persona picker via HUMAN_ROLES.
+ */
 const DEMO_USERS: Record<Role, AuthUser> = {
-  analyst: {
-    sub: 'mock-analyst',
-    username: 'analyst.demo',
+  relationship_manager: {
+    sub: 'mock-rm',
+    username: 'rm.demo',
     name: 'Asha Iyer',
-    email: 'analyst@bank.local',
-    roles: ['analyst'],
+    email: 'rm@bank.local',
+    roles: ['relationship_manager'],
   },
-  senior_investigator: {
-    sub: 'mock-senior',
-    username: 'senior.demo',
+  branch_manager: {
+    sub: 'mock-branch',
+    username: 'branch.demo',
     name: 'Rohan Das',
-    email: 'senior@bank.local',
-    roles: ['senior_investigator'],
+    email: 'branch@bank.local',
+    roles: ['branch_manager'],
   },
-  team_lead: {
-    sub: 'mock-mlro',
-    username: 'mlro.demo',
+  cluster_head: {
+    sub: 'mock-cluster',
+    username: 'cluster.demo',
+    name: 'Vikas Shah',
+    email: 'cluster@bank.local',
+    roles: ['cluster_head'],
+  },
+  agm_vigilance: {
+    sub: 'mock-agm',
+    username: 'agm.demo',
     name: 'Kavita Menon',
-    email: 'mlro@bank.local',
-    roles: ['team_lead'],
+    email: 'agm@bank.local',
+    roles: ['agm_vigilance'],
   },
-  compliance_officer: {
-    sub: 'mock-compliance',
-    username: 'compliance.demo',
+  dgm_compliance: {
+    sub: 'mock-dgm',
+    username: 'dgm.demo',
     name: 'Suresh Pillai',
-    email: 'compliance@bank.local',
-    roles: ['compliance_officer'],
+    email: 'dgm@bank.local',
+    roles: ['dgm_compliance'],
   },
-  auditor: {
-    sub: 'mock-auditor',
-    username: 'auditor.demo',
-    name: 'Meera Joshi',
-    email: 'auditor@bank.local',
-    roles: ['auditor'],
-  },
-  model_engineer: {
-    sub: 'mock-modeleng',
-    username: 'modeleng.demo',
+  data_science_lead: {
+    sub: 'mock-datasci',
+    username: 'datasci.demo',
     name: 'Anil Kumar',
-    email: 'modeleng@bank.local',
-    roles: ['model_engineer'],
+    email: 'datasci@bank.local',
+    roles: ['data_science_lead'],
   },
-  platform_admin: {
-    sub: 'mock-admin',
-    username: 'admin.demo',
+  cgm_risk: {
+    sub: 'mock-cgm',
+    username: 'cgm.demo',
+    name: 'Lakshmi Rao',
+    email: 'cgm@bank.local',
+    roles: ['cgm_risk'],
+  },
+  chief_internal_auditor: {
+    sub: 'mock-cia',
+    username: 'cia.demo',
+    name: 'Meera Joshi',
+    email: 'cia@bank.local',
+    roles: ['chief_internal_auditor'],
+  },
+  executive_director: {
+    sub: 'mock-ed',
+    username: 'ed.demo',
+    name: 'Ravi Khanna',
+    email: 'ed@bank.local',
+    roles: ['executive_director'],
+  },
+  managing_director: {
+    sub: 'mock-md',
+    username: 'md.demo',
+    name: 'Sunil Verma',
+    email: 'md@bank.local',
+    roles: ['managing_director'],
+  },
+  it_admin: {
+    sub: 'mock-itadmin',
+    username: 'itadmin.demo',
     name: 'Platform Admin',
-    email: 'admin@bank.local',
-    roles: ['platform_admin'],
+    email: 'itadmin@bank.local',
+    roles: ['it_admin'],
   },
   service_account: {
     sub: 'mock-svc',
@@ -90,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessToken(token, expiresIn)
     setExpiresAt(getTokenExpiry())
     setUser(u)
-    setActiveRole(u.roles[0] ?? 'analyst')
+    setActiveRole(u.roles[0] ?? 'relationship_manager')
     setStatus('authenticated')
   }, [])
 
@@ -113,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(
     async (role?: Role) => {
       if (isMock) {
-        const r = role ?? 'analyst'
+        const r = role ?? 'relationship_manager'
         const token = await apiClient
           .login({ username: DEMO_USERS[r].username })
           .catch(() => ({ access_token: 'mock.jwt', expires_in: 900 }))

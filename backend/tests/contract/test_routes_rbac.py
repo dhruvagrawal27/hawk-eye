@@ -40,13 +40,15 @@ def test_service_account_scoped_token_denied_human_reads(client, auth):
     )  # scoped token lacks view_alerts
 
 
-def test_analyst_denied_audit_and_rules(client, auth):
+def test_relationship_manager_denied_audit_and_rules(client, auth):
+    # Relationship Manager (legacy "analyst" login) has neither view_audit nor tune_rules.
     h = auth("analyst")
     assert client.get("/api/v1/audit", headers=h).status_code == 403
     assert client.get("/api/v1/rules", headers=h).status_code == 403
 
 
-def test_auditor_can_view_audit(client, auth):
+def test_chief_internal_auditor_can_view_audit(client, auth):
+    # Chief Internal Auditor (legacy "auditor" login) — VIEW_AUDIT = ✅ (full trail, read-only).
     r = client.get("/api/v1/audit", headers=auth("auditor"))
     assert r.status_code == 200
     assert "items" in r.json()
@@ -57,13 +59,13 @@ def test_admin_only_users(client, auth):
     assert client.get("/api/v1/admin/users", headers=auth("analyst")).status_code == 403
 
 
-def test_unmask_audited_and_analyst_needs_justification(client, auth):
-    # Analyst unmask without justification → 403 (case-scoped, logged).
+def test_unmask_audited_and_rm_needs_justification(client, auth):
+    # Relationship Manager unmask without justification → 403 (case-scoped, logged).
     r = client.post(
         "/api/v1/entities/EMP-7f3a/unmask", headers=auth("analyst"), json={"tokens": []}
     )
     assert r.status_code == 403
-    # Senior unmask → 200 and writes a pii.unmask audit event.
+    # Branch Manager unmask → 200 and writes a pii.unmask audit event.
     r2 = client.post(
         "/api/v1/entities/EMP-7f3a/unmask",
         headers=auth("senior"),
@@ -84,7 +86,7 @@ def test_who_viewed_whom_audited(client, auth):
 
 
 def test_four_eyes_rule_change(client, auth):
-    # Compliance proposes; the SAME person cannot approve (four-eyes); a SECOND Compliance can.
+    # DGM Compliance proposes; the SAME person cannot approve (four-eyes); a SECOND DGM can.
     prop = client.post(
         "/api/v1/rules",
         headers=auth("compliance"),
@@ -108,8 +110,8 @@ def test_four_eyes_rule_change(client, auth):
     assert co2_approve.json()["new_version"]
 
 
-def test_team_lead_can_propose_but_not_approve_rules(client, auth):
-    # Team Lead = ⚠️ propose-only (Part 24.1); Compliance = change-controlled approver.
+def test_agm_vigilance_can_propose_but_not_approve_rules(client, auth):
+    # AGM Vigilance ("lead" login) = ⚠️ propose-only; DGM Compliance = change-controlled approver.
     prop = client.post(
         "/api/v1/rules",
         headers=auth("lead"),
@@ -132,7 +134,7 @@ def test_team_lead_can_propose_but_not_approve_rules(client, auth):
 
 
 def test_put_rules_proposes_update_four_eyes(client, auth):
-    # PUT /rules/{code} (Part 24.2) proposes an update; approval is Compliance + four-eyes.
+    # PUT /rules/{code} (Part 24.2) proposes an update; approval is DGM Compliance + four-eyes.
     r = client.put(
         "/api/v1/rules/JUST_UNDER_THRESHOLD",
         headers=auth("compliance"),
@@ -162,26 +164,27 @@ def test_put_rules_proposes_update_four_eyes(client, auth):
 
 
 def test_view_audit_view_own_scope(client, auth):
-    # Senior Investigator + Model Engineer have VIEW_AUDIT = ⚠️ view-own: they only see their own
-    # actions, never another user's audit entries. Auditor sees the full trail.
-    client.get("/api/v1/alerts/alr_demo01", headers=auth("senior"))  # senior makes an audited view
+    # Branch Manager + Data Science Lead have VIEW_AUDIT = ⚠️ view-own: they only see their own
+    # actions, never another user's audit entries. The Chief Internal Auditor sees the full trail.
+    client.get("/api/v1/alerts/alr_demo01", headers=auth("senior"))  # branch mgr makes audited view
     sr = client.get("/api/v1/audit", headers=auth("senior")).json()
-    assert sr["items"], "senior should see their own audit entries"
+    assert sr["items"], "branch manager should see their own audit entries"
     assert all(e["actor"] == "EMP-sr01" for e in sr["items"]), "view-own must filter to self"
     full = client.get("/api/v1/audit", headers=auth("auditor")).json()
     actors = {e["actor"] for e in full["items"]}
-    assert len(actors) >= 1  # auditor sees everyone's actions (unfiltered)
+    assert len(actors) >= 1  # chief internal auditor sees everyone's actions (unfiltered)
 
 
-def test_disposition_override_requires_team_lead(client, auth):
-    # First disposition by analyst (alert is open) succeeds.
+def test_disposition_override_requires_agm_vigilance(client, auth):
+    # First disposition by the Relationship Manager (alert is open) succeeds.
     r1 = client.post(
         "/api/v1/alerts/alr_demo01/disposition",
         headers=auth("analyst"),
         json={"outcome": "false_positive", "notes": "", "evidence_ids": []},
     )
     assert r1.status_code == 200
-    # Re-dispositioning an already-dispositioned alert is an OVERRIDE → Senior is denied, Lead allowed.
+    # Re-dispositioning an already-dispositioned alert is an OVERRIDE → the Branch Manager is
+    # denied; the AGM — Vigilance (fraud-function lead) is allowed.
     r2 = client.post(
         "/api/v1/alerts/alr_demo01/disposition",
         headers=auth("senior"),
@@ -196,13 +199,13 @@ def test_disposition_override_requires_team_lead(client, auth):
     assert r3.status_code == 200 and r3.json()["status"] == "confirmed_fraud"
 
 
-def test_block_request_approve_is_team_lead_and_never_auto(client, auth):
+def test_block_request_approve_is_agm_vigilance_and_never_auto(client, auth):
     client.post(
         "/api/v1/alerts/alr_demo01/block-request",
         headers=auth("analyst"),
         json={"reason": "mule", "evidence_ids": []},
     )
-    # Analyst cannot approve their own block request.
+    # The Relationship Manager cannot approve their own block request.
     assert (
         client.post(
             "/api/v1/alerts/alr_demo01/block-request/approve", headers=auth("analyst")
@@ -214,7 +217,7 @@ def test_block_request_approve_is_team_lead_and_never_auto(client, auth):
     assert ok.json()["approved"] is True and ok.json()["auto_blocked"] is False
 
 
-def test_platform_admin_cannot_promote_model(client, auth):
+def test_it_admin_cannot_promote_model(client, auth):
     r = client.post(
         "/api/v1/models/l3_catboost/promote?version=challenger-2026.06.30",
         headers=auth("admin"),

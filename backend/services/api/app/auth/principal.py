@@ -1,7 +1,8 @@
 """Authenticated principal (BACKEND-2/3).
 
 Built from a validated JWT. Carries the role (for RBAC), the case scope (assigned alert ids —
-Analyst need-to-know), and the ``de_identified_only`` flag (Model Engineer). No PII.
+Relationship Manager need-to-know), and the ``de_identified_only`` flag (Data Science / exec &
+board see de-identified aggregates only). No PII.
 """
 
 from __future__ import annotations
@@ -17,10 +18,12 @@ class Principal(BaseModel):
     role: Role
     display_name: str = ""
     assigned_alerts: set[str] = Field(
-        default_factory=set, description="Case scope — Analyst sees only these (Part 19.6)"
+        default_factory=set,
+        description="Case scope — Relationship Manager sees only these (BANK_ROLES.md)",
     )
     de_identified_only: bool = Field(
-        False, description="Model Engineer: may only see de-identified data (Part 24.1)"
+        False,
+        description="Data Science / exec & board: may only see de-identified data (BANK_ROLES.md)",
     )
     scopes: list[str] = Field(default_factory=list, description="Service-account token scopes")
     token_id: str = ""
@@ -30,12 +33,12 @@ class Principal(BaseModel):
 
     @property
     def is_lead_or_above(self) -> bool:
-        return self.role in (Role.TEAM_LEAD, Role.PLATFORM_ADMIN)
+        return self.role in (Role.AGM_VIGILANCE, Role.IT_ADMIN)
 
     @property
     def is_senior_plus(self) -> bool:
         return self.role in (
-            Role.SENIOR_INVESTIGATOR,
-            Role.TEAM_LEAD,
-            Role.COMPLIANCE_OFFICER,
+            Role.BRANCH_MANAGER,
+            Role.AGM_VIGILANCE,
+            Role.DGM_COMPLIANCE,
         )

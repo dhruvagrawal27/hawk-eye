@@ -55,16 +55,29 @@ class DispositionOutcome(str, Enum):
 
 
 class Role(str, Enum):
-    """8 roles — blueprint Part 24.1."""
+    """12 console/RBAC roles — bank org chart, FROZEN spec (docs/BANK_ROLES.md).
 
-    ANALYST = "analyst"
-    SENIOR_INVESTIGATOR = "senior_investigator"
-    TEAM_LEAD = "team_lead"  # Team Lead / MLRO
-    COMPLIANCE_OFFICER = "compliance_officer"
-    AUDITOR = "auditor"
-    MODEL_ENGINEER = "model_engineer"  # Model Engineer / Data Scientist
-    PLATFORM_ADMIN = "platform_admin"
-    SERVICE_ACCOUNT = "service_account"
+    PSB (Union Bank-style) org chart mapped onto RBI's Three Lines of Defense. 11 human +
+    1 service. Capability semantics and the 9 capabilities are unchanged from Part 24.1; only
+    the role identities and hierarchy are new. Order: top-of-chart first.
+
+    These are the *console/RBAC* roles (who uses the fraud console). Do not confuse with the
+    *actor/subject* roles in ``data/sim/*`` (ops_maker, ops_checker, …) — those are the
+    monitored employees inside events and are a separate, unchanged axis.
+    """
+
+    MANAGING_DIRECTOR = "managing_director"  # Managing Director & CEO (Board)
+    EXECUTIVE_DIRECTOR = "executive_director"  # Executive Director (Board)
+    CGM_RISK = "cgm_risk"  # CGM — Chief Risk Officer (Executive)
+    DGM_COMPLIANCE = "dgm_compliance"  # DGM — Risk & Compliance
+    AGM_VIGILANCE = "agm_vigilance"  # AGM — Vigilance & Fraud Risk (fraud-function lead / MLRO)
+    CHIEF_INTERNAL_AUDITOR = "chief_internal_auditor"  # Chief Internal Auditor (3rd line)
+    DATA_SCIENCE_LEAD = "data_science_lead"  # Head — Data Science / Model Risk
+    CLUSTER_HEAD = "cluster_head"  # Cluster Head / Zonal Manager
+    BRANCH_MANAGER = "branch_manager"  # Branch Manager
+    RELATIONSHIP_MANAGER = "relationship_manager"  # Relationship Manager (branch ops)
+    IT_ADMIN = "it_admin"  # IT / Platform Administrator
+    SERVICE_ACCOUNT = "service_account"  # Service Account (system)
 
 
 class Capability(str, Enum):

@@ -36,6 +36,9 @@ const AdminView = lazy(() => import('@/views/AdminView').then((m) => ({ default:
 const ReportingView = lazy(() =>
   import('@/views/ReportingView').then((m) => ({ default: m.ReportingView })),
 )
+const OrgChartView = lazy(() =>
+  import('@/views/OrgChartView').then((m) => ({ default: m.OrgChartView })),
+)
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -87,6 +90,12 @@ export const router = createBrowserRouter([
           {
             element: <RoleShell roles={ROUTE_ROLES.reporting} />,
             children: [{ path: 'reporting', element: <ReportingView /> }],
+          },
+
+          // Org chart — reporting tree by Lines of Defense (managers + exec, read-only)
+          {
+            element: <RoleShell roles={ROUTE_ROLES.org} />,
+            children: [{ path: 'org', element: <OrgChartView /> }],
           },
 
           // Admin (screen 8)

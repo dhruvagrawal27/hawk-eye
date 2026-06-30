@@ -552,7 +552,7 @@
           "entities"
         ],
         "summary": "Unmask",
-        "description": "Re-identify tokenized PII (audited). Analyst must provide a justification (case-scoped).",
+        "description": "Re-identify tokenized PII (audited). The RM must provide a justification (case-scoped).",
         "operationId": "unmask_api_v1_entities__entity_id__unmask_post",
         "parameters": [
           {
@@ -944,7 +944,7 @@
           "disposition"
         ],
         "summary": "Approve Block Request",
-        "description": "Team Lead APPROVES a raised block request (Part 24.1: Lead = ✅ approve for Request block).\n\nThis is the human approval of the *request* — it is still **never an auto-block of money**.\nActioning a block remains a manual, out-of-band step; the system only records the approval.",
+        "description": "AGM Vigilance APPROVES a raised block request (Part 24.1: ✅ approve for Request block).\n\nThis is the human approval of the *request* — it is still **never an auto-block of money**.\nActioning a block remains a manual, out-of-band step; the system only records the approval.",
         "operationId": "approve_block_request_api_v1_alerts__alert_id__block_request_approve_post",
         "parameters": [
           {
@@ -2557,13 +2557,13 @@
           "status": {
             "type": "string",
             "title": "Status",
-            "description": "Pending Lead approval — never auto-executed",
+            "description": "Pending AGM Vigilance approval — never auto-executed",
             "default": "block_requested"
           },
           "requires_approval_by": {
             "type": "string",
             "title": "Requires Approval By",
-            "default": "team_lead"
+            "default": "agm_vigilance"
           },
           "auto_blocked": {
             "type": "boolean",
@@ -2582,7 +2582,7 @@
           "audit_id"
         ],
         "title": "BlockRequestResponse",
-        "description": "A *request*, never an executed block. Requires Lead approval to action downstream."
+        "description": "A *request*, never an executed block. Requires AGM Vigilance approval to action downstream."
       },
       "Context": {
         "properties": {
@@ -3995,17 +3995,21 @@
       "Role": {
         "type": "string",
         "enum": [
-          "analyst",
-          "senior_investigator",
-          "team_lead",
-          "compliance_officer",
-          "auditor",
-          "model_engineer",
-          "platform_admin",
+          "managing_director",
+          "executive_director",
+          "cgm_risk",
+          "dgm_compliance",
+          "agm_vigilance",
+          "chief_internal_auditor",
+          "data_science_lead",
+          "cluster_head",
+          "branch_manager",
+          "relationship_manager",
+          "it_admin",
           "service_account"
         ],
         "title": "Role",
-        "description": "8 roles — blueprint Part 24.1."
+        "description": "12 console/RBAC roles — bank org chart, FROZEN spec (docs/BANK_ROLES.md)."
       },
       "RuleApproval": {
         "properties": {
@@ -4469,7 +4473,7 @@
           "justification": {
             "type": "string",
             "title": "Justification",
-            "description": "Case-scoped reason (required for Analyst, logged)",
+            "description": "Case-scoped reason (required for Relationship Manager, logged)",
             "default": ""
           }
         },

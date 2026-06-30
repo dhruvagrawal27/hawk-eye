@@ -216,7 +216,8 @@ def seed_demo() -> None:
             apply_sla(alert)
         ALERTS.add(alert)
     _seed_entity_360()
-    # Analyst case scope: assign the demo alerts to the seeded analyst (need-to-know).
+    # Relationship Manager case scope: assign the demo alerts to the seeded RM (need-to-know).
+    # EMP-an01 is the legacy analyst→relationship_manager login alias (docs/BANK_ROLES.md).
     USER_STORE.assign_alert("EMP-an01", "alr_demo01")
     USER_STORE.assign_alert("EMP-an01", "alr_demo02")
     ALERTS.assign("alr_demo02", "EMP-an01")

@@ -18,7 +18,7 @@ from compliance.dpdp import REGISTER
 
 router = APIRouter(tags=["compliance"])
 
-_COMPLIANCE = require_role(Role.COMPLIANCE_OFFICER, Role.TEAM_LEAD, Role.PLATFORM_ADMIN)
+_COMPLIANCE = require_role(Role.DGM_COMPLIANCE, Role.AGM_VIGILANCE, Role.IT_ADMIN)
 
 
 class TransferRequest(BaseModel):

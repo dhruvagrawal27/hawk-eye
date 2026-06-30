@@ -20,8 +20,9 @@ def test_internal_tat_tighter_for_high():
 
 
 def test_routing_by_severity():
-    assert route_for_severity("high").value == "senior_investigator"
-    assert route_for_severity("low").value == "analyst"
+    # FROZEN roles (docs/BANK_ROLES.md): high escalates to the Branch Manager; low sits with the RM.
+    assert route_for_severity("high").value == "branch_manager"
+    assert route_for_severity("low").value == "relationship_manager"
 
 
 def test_calibration_bounds():

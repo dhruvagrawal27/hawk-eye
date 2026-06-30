@@ -1,13 +1,14 @@
-"""RBAC permission matrix — 8 roles × 9 capabilities (BACKEND-3, blueprint Part 24.1).
+"""RBAC permission matrix — 12 roles × 9 capabilities (BACKEND-3, FROZEN spec docs/BANK_ROLES.md).
 
-Encoded EXACTLY from the Part 24.1 table:
+Encoded EXACTLY from the BANK_ROLES.md capability matrix (which preserves the Part 24.1 grant
+semantics under the old→new role rename):
   ✅ allowed → ALLOW · ⚠️ conditional → CONDITIONAL (route enforces the note) · ❌ → DENY.
 
 A CONDITIONAL grant means the capability is permitted *subject to a constraint the route must
-additionally enforce* — case-scoping (Analyst sees assigned only), de-identification (Model
-Engineer sees de-identified data only), mandatory logging (all unmask), or a second-person
-sign-off (model promotion). PII unmask is a SEPARATE, audited capability (never implied by
-"view alerts"). SoD constraints live in ``app.auth.sod``.
+additionally enforce* — case-scoping (Relationship Manager sees assigned only), de-identification
+(exec/board and Data Science see de-identified aggregates only), mandatory logging (all unmask),
+or a second-person sign-off (model promotion). PII unmask is a SEPARATE, audited capability
+(never implied by "view alerts"). SoD constraints live in ``app.auth.sod``.
 """
 
 from __future__ import annotations
@@ -56,9 +57,10 @@ _CAPS = (
 )
 
 # ruff: noqa: E241  (aligned matrix is intentional)
+# Verbatim from docs/BANK_ROLES.md "Capability matrix".
+# columns:                       view                 triage  disp             block               unmask                          tune                            train/deploy                    audit                admin
 _ROWS: dict[Role, tuple[Grant, ...]] = {
-    # role:                view             triage   disp           block            unmask                       tune                          train/deploy                  audit               admin
-    Role.ANALYST: (
+    Role.RELATIONSHIP_MANAGER: (
         C("assigned_only"),
         A,
         A,
@@ -69,11 +71,21 @@ _ROWS: dict[Role, tuple[Grant, ...]] = {
         X,
         X,
     ),
-    Role.SENIOR_INVESTIGATOR: (A, A, A, A, C("logged"), X, X, C("view_own"), X),
-    Role.TEAM_LEAD: (A, A, C("override"), C("approve"), C("logged"), C("propose_only"), X, A, X),
-    Role.COMPLIANCE_OFFICER: (A, X, X, X, C("logged"), C("change_controlled"), X, A, X),
-    Role.AUDITOR: (C("read_only"), X, X, X, X, X, X, A, X),
-    Role.MODEL_ENGINEER: (
+    Role.BRANCH_MANAGER: (A, A, A, A, C("logged"), X, X, C("view_own"), X),
+    Role.CLUSTER_HEAD: (A, A, C("override"), C("approve"), C("logged"), C("propose_only"), X, A, X),
+    Role.AGM_VIGILANCE: (
+        A,
+        A,
+        C("override"),
+        C("approve"),
+        C("logged"),
+        C("change_controlled"),
+        X,
+        A,
+        X,
+    ),
+    Role.DGM_COMPLIANCE: (A, X, X, X, C("logged"), C("change_controlled"), X, A, X),
+    Role.DATA_SCIENCE_LEAD: (
         C("de_identified_only"),
         X,
         X,
@@ -84,7 +96,11 @@ _ROWS: dict[Role, tuple[Grant, ...]] = {
         C("view_own"),
         X,
     ),
-    Role.PLATFORM_ADMIN: (X, X, X, X, X, X, C("deploy_infra_only"), A, A),
+    Role.CGM_RISK: (C("de_identified_only"), X, X, X, X, C("change_controlled"), X, A, X),
+    Role.CHIEF_INTERNAL_AUDITOR: (C("read_only"), X, X, X, X, X, X, A, X),
+    Role.EXECUTIVE_DIRECTOR: (C("de_identified_only"), X, X, X, X, X, X, A, X),
+    Role.MANAGING_DIRECTOR: (C("de_identified_only"), X, X, X, X, X, X, A, X),
+    Role.IT_ADMIN: (X, X, X, X, X, X, C("deploy_infra_only"), A, A),
     Role.SERVICE_ACCOUNT: (C("scoped_token"), X, X, X, X, X, X, C("write_only"), X),
 }
 
@@ -115,7 +131,7 @@ def capabilities_for(role: Role | str) -> dict[str, str]:
 
 def assert_matrix_complete() -> None:
     """Self-check invoked at import time: every (role × capability) cell is defined."""
-    assert len(MATRIX) == 8, f"expected 8 roles, got {len(MATRIX)}"
+    assert len(MATRIX) == 12, f"expected 12 roles, got {len(MATRIX)}"
     for role, row in MATRIX.items():
         missing = [c for c in Capability if c not in row]
         assert not missing, f"role {role} missing capabilities {missing}"

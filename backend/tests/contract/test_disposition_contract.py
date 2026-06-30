@@ -50,12 +50,12 @@ def test_block_request_is_never_auto(client, auth):
     assert r.status_code == 200
     body = r.json()
     assert body["auto_blocked"] is False  # the system NEVER auto-blocks money
-    assert body["requires_approval_by"] == "team_lead"  # Analyst→Lead approves
+    assert body["requires_approval_by"] == "agm_vigilance"  # RM raises → AGM Vigilance approves
     assert body["status"] == "block_requested"
 
 
-def test_compliance_cannot_disposition(client, auth):
-    # SoD / RBAC: Compliance has no disposition capability (alert-only human-in-the-loop separation).
+def test_dgm_compliance_cannot_disposition(client, auth):
+    # SoD / RBAC: DGM Compliance has no disposition capability (alert-only HITL separation).
     r = client.post(
         "/api/v1/alerts/alr_demo01/disposition",
         headers=auth("compliance"),
@@ -64,7 +64,7 @@ def test_compliance_cannot_disposition(client, auth):
     assert r.status_code == 403
 
 
-def test_model_engineer_cannot_disposition_sod(client, auth):
+def test_data_science_lead_cannot_disposition_sod(client, auth):
     r = client.post(
         "/api/v1/alerts/alr_demo01/disposition",
         headers=auth("model_engineer"),

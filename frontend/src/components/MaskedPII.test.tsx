@@ -9,14 +9,16 @@ import { renderWithProviders, screen, waitFor } from '@/test/utils'
  */
 describe('<MaskedPII> — default-mask + audited unmask (Part 25.3)', () => {
   it('shows the tokenized id by default', () => {
-    renderWithProviders(<MaskedPII value="EMP-7f3a" entityId="EMP-7f3a" />, { role: 'analyst' })
+    renderWithProviders(<MaskedPII value="EMP-7f3a" entityId="EMP-7f3a" />, {
+      role: 'relationship_manager',
+    })
     expect(screen.getByText('EMP-7f3a')).toBeInTheDocument()
   })
 
   it('exposes an audited unmask control for a permitted role and reveals the value', async () => {
     const user = userEvent.setup()
     renderWithProviders(<MaskedPII value="EMP-7f3a" entityId="EMP-7f3a" alertId="alr_3d7e22" />, {
-      role: 'senior_investigator',
+      role: 'branch_manager',
     })
     const btn = screen.getByLabelText(/unmask EMP-7f3a/i)
     await user.click(btn)
@@ -24,8 +26,10 @@ describe('<MaskedPII> — default-mask + audited unmask (Part 25.3)', () => {
     expect(screen.getByText(/logged/i)).toBeInTheDocument()
   })
 
-  it('hides the unmask control for a role without the capability (auditor)', () => {
-    renderWithProviders(<MaskedPII value="EMP-7f3a" entityId="EMP-7f3a" />, { role: 'auditor' })
+  it('hides the unmask control for a role without the capability (chief internal auditor)', () => {
+    renderWithProviders(<MaskedPII value="EMP-7f3a" entityId="EMP-7f3a" />, {
+      role: 'chief_internal_auditor',
+    })
     expect(screen.getByText('EMP-7f3a')).toBeInTheDocument()
     expect(screen.queryByLabelText(/unmask EMP-7f3a/i)).not.toBeInTheDocument()
   })

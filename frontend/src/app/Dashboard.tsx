@@ -15,7 +15,9 @@ import { slaInfo, severityRank } from '@/lib/format'
 export function Dashboard() {
   const { user, role } = useAuth()
   const items = navItemsForRole(role).filter((i) => i.to !== '/')
-  const canTriage = role ? ['analyst', 'senior_investigator', 'team_lead'].includes(role) : false
+  const canTriage = role
+    ? ['relationship_manager', 'branch_manager', 'cluster_head', 'agm_vigilance'].includes(role)
+    : false
 
   const alerts = useQuery({
     queryKey: queryKeys.alerts({}),
