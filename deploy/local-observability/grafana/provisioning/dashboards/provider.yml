@@ -1,0 +1,13 @@
+# Grafana dashboard provisioning — loads JSON dashboards from the json/ subdir.
+apiVersion: 1
+providers:
+  - name: hawkeye
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /Users/rbih/Code/hawkeye/deploy/local-observability/grafana/provisioning/dashboards/json
+      foldersFromFilesStructure: false

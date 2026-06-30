@@ -1,0 +1,19 @@
+# Hawk-Eye — local Prometheus scrape config (native/brew install, macOS pilot).
+# Scrapes the running FastAPI backend's /metrics every 5s. Grafana reads this Prometheus.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: hawkeye-backend
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['localhost:8000']
+        labels:
+          component: backend
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          component: prometheus
