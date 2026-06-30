@@ -1,0 +1,128 @@
+# Hawk-Eye L1 named rules (BACKEND-5/7, blueprint Part 20.1 / 24.5).
+# Hot-reloadable + versioned. Every change is a four-eyes, audited rule change (BACKEND-8).
+# `hard_hit: true` rules feed the L1 short-circuit (BACKEND-11): emit HIGH alert immediately,
+# skip ML. Thresholds live here (params) so tuning is a rule change, not a code change.
+rules:
+  - code: SWIFT_CBS_MISMATCH
+    name: SWIFT message without matching CBS transaction
+    enabled: true
+    severity: high
+    hard_hit: true
+    version: "1.0.0"
+    description: The PNB control — a SWIFT message with no reconciling CBS transaction (linkage SWIFT↔CBS).
+    params: {}
+
+  - code: NEW_BENEFICIARY_THEN_HIGHVALUE
+    name: New beneficiary then high-value payment
+    enabled: true
+    severity: high
+    hard_hit: true
+    version: "1.2.0"
+    description: New payee created then a high-value payment within a short latency window (24.5d worked burst).
+    params:
+      payment_verbs: [approve_payment, payment, transfer]
+      high_value_inr: 1000000
+      window_minutes: 60
+      new_beneficiary_max_age_days: 1
+
+  - code: DORMANT_REACTIVATION_DRAIN
+    name: Dormant account reactivated then drained
+    enabled: true
+    severity: high
+    hard_hit: true
+    version: "1.0.0"
+    description: A long-dormant account reactivated and then drained.
+    params:
+      drain_verbs: [withdraw, transfer, payment, approve_payment]
+      dormant_days: 180
+      drain_min_inr: 100000
+
+  - code: DB_WRITE_WITHOUT_APP_TXN
+    name: Direct DB write without application transaction
+    enabled: true
+    severity: high
+    hard_hit: true
+    version: "1.0.0"
+    description: Direct DB write with no corresponding application transaction (linkage app-txn↔DB-write).
+    params:
+      db_verbs: [db_write, direct_write, update_record, delete_record]
+
+  - code: ENTITLEMENT_SELF_GRANT
+    name: Entitlement self-grant / privilege escalation
+    enabled: true
+    severity: high
+    hard_hit: true
+    version: "1.0.0"
+    description: Actor grants themselves an entitlement or escalates their own privilege.
+    params:
+      grant_verbs: [grant_entitlement, add_entitlement, role_assign, privilege_escalation, self_grant]
+
+  - code: OFF_HOURS_ACTIVITY
+    name: Off-hours activity
+    enabled: true
+    severity: medium
+    hard_hit: false
+    version: "1.1.0"
+    description: Activity outside the actor's and peer group's baseline hours.
+    params: {}
+
+  - code: JUST_UNDER_THRESHOLD
+    name: Amount structured just under a threshold
+    enabled: true
+    severity: medium
+    hard_hit: false
+    version: "1.0.0"
+    description: Amount structured just below a reporting/approval threshold (structuring).
+    params:
+      thresholds_inr: [1000000, 5000000]
+      band: 0.05
+
+  # --- Privileged family (BACKEND-7) ---
+  - code: PRIVILEGED_SESSION_CORRELATION
+    name: Privileged session correlated with sensitive activity
+    enabled: true
+    severity: high
+    hard_hit: false
+    version: "1.0.0"
+    description: A privileged session correlated with off-hours / DB / sensitive activity.
+    params:
+      sensitive_verbs: [export, bulk_export, db_write]
+
+  - code: ORPHANED_ACCOUNT_USE
+    name: Orphaned / leaver account use
+    enabled: true
+    severity: high
+    hard_hit: false
+    version: "1.0.0"
+    description: Use of an orphaned, never-deprovisioned, or leaver account.
+    params: {}
+
+  - code: LEAST_PRIVILEGE_VIOLATION
+    name: Least-privilege violation
+    enabled: true
+    severity: medium
+    hard_hit: false
+    version: "1.0.0"
+    description: Action exercising an entitlement the actor should not hold.
+    params: {}
+
+  - code: LEAVER_WINDOW_EXFIL
+    name: Leaver-window bulk exfiltration
+    enabled: true
+    severity: high
+    hard_hit: false
+    version: "1.0.0"
+    description: Bulk export/exfil proxy inside a leaver's notice window.
+    params:
+      exfil_verbs: [export, bulk_export, download, copy]
+      export_volume_min: 1000
+
+  - code: NO_LEAVE_STREAK
+    name: No-leave streak with sensitive access
+    enabled: true
+    severity: low
+    hard_hit: false
+    version: "1.0.0"
+    description: No-leave-streak proxy combined with continued sensitive access.
+    params:
+      no_leave_days_threshold: 365

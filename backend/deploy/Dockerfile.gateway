@@ -1,0 +1,12 @@
+# Hawk-Eye Rust hot-path gateway image (BACKEND-10). Multi-stage build.
+FROM rust:1.82-slim AS build
+WORKDIR /src
+COPY . .
+# Default build (no `onnx` feature) so the image builds without native ONNX Runtime libs.
+RUN cargo build --release --bin gateway
+
+FROM debian:bookworm-slim
+WORKDIR /app
+COPY --from=build /src/target/release/gateway /usr/local/bin/gateway
+EXPOSE 8081
+CMD ["gateway"]

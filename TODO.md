@@ -17,11 +17,13 @@
 - [ ] M5 MLOps (MLflow, champion/challenger, drift), fairness/bias, LLM narrative gateway
 
 ## 3. ⚙️ BACKEND (29 tasks — see prompts/03_BACKEND.md) — also owns BACKEND.md
-- [ ] M1 FastAPI app, auth/RBAC (Keycloak/JWT), health/metrics
-- [ ] M2 L1 rules/BRE + SoD/toxic-combination matrix engine
-- [ ] M3 Risk-fusion service + model serving integration + reason codes
-- [ ] M4 Alert/case store, EDD feedback loop, PII tokenization + re-id vault
-- [ ] M5 EWS/RFA/CRILC/FMR generators + audit-write + narrative gateway route
+- [x] M1 FastAPI app, auth/RBAC (Keycloak/JWT), health/metrics — BACKEND-1..4 (Part 24.1/24.2/24.5)
+- [x] M2 L1 rules/BRE + SoD/toxic-combination matrix engine — BACKEND-5..8 (Part 3.1/3.4/20.1/31.3)
+- [x] M3 Risk-fusion + model serving (signed loader/canary) + Rust hot-path + reliability — BACKEND-9..16 (Part 18.1/18.3/23.4)
+- [x] M4 Alert/entity/explanation routes, EDD feedback loop, PII tokenization + re-id vault, audit/admin/escalation — BACKEND-17..23 (Part 11/16/19.3/25.3/29.2/33.3)
+- [x] M5 EWS/RFA/CRILC/FMR/CFR generators + slow-lane + export routes + SIEM + DPDP + gateway front — BACKEND-24..29 (Part 16/9.3/28.1/32.1)
+  - SCAFFOLD (code-complete on synthetic; await live external resource): BACKEND-24/25 (RBI submission channel), 27 (live SIEM), 29 (TEE hardware + legal jurisdiction).
+  - 102 backend tests green (unit + integration + contract); `openapi.json` generated; `BACKEND.md` synced. Rust `gateway/` crate written (cargo not installed locally → `cargo test` deferred to PLATFORM CI).
 
 ## 4. 🖥️ FRONTEND (13 tasks — see prompts/04_FRONTEND.md)
 - [ ] M1 App shell, SSO/login, routing, API client, RBAC-aware views

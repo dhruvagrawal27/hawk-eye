@@ -1,0 +1,13 @@
+# Hawk-Eye SoD / toxic-combination matrix (BACKEND-6, blueprint Part 3.4).
+# The configurable bank SoD matrix: each entry is a pair of duties that MUST be separated.
+# A single actor holding (or exercising) both sides is a toxic combination. Change-controlled
+# (four-eyes) — Compliance owns this matrix. DATABASE persists; BACKEND scores against it.
+version: "1.0.0"
+conflicts:
+  - [create_beneficiary, approve_payment]
+  - [create_vendor, approve_payment]
+  - [initiate_loan, approve_loan]
+  - [create_user, grant_entitlement]
+  - [maker, checker]
+  - [trade_capture, trade_settlement]
+  - [vendor_onboarding, invoice_approval]

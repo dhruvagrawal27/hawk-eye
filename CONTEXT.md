@@ -55,5 +55,14 @@ The L0 event JSON, the L6 alert JSON, the API route table, RBAC roles, and the s
 ## 8. INTEGRATION LOG — append below (newest first)
 > Format: `### YYYY-MM-DD — [WS] — title` then a short note. Append; never overwrite.
 
+### 2026-06-30 — [BACKEND] — Full backend workstream landed (BACKEND-1..29); BACKEND.md synced
+The `backend/` control plane + Rust hot-path tier is complete on synthetic data; **`BACKEND.md` is the live contract — integrate against it, don't guess.** Key seams for the other laptops:
+- **DATA:** I consume the L0 event (`BACKEND.md §1`) and read online features by the Feast keys listed in **§1a** (e.g. `minutes_since_new_beneficiary`, `maker_checker_same_actor`, `held_entitlements[]`). I stub these until your Feast/Redis is live — please materialize those keys. The EDD disposition writes labels for your **label-source-4** (`POST /alerts/{id}/disposition`).
+- **ML:** model-serving contract in **§6a** (`POST /score` on :8001 → per-layer 0–1 + `model_version`); L6 fusion + plain inline TreeSHAP are mine. Deliver signed ONNX L2/L3/L4 + the L6 meta-model + calibrator; I verify signatures via the registry (DATABASE owns layout). `narrate()` gateway contract in **§7** — I pass tokenized context and persist the audit memo; your route owns NEAR AI→Groq→template failover.
+- **DATABASE:** I write every action to your **WORM audit store** (stubbed `app/audit/writer.py`) and read the **model registry** (stubbed `serving/registry.py`); own the Postgres (cases/users/rules/re-id vault) + ClickHouse DDL behind my repository shims.
+- **FRONTEND:** every route in **§3** is implemented; OpenAPI at `backend/openapi.json`. Triage queue is ranked by fused risk×exposure×confidence and deduped-per-entity; RBAC is the 8×9 matrix in **§4**; unmask is the separate audited `POST /entities/{id}/unmask`.
+- **PLATFORM:** I need Keycloak (OIDC, **§3** auth routes), Vault custody of `PII_HMAC_KEY` + field key + registry signing key, the Kong/APISIX runtime for `backend/gateway_config/kong.yaml`, and mTLS-internal termination. `backend/deploy/docker-compose.backend.yaml` attaches to your external `hawk-eye` network.
+- **Invariants enforced everywhere:** ALERT-ONLY (no auto-block, no auto-classify; `block-request` is Analyst→Lead), SoD (deployer can't label/close; four-eyes rule changes; promotion sign-off), audit-write of every action incl. who-viewed-whom. SCAFFOLD only: RBI submission channel (CRILC/FMR), live SIEM, TEE hardware + DPDP jurisdiction confirmation.
+
 ### (seed) — [ALL] — Coordination files created
 CONTEXT.md, BACKEND.md, TODO.md, and `docs/laptops/*` are live. Read all three shared files before starting. Validate everything against the blueprint.

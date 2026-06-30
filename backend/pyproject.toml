@@ -1,0 +1,90 @@
+# Hawk-Eye — BACKEND workstream (Laptop 03)
+# Pinned versions track blueprint Part 24.3. Lockfile generation (uv.lock / poetry.lock)
+# is a CI step (PLATFORM harness); local dev was validated on the patch versions noted in
+# docs/laptops/03-backend.md (Deviations). On-prem + synthetic only — no real PII / feeds / creds.
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hawk-eye-backend"
+version = "0.1.0"
+description = "Hawk-Eye control plane: FastAPI API, L1 rules/SoD engine, L6 fusion, PII tokenization, regulatory generators."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary — internal use only" }
+authors = [{ name = "Hawk-Eye BACKEND laptop" }]
+
+# Source of truth = blueprint Part 24.3. We hand-roll Prometheus exposition (stdlib only) to
+# avoid a runtime dependency; everything else is the minimal set the control plane needs.
+dependencies = [
+    "fastapi>=0.115,<1.0",        # API layer (Part 24.3: 0.115.x)
+    "uvicorn[standard]>=0.32,<1.0",  # ASGI server (Part 24.3: 0.32.x)
+    "pydantic>=2.7,<3",           # request/response schemas, OpenAPI (Part 24.3: 2.x)
+    "pydantic-settings>=2.3,<3",  # config module
+    "authlib>=1.3,<2",            # OIDC/JWT (Keycloak RS256 JWKS + local HS256 dev tokens)
+    "cryptography>=42",           # field-level PII encryption (AES-GCM)
+    "jinja2>=3.1,<4",             # deterministic narrative + report templating fallback
+    "pyyaml>=6,<7",               # hot-reloadable rule definitions
+    "httpx>=0.27,<1",             # serving/registry/narrative HTTP clients + TestClient
+    "requests>=2.32,<3",          # OIDC token exchange
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+    "black>=24.0",
+    "mypy>=1.11",
+    "pip-audit>=2.7",
+    "types-PyYAML",
+    "types-requests",
+]
+
+[tool.setuptools]
+# Cross-cutting packages live at the backend/ root; the API app lives under services/api.
+packages = [
+    "rules_engine",
+    "serving",
+    "fusion",
+    "regulatory",
+    "reliability",
+    "integrations",
+    "compliance",
+]
+
+[tool.pytest.ini_options]
+# Both backend/ (top-level packages) and services/api (the `app` package) are import roots.
+pythonpath = [".", "services/api"]
+testpaths = ["tests"]
+addopts = "-q -ra"
+filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+    "unit: fast isolated unit tests",
+    "integration: end-to-end / topology replay tests",
+    "contract: API contract tests (httpx against the app)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = [".", "services/api"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "C4", "SIM"]
+ignore = ["E501"]  # black owns line length
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+mypy_path = "services/api"
+exclude = "(^|/)stubs/"

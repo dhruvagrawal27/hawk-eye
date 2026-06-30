@@ -1,0 +1,28 @@
+# Hawk-Eye control-plane API image (BACKEND-1/13). Python 3.12 (blueprint Part 24.3).
+FROM python:3.12-slim
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app:/app/services/api
+
+# Install deps from pyproject (kept minimal; lockfile generated in CI).
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir \
+        "fastapi>=0.115,<1.0" "uvicorn[standard]>=0.32,<1.0" "pydantic>=2.7,<3" \
+        "pydantic-settings>=2.3,<3" "authlib>=1.3,<2" "cryptography>=42" \
+        "jinja2>=3.1,<4" "pyyaml>=6,<7" "httpx>=0.27,<1" "requests>=2.32,<3"
+
+# Copy the cross-cutting packages + the API app.
+COPY rules_engine ./rules_engine
+COPY serving ./serving
+COPY fusion ./fusion
+COPY regulatory ./regulatory
+COPY reliability ./reliability
+COPY integrations ./integrations
+COPY compliance ./compliance
+COPY services ./services
+
+EXPOSE 8000
+# mTLS-internal terminated by the PLATFORM mesh; run plain HTTP behind it.
+CMD ["uvicorn", "app.main:app", "--app-dir", "services/api", "--host", "0.0.0.0", "--port", "8000"]
