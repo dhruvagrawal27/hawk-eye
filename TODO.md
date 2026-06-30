@@ -36,12 +36,13 @@
 - [ ] M4 WORM/immutable audit + retention/archival
 - [ ] M5 Encryption-at-rest config + DDL versioning
 
-## 6. 🏗️ PLATFORM (41 tasks — see prompts/06_PLATFORM.md)
-- [x] M1 docker-compose walking skeleton + service map + env/secrets — core+app+platform compose (18 svcs, `config` validates), reference topology + **real degradation switch** (rules-only fallback proven), sizing+cost calculator (8 tests), compute-placement profiles+ADR. `make topology-smoke` + `make degradation-demo` pass.
-- [ ] M2 Terraform (AWS ap-south-1 + on-prem + **Lightsail**) + K8s manifests — *deviation: Lightsail is now the pilot deploy target (ADR-0001, CONTEXT.md log)*
-- [ ] M3 Security: network/zero-trust, secrets/KMS/HSM(mock), tokenization-egress, TEE-attestation(mock), adversarial-ML/VAPT(mock)
-- [ ] M4 Reliability: HA/DR/BCP, observability (Prom/Grafana/OTel), CI/CD, test harness
-- [ ] M5 Governance MOCKS (24 items): policies, committees, DPIA, model-risk/validation, fairness program, operating model, go-live checklist
+## 6. 🏗️ PLATFORM (41/41 tasks DONE — see prompts/06_PLATFORM.md) ✅
+- [x] M1 walking skeleton — 26-svc compose (`config` validates), topology + **real degradation switch** (rules-only fallback proven), sizing+compute-placement. `make topology-smoke`/`degradation-demo` pass.
+- [x] M2 Terraform (`target=aws|onprem|lightsail`, 24 modules, validates+plans no-creds, AWS security svcs) + migration-map + **ADR-0001 (Lightsail = chosen pilot, documented deviation)** + K8s/Helm (residency labels, conftest 400/400) + zero-trust + mTLS/SPIFFE + mock HSM/TEE/PAM + Vault.
+- [x] M3 CI(pyramid+bom-drift+scans+sign) + CD(ArgoCD/blue-green/canary/SLO-rollback) + supply-chain(SBOM/CVE/SAST/secrets) + threat-model + ATLAS map + 7-Sutra map + perf/chaos/**4 SIEM detectors** + vuln-mgmt + VAPT/red-team/model-risk + UAT.
+- [x] M4 RTO/RPO + HA configs + immutable backup/restore + **DR drill (rows validated, RTO/RPO report)** + BCP + OTel + golden-signals + SLOs/error-budgets + Alertmanager + incident runbooks + capacity.
+- [x] M5 governance DB + governance-api + **24 mocks seeded** + SoD personas + validation sign-off gate + committees + AI-policy/DPIA/DPO/lawful-basis/breach/transparency + **HITL natural-justice gate (alert-only proven)** + vendor-risk + operating-model + **go-live checklist GATE: GO (17/17)**.
+- **73 unit/contract tests pass · 26-svc compose validates · all demos green.** Two PRs-worth on branch `hawk-eye/platform`.
 
 ## 7. Cross-laptop blockers / coordination needed
 - [ ] (none yet — add here, tag the owning laptop, and mirror in CONTEXT.md)

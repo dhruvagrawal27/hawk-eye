@@ -70,6 +70,18 @@ The L0 event JSON, the L6 alert JSON, the API route table, RBAC roles, and the s
 ## 8. INTEGRATION LOG — append below (newest first)
 > Format: `### YYYY-MM-DD — [WS] — title` then a short note. Append; never overwrite.
 
+### 2026-06-30 — [PLATFORM] — PLATFORM workstream COMPLETE (all 41 tasks, M1–M5) — integration points for everyone
+The full platform substrate + enterprise wrapper is built on branch `hawk-eye/platform`. Key things other laptops integrate against:
+- **Runtime:** `make up` brings the 26-service stack (core+app+platform). Ports/service-names in §7. Stubs (`backend`,`serving`,`frontend`) are labelled `# STUB` — swap your real images via the BOM/compose. Topics: `infra/kafka/topics.yaml` (`hawkeye.events.l0/enriched/scores/alerts/audit/feedback/rescore/dlq`).
+- **Degradation switch** (`services/degradation-switch`, :8092): when ML serving is unhealthy it routes to **L1-rules-only** and marks events to `hawkeye.rescore`. BACKEND's real BRE/fusion replaces the labelled fallback subset; the switch deploys yours.
+- **Governance API** (:8093) serves the governance DB to the dashboard — `GET /api/v1/governance/{policies|committees|vendors|validations|dpia|security-reports|approvals|incidents|operating-metrics|staffing|uat}`, `/approval-queue`, `/board-pack`, `/api/v1/go-live`. FRONTEND: consume these for the governance view.
+- **HITL gate** (:8094): `POST /api/v1/classifications` holds in `pending_review` (DPIA-bound); `POST /…/{id}/decision` for the human approve/reject. **Alert-only** proven — nothing acts until a human approves, and approval only raises an alert. BACKEND: hook your scoring/disposition path here.
+- **TEE attestation** (:8090): `POST /attest|/verify` — audit-memo fields match BACKEND.md §7; rejects raw PII (tokenize-before-egress). ML LLM gateway: call `/attest` per request.
+- **Secrets:** Vault dev (:8200) holds `NEAR_AI_API_KEY/GROQ_API_KEY/PII_HMAC_KEY` by reference (`hawk-eye/pii`, `hawk-eye/llm`). BACKEND tokenizer reads the path, never a literal.
+- **CI/CD:** `.github/workflows/ci.yml` runs the pyramid + invokes `tests/data` (DATA) and `tests/ml` (ML) gates if present — add your suites there to plug into the gate. `cd.yml` blocks prod promotion behind the independent-validation sign-off gate.
+- **Deploy target = Lightsail** (ADR-0001); Terraform `target=aws|onprem|lightsail`. Residency `in-india` enforced (OPA/Conftest + Helm labels + TF validation).
+- **Go-live:** `make seed-governance && make go-live` → GATE: GO when all evidence present; the checklist also reads cross-workstream evidence (sources onboarded, ML green, etc.) — those rows are MOCK-seeded now, replace with real evidence as you ship. Threat-intel hand-off routes new typologies to [BACKEND]/[DATA].
+
 ### 2026-06-30 — [PLATFORM] — Deployment target changed to AWS Lightsail (deviation from Part 26 EC2-in-VPC)
 Per program direction, the **pilot/demo deployment target is AWS Lightsail** (cost-fixed, simple, container-service or instance + docker-compose). This is a **deliberate, documented deviation** from blueprint Part 26.1/26.4, which recommends EC2-in-VPC for a production-shaped pilot (Lightsail = "pure demo only"). Rationale: Hawk-Eye is **synthetic-data, alert-only, single-tenant demo** — Lightsail's fixed pricing + simplicity fit it; the production target remains **on-prem in-India** (Part 9.3, Part 16). Recorded in `docs/adr/ADR-0001-ec2-in-vpc.md`. Terraform now exposes `target = aws | onprem | lightsail`; `infra/terraform/envs/lightsail` + `deploy/lightsail/` carry the Lightsail path. EC2-in-VPC path is **retained, not deleted** (the "scale-up pilot" story). No golden rule is affected (still on-prem-capable, synthetic, alert-only).
 
