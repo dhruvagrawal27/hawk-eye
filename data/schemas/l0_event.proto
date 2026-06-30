@@ -1,0 +1,66 @@
+// L0 Unified Event Model (DATA-1) — protobuf serializer for the streaming path.
+// Blueprint Part 5.1; field-compatible with BACKEND.md §1 and data/schemas/l0_event.py
+// (the dataclass is the source of truth; this proto mirrors it for Kafka/Flink serdes).
+syntax = "proto3";
+
+package hawkeye.data;
+
+message Actor {
+  string employee_id = 1;            // required
+  optional string role = 2;
+  optional string dept = 3;
+  optional string branch = 4;
+  optional int32  tenure_days = 5;
+  optional string manager_id = 6;
+  optional string peer_group = 7;
+  bool privileged_flag = 8;
+  bool leaver_flag = 9;
+  bool notice_period = 10;
+}
+
+message Action {
+  string verb = 1;                   // required: login, create_beneficiary, approve_payment, db_select, export, grant_entitlement, ...
+  optional string channel = 2;       // cbs, swift, rtgs, neft, imps, upi, db, dlp, hr, iam, pam
+  optional string maker_checker = 3; // "maker" | "checker"
+}
+
+message ObjectRef {
+  optional string account_id = 1;
+  optional string beneficiary_id = 2;
+  optional string table = 3;         // table/dataset for data-layer events
+  optional string entitlement_id = 4;
+  optional string instrument = 5;    // SWIFT / LC / LoU
+  optional int64  amount = 6;        // integer minor units
+  optional string currency = 7;
+}
+
+message Context {
+  optional string ts = 1;            // UTC ISO-8601 "...Z"
+  optional string src_ip = 2;
+  optional string device = 3;
+  optional string geo = 4;
+  optional string session_id = 5;
+  optional string layer = 6;         // "application" | "database"
+  optional bool   is_off_hours = 7;
+  optional string host = 8;
+}
+
+message Linkage {
+  optional string swift_ref = 1;
+  optional string cbs_ref = 2;
+  optional string app_txn_id = 3;
+  optional string db_write_id = 4;
+  optional string maker_id = 5;
+  optional string checker_id = 6;
+  optional string customer_account = 7;
+}
+
+message L0Event {
+  string event_id = 1;               // required, evt_*
+  string ts = 2;                     // required, UTC ISO-8601 "...Z"
+  Actor actor = 3;
+  Action action = 4;
+  ObjectRef object = 5;
+  Context context = 6;
+  Linkage linkage = 7;
+}

@@ -1,0 +1,49 @@
+{
+  "event_id": "evt_8f2a1c90",
+  "ts": "2026-06-30T02:14:07Z",
+  "actor": {
+    "employee_id": "EMP-7f3a",
+    "role": "ops_maker",
+    "dept": "trade_finance",
+    "branch": "BR-219",
+    "tenure_days": 2840,
+    "manager_id": "EMP-1a09",
+    "peer_group": "PG-ops-tf",
+    "privileged_flag": false,
+    "leaver_flag": false,
+    "notice_period": false
+  },
+  "action": {
+    "verb": "create_beneficiary",
+    "channel": "cbs",
+    "maker_checker": "maker"
+  },
+  "object": {
+    "beneficiary_id": "BEN-9b1c",
+    "account_id": "ACCT-4d22",
+    "table": null,
+    "entitlement_id": null,
+    "instrument": null,
+    "amount": null,
+    "currency": "INR"
+  },
+  "context": {
+    "ts": "2026-06-30T02:14:07Z",
+    "src_ip": "10.20.4.31",
+    "device": "WS-114",
+    "geo": "Mumbai",
+    "session_id": "sess_55e1",
+    "layer": "application",
+    "is_off_hours": true,
+    "host": null
+  },
+  "linkage": {
+    "swift_ref": null,
+    "cbs_ref": null,
+    "app_txn_id": null,
+    "db_write_id": null,
+    "maker_id": "EMP-7f3a",
+    "checker_id": null,
+    "customer_account": "ACCT-4d22"
+  }
+}

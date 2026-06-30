@@ -1,0 +1,20 @@
+# Hawk-Eye DATA — pinned core deps (mirror of pyproject [project.dependencies]).
+# Heavy/optional deps (Kafka/Flink/Feast/Redis/ClickHouse/SDV/Snorkel/featuretools/GE/DVC/MLflow)
+# are in pyproject optional-extras and guarded in code with pure-python fallbacks.
+# Versions align to blueprint Part 24.3 where applicable.
+numpy>=1.26
+pandas>=2.2
+pyarrow>=15.0
+
+# Optional (install per extra, e.g. `pip install -e data/[sim,streaming,dev]`):
+#   simpy>=4.1                # agent-based simulator (pure-python fallback in-tree)
+#   confluent-kafka>=2.5      # Kafka client (InProcessBus fallback)
+#   apache-flink>=1.20        # stateful streaming (pure-python window fallback)
+#   feast>=0.40  redis>=5.0   # feature store + online cache
+#   clickhouse-connect>=0.7   # history/offline store
+#   snorkel>=0.10             # weak labelling
+#   sdv>=1.15                 # generative augmentation
+#   featuretools>=1.31        # deep feature synthesis
+#   great-expectations>=1.0  pandera>=0.20   # data validation
+#   dvc>=3.50  mlflow>=2.18   # dataset versioning + lineage
+#   pytest>=8  ruff>=0.6  black>=24  mypy>=1.11  jsonschema>=4.23  fastavro>=1.9   # dev

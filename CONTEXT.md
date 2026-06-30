@@ -66,6 +66,20 @@ The `backend/` control plane + Rust hot-path tier is complete on synthetic data;
 - **FRONTEND:** every route in **§3** is implemented; OpenAPI at `backend/openapi.json`. Triage queue is ranked by fused risk×exposure×confidence and deduped-per-entity; RBAC is the 8×9 matrix in **§4**; unmask is the separate audited `POST /entities/{id}/unmask`.
 - **PLATFORM:** I need Keycloak (OIDC, **§3** auth routes), Vault custody of `PII_HMAC_KEY` + field key + registry signing key, the Kong/APISIX runtime for `backend/gateway_config/kong.yaml`, and mTLS-internal termination. `backend/deploy/docker-compose.backend.yaml` attaches to your external `hawk-eye` network.
 - **Invariants enforced everywhere:** ALERT-ONLY (no auto-block, no auto-classify; `block-request` is Analyst→Lead), SoD (deployer can't label/close; four-eyes rule changes; promotion sign-off), audit-write of every action incl. who-viewed-whom. SCAFFOLD only: RBI submission channel (CRILC/FMR), live SIEM, TEE hardware + DPDP jurisdiction confirmation.
+- **[BACKEND→DATA] EDD label-source-4 is now LIVE:** `POST /api/v1/alerts/{id}/disposition` returns `{label_written, feedback_queued_for_retraining, audit_id}` (BACKEND.md §5) and queues the label — your DATA-23 stub can bind to it. I import nothing from `data/` directly (I consume the L0 shape via `BACKEND.md §1`, which matches `data/schemas/l0_event.py` field-for-field).
+
+### 2026-06-30 — [DATA] — pandas 3.0 compatibility (affects all laptops using pandas)
+DATA tests now pass on **both pandas 2.2.1 and 3.0.3** (100/100). Heads-up for everyone: pandas 3.0 makes string columns the extension `StringDtype`, so **`np.issubdtype(series.dtype, np.number)` raises `TypeError`** — use **`pd.api.types.is_numeric_dtype(series)`** instead. (Fixed in `data/datasets/splits.py`; regression test in `data/tests/test_pandas3_compat.py`.)
+
+### 2026-06-30 — [DATA] — DATA verified 28/28 tasks; proto + parity added
+Task-by-task acceptance verification passed; suite 97/97. Added `data/schemas/l0_event.proto` (Kafka/Flink serdes mirror of the L0 dataclass — consumers can codegen from it) and a proven **online==offline feature parity** test (no train/serve skew). Source-onboarding playbook + status tracker added (`data/docs/source_onboarding_playbook.md`, `data/ingest/onboarding_status.py`). No contract changes — L0 fields unchanged.
+
+### 2026-06-30 — [DATA] — DATA workstream M1–M5 landed on `hawk-eye/data`
+L0 event model is live in `data/schemas/l0_event.py` (+ `.avsc`, `sample_event.json`) and matches `BACKEND.md` §1 field-for-field (groups Actor/Action/Object/Context/Linkage). **Consumers (BACKEND/ML/DATABASE/FRONTEND): import from `data.schemas`.** Conventions in `data/config.py`: IDs via `make_id`, topics `events.raw`/`events.signals`/`alerts`/`audit` (partition by `employee_id`), **feature-key format `<entity>:<feature>:<window>`**, lanes `fast|slow`.
+- **Synthetic data:** `python -m data.sim.cli --employees N --days D` → `data/out/<run>/{events,labels}.{parquet,jsonl}`. Events carry **no label** (leakage-safe); labels are separate, keyed by `event_id`. All 12 typologies (8 fast + 4 slow) emitted; worked burst = `approve_payment` amount **4800000** INR.
+- **Feature store (ML/BACKEND read):** `data/features/*` implements every Part-6 feature + slow-lane; `data/feature_store/` exposes a pure-python online store (Redis optional, port 6379).
+- **Recon signal:** SWIFT↔CBS mismatch emits `recon_mismatch` on `events.signals` (`data/ingest/recon/swift_cbs_join.py`) — BACKEND L1 turns it into a rule.
+- **Runtime:** only numpy/pandas/pyarrow are hard deps; Kafka/Flink/Feast/Redis/ClickHouse/MinIO are guarded with local fallbacks → swap to real infra is a config change. **Stubs awaiting:** PLATFORM-1 (Kafka/Redis/MinIO runtime), DATABASE (ClickHouse DDL + buckets + retention), BACKEND (`POST /alerts/{id}/disposition` for EDD label-source-4). Tests: `python -m data.tests.run` (90 passing; pytest unavailable in env).
 
 ### (seed) — [ALL] — Coordination files created
 CONTEXT.md, BACKEND.md, TODO.md, and `docs/laptops/*` are live. Read all three shared files before starting. Validate everything against the blueprint.
