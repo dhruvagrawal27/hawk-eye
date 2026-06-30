@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<!--
+  Hawk-Eye ClickHouse — hot/cold/archive storage tiering (DATABASE-3, DATABASE-9)
+  Blueprint: Part 8 (hot-cold tiering, l.305, 317-318); Part 9.2 (sharded+replicated,
+             hot-cold tiering, ~10-20x compression, l.357); Part 28.2 (hot CH -> cold
+             object store -> archive, l.1208).
+
+  Disks:
+    default  -> HOT  : fast local SSD (ClickHouse default data path).
+    cold     -> COLD : MinIO object store (S3-compatible), bucket `clickhouse-cold`.
+    archive  -> ARCHIVE : MinIO object store, bucket `clickhouse-archive`.
+
+  Policy `tiered`: volumes hot -> cold -> archive. Tables move parts hot->cold at
+  30d and cold->archive at 365d via `TTL ... TO VOLUME` (DDL) and the retention job
+  (DATABASE-9). `move_factor` also auto-spills the hot volume when nearly full.
+
+  ON-PREM / DEV: the endpoints below point at the local MinIO (service `minio`,
+  port 9001). The dev creds are inline (synthetic-only). 1:1 AWS swap = replace the
+  endpoint with `https://s3.ap-south-1.amazonaws.com/<bucket>/` and source the keys
+  from IAM/STS or SSE-KMS — change the <endpoint>/<access_key_id> only.
+  For a NO-MinIO local run, mount storage_configuration.local.xml instead (local
+  disks for cold/archive).
+-->
+<clickhouse>
+    <storage_configuration>
+        <disks>
+            <!-- HOT: default local SSD is implicit; declared for clarity. -->
+            <default>
+                <keep_free_space_bytes>10485760</keep_free_space_bytes>
+            </default>
+
+            <!-- COLD: MinIO object store -->
+            <cold>
+                <type>s3</type>
+                <endpoint>http://minio:9001/clickhouse-cold/</endpoint>
+                <access_key_id>hawkeye</access_key_id>
+                <secret_access_key>hawkeye_dev_pw</secret_access_key>
+                <region>ap-south-1</region>
+                <metadata_path>/var/lib/clickhouse/disks/cold/</metadata_path>
+                <!-- server-side encryption at rest on the object store (SSE);
+                     swap to SSE-KMS in AWS with <server_side_encryption_kms_key_id>. -->
+                <skip_access_check>true</skip_access_check>
+            </cold>
+
+            <!-- ARCHIVE: MinIO object store (cheapest tier, immutable-friendly) -->
+            <archive>
+                <type>s3</type>
+                <endpoint>http://minio:9001/clickhouse-archive/</endpoint>
+                <access_key_id>hawkeye</access_key_id>
+                <secret_access_key>hawkeye_dev_pw</secret_access_key>
+                <region>ap-south-1</region>
+                <metadata_path>/var/lib/clickhouse/disks/archive/</metadata_path>
+                <skip_access_check>true</skip_access_check>
+            </archive>
+        </disks>
+
+        <policies>
+            <tiered>
+                <volumes>
+                    <hot>
+                        <disk>default</disk>
+                        <!-- spill to cold when hot is >85% full, regardless of TTL -->
+                        <move_factor>0.15</move_factor>
+                    </hot>
+                    <cold>
+                        <disk>cold</disk>
+                        <prefer_not_to_merge>true</prefer_not_to_merge>
+                    </cold>
+                    <archive>
+                        <disk>archive</disk>
+                        <prefer_not_to_merge>true</prefer_not_to_merge>
+                    </archive>
+                </volumes>
+                <move_factor>0.15</move_factor>
+            </tiered>
+        </policies>
+    </storage_configuration>
+</clickhouse>

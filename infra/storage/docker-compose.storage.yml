@@ -1,0 +1,235 @@
+# =============================================================================
+# Hawk-Eye — STORAGE TIER standalone compose (DATABASE laptop)
+# Blueprint: Part 8, Part 9.1/9.2/9.3.
+# -----------------------------------------------------------------------------
+# Brings up the DATABASE-owned stores standalone (so DATABASE never blocks on
+# PLATFORM's full stack) AND runs the bootstrap one-shots:
+#   minio  + minio-setup ... buckets + versioning + object-lock + SSE + policies (DATABASE-1)
+#   postgres + pg-migrate .. alembic upgrade head (DATABASE-2)
+#   redis ................... online feature store + cache (DATABASE-2)
+#   clickhouse + ch-ddl ..... 5 tables + tiering + indices + search views (DATABASE-3/4)
+#   kafka  + audit-topics ... append-only audit topic (DATABASE-5) [profile: audit]
+#
+# Ports = CONTEXT.md §7 (MinIO 9001/9002, Postgres 5432, Redis 6379, ClickHouse
+# 8123/9000, Kafka 29092). Image tags pinned to deploy/versions.bom.yaml.
+#
+# SEAM: PLATFORM owns the global runtime + root compose. These modules are
+# storage-specific and includable by PLATFORM; do NOT run alongside `make up`
+# (container-name/port collisions) — this is the standalone DEV path.
+#
+# Run:  docker compose -f infra/storage/docker-compose.storage.yml up -d
+#       docker compose -f infra/storage/docker-compose.storage.yml --profile audit up -d
+# =============================================================================
+name: hawkeye-storage
+
+volumes:
+  minio-data:
+  postgres-data:
+  redis-data:
+  clickhouse-data:
+
+networks:
+  hawkeye-storage:
+    driver: bridge
+
+services:
+  # ---------------------------------------------------------------------------
+  # MinIO object store (DATABASE-1)
+  # ---------------------------------------------------------------------------
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:RELEASE.2024-12-18T13-15-44Z}
+    container_name: hawkeye-minio
+    networks: [hawkeye-storage]
+    ports:
+      - "9001:9001"   # S3 API
+      - "9002:9002"   # console
+    command: ["server", "/data", "--address", ":9001", "--console-address", ":9002"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-hawkeye}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-hawkeye_dev_pw}
+      MINIO_REGION: ${AWS_REGION:-ap-south-1}
+      # Local KMS key → enables SSE-S3 auto-encryption at rest (DATABASE-1).
+      # 1:1 swap to SSE-KMS: point MINIO_KMS_KES_* at Vault/KES instead.
+      MINIO_KMS_SECRET_KEY: ${MINIO_KMS_SECRET_KEY:-hawkeye-key:aGF3a2V5ZS1kZXYtbWluaW8tbWFzdGVyLWtleS0zMmI=}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9001/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio-setup:
+    image: ${MC_IMAGE:-minio/mc:RELEASE.2024-12-18T13-15-44Z}
+    container_name: hawkeye-minio-setup
+    networks: [hawkeye-storage]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ENDPOINT: http://minio:9001
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-hawkeye}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-hawkeye_dev_pw}
+      POLICY_DIR: /policies
+    entrypoint: ["/bin/sh", "/bootstrap/bootstrap_minio.sh"]
+    volumes:
+      - ./minio/bootstrap_minio.sh:/bootstrap/bootstrap_minio.sh:ro
+      - ./minio/policies:/policies:ro
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL app/metadata DB (DATABASE-2)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17.2}
+    container_name: hawkeye-postgres
+    networks: [hawkeye-storage]
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hawkeye}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hawkeye_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-hawkeye}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hawkeye} -d ${POSTGRES_DB:-hawkeye}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  pg-migrate:
+    image: ${PYTHON_IMAGE:-python:3.12-slim}
+    container_name: hawkeye-pg-migrate
+    networks: [hawkeye-storage]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /work/db/postgres
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-hawkeye}:${POSTGRES_PASSWORD:-hawkeye_dev_pw}@postgres:5432/${POSTGRES_DB:-hawkeye}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - "pip install --quiet 'alembic>=1.13' 'sqlalchemy>=2.0,<2.1' psycopg2-binary && alembic upgrade head && echo 'MIGRATIONS APPLIED'"
+    volumes:
+      - ../../db:/work/db:ro
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Redis online feature store + cache (DATABASE-2)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: ${REDIS_IMAGE:-redis:7.4.1-alpine}
+    container_name: hawkeye-redis
+    networks: [hawkeye-storage]
+    ports:
+      - "6379:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-hawkeye_dev_pw}
+      REDIS_MAXMEMORY: ${REDIS_MAXMEMORY:-512mb}
+    # redis.conf uses ${REDIS_PASSWORD}; envsubst it at start, then launch.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - "sed -e \"s/\\${REDIS_PASSWORD}/$$REDIS_PASSWORD/g\" -e \"s/\\${REDIS_MAXMEMORY:-512mb}/$$REDIS_MAXMEMORY/g\" /etc/redis/redis.conf.tpl > /tmp/redis.conf && redis-server /tmp/redis.conf"
+    volumes:
+      - redis-data:/data
+      - ./redis/redis.conf:/etc/redis/redis.conf.tpl:ro
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ---------------------------------------------------------------------------
+  # ClickHouse analytics/investigation store (DATABASE-3/4)
+  # ---------------------------------------------------------------------------
+  clickhouse:
+    image: ${CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:25.3}
+    container_name: hawkeye-clickhouse
+    networks: [hawkeye-storage]
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-hawkeye}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-hawkeye_dev_pw}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    depends_on:
+      minio-setup:
+        condition: service_completed_successfully
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      # hot/cold/archive tiering policy + cluster macros (config.d auto-loaded).
+      - ../../db/clickhouse/storage_configuration.xml:/etc/clickhouse-server/config.d/storage_configuration.xml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user $${CLICKHOUSE_USER} --password $${CLICKHOUSE_PASSWORD} --query 'SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  ch-ddl:
+    image: ${CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:25.3}
+    container_name: hawkeye-ch-ddl
+    networks: [hawkeye-storage]
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      CH_HOST: clickhouse
+      CH_PORT: "9000"
+      CH_USER: ${CLICKHOUSE_USER:-hawkeye}
+      CH_PASSWORD: ${CLICKHOUSE_PASSWORD:-hawkeye_dev_pw}
+    entrypoint: ["/bin/bash", "/work/db/clickhouse/apply_ddl.sh", "--materialize"]
+    volumes:
+      - ../../db:/work/db:ro
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Kafka (append-only audit topic, DATABASE-5) — optional `audit` profile
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: ${KAFKA_IMAGE:-apache/kafka:3.8.1}
+    container_name: hawkeye-kafka
+    networks: [hawkeye-storage]
+    profiles: ["audit"]
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  audit-topics:
+    image: ${KAFKA_IMAGE:-apache/kafka:3.8.1}
+    container_name: hawkeye-audit-topics
+    networks: [hawkeye-storage]
+    profiles: ["audit"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      AUDIT_TOPIC_RF: "1"
+      AUDIT_MIN_ISR: "1"
+      KAFKA_TOPICS_BIN: "/opt/kafka/bin/kafka-topics.sh"
+    entrypoint: ["/bin/bash", "/work/infra/audit/create_topics.sh"]
+    volumes:
+      - ../../infra:/work/infra:ro
+    restart: "no"

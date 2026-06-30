@@ -1,0 +1,33 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListAllBuckets",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketObjectLockConfiguration", "s3:GetBucketVersioning"],
+      "Resource": [
+        "arn:aws:s3:::models",
+        "arn:aws:s3:::datasets",
+        "arn:aws:s3:::feature-snapshots",
+        "arn:aws:s3:::audit-archive"
+      ]
+    },
+    {
+      "Sid": "ReadOnlyEverything",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:GetObjectVersion", "s3:GetObjectRetention", "s3:GetObjectLegalHold"],
+      "Resource": [
+        "arn:aws:s3:::models/*",
+        "arn:aws:s3:::datasets/*",
+        "arn:aws:s3:::feature-snapshots/*",
+        "arn:aws:s3:::audit-archive/*"
+      ]
+    },
+    {
+      "Sid": "AuditorNeverWrites",
+      "Effect": "Deny",
+      "Action": ["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjectVersion"],
+      "Resource": ["arn:aws:s3:::*"]
+    }
+  ]
+}

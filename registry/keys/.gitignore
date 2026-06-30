@@ -1,0 +1,5 @@
+# Dev-only signing keys are GENERATED locally, never committed (golden rule 2).
+# Prod keys live in Vault/HSM (PLATFORM key custody, Part 9.3).
+*.pem
+*.pub
+*.key

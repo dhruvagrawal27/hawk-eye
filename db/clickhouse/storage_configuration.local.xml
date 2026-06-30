@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!--
+  Hawk-Eye ClickHouse — LOCAL (no-MinIO) tiering variant (DATABASE-3)
+  Same `tiered` policy shape as storage_configuration.xml, but cold/archive are
+  LOCAL disks instead of MinIO S3 — so the hot->cold->archive TTL-MOVE can be
+  demonstrated with zero object-store dependency (CI / laptop dev).
+  Mount this in place of storage_configuration.xml to run without MinIO.
+-->
+<clickhouse>
+    <storage_configuration>
+        <disks>
+            <default/>
+            <cold>
+                <type>local</type>
+                <path>/var/lib/clickhouse/cold/</path>
+            </cold>
+            <archive>
+                <type>local</type>
+                <path>/var/lib/clickhouse/archive/</path>
+            </archive>
+        </disks>
+        <policies>
+            <tiered>
+                <volumes>
+                    <hot><disk>default</disk></hot>
+                    <cold><disk>cold</disk></cold>
+                    <archive><disk>archive</disk></archive>
+                </volumes>
+                <move_factor>0.15</move_factor>
+            </tiered>
+        </policies>
+    </storage_configuration>
+</clickhouse>

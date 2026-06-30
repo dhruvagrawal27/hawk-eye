@@ -1,0 +1,43 @@
+# =============================================================================
+# Hawk-Eye DATABASE — workstream tooling config (mirrors backend/data convention).
+# The DATABASE lint gate (prompt §8) runs ruff/black/mypy/sqlfluff over
+# db/ registry/ services/audit/. mypy uses ignore_missing_imports because several
+# storage clients (minio, confluent_kafka, clickhouse_connect, onnx*, mlflow,
+# psycopg2) ship no type stubs and are optional at runtime.
+# =============================================================================
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# pyflakes (F), pycodestyle (E/W), isort (I), bugbear (B), pyupgrade (UP)
+select = ["F", "E", "W", "I", "B", "UP"]
+ignore = ["E501"]  # line length is black's job
+
+[tool.ruff.lint.per-file-ignores]
+# Patterns are relative to this config's dir (db/).
+"**/migrations/versions/*.py" = ["E501"]
+"tests/**" = ["B011", "B017"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = false
+disallow_untyped_defs = false
+check_untyped_defs = false
+# services/ has no __init__.py (only services/audit is ours) → tell mypy the repo
+# root is the package base so `services.audit.*` resolves (not `audit.*`).
+mypy_path = "."
+explicit_package_bases = true
+namespace_packages = true
+exclude = ['db/tests/', 'db/postgres/migrations/']
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: cross-store flow needing live infra (storage compose up)",
+]

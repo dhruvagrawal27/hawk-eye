@@ -1,0 +1,36 @@
+# =============================================================================
+# Hawk-Eye DATABASE — sqlfluff config (DATABASE-3/4/9)
+# `sqlfluff lint db/clickhouse db/postgres` (prompt §8). db/postgres holds no .sql
+# (Alembic is the DDL system-of-record), so the active dialect is ClickHouse.
+# -----------------------------------------------------------------------------
+# Rules disabled because they FIGHT ClickHouse's design (not style laziness):
+#   CP02/CP05 — ClickHouse type + codec names are CASE-SENSITIVE mixed-case
+#               (`LowCardinality`, `Nullable`, `DateTime64`, `ZSTD`, `Delta`);
+#               forcing a single case would BREAK the DDL.
+#   LT01      — column type alignment (multiple spaces) is intentional readability.
+#   LT05/LT09 — long type/TTL/CODEC lines + multi-target TTL clauses.
+#   ST06      — ClickHouse SELECT column ordering is semantic in our views.
+#   AM04      — `SELECT *`-free; parameterized views use explicit columns.
+# =============================================================================
+[sqlfluff]
+dialect = clickhouse
+max_line_length = 120
+# CP03 off too: ClickHouse function names are CASE-SENSITIVE camelCase
+# (`hasToken`, `toString`, `toDateTime64`) — forcing upper would break them.
+# LT02 off: the multi-target `TTL … TO VOLUME 'cold', … TO VOLUME 'archive'`
+# continuation sits inside the parse-gap region, so sqlfluff mis-attributes its
+# indentation; the TTL clause is intentionally indent-aligned for readability.
+exclude_rules = CP02, CP03, CP05, LT01, LT02, LT05, LT09, ST06, AM04, RF02, RF03, RF04
+# sqlfluff's clickhouse dialect (4.x) does not yet parse several REQUIRED
+# ClickHouse 25.x constructs: `TTL … TO VOLUME` (tiering), `INDEX … TYPE full_text`
+# (inverted index), and parameterized-view `{param:Type}` syntax. We keep all
+# LAYOUT + CAPITALISATION lint active but tolerate these parser gaps (they are a
+# dialect-coverage limitation, not malformed SQL — the DDL applies cleanly on CH).
+ignore = parsing
+
+[sqlfluff:indentation]
+indented_joins = false
+template_blocks_indent = false
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = upper

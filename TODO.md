@@ -33,12 +33,13 @@
 - [x] M4 Compliance (rules four-eyes change-control + EWS/RFA coverage + CRILC/FMR export) + auditor + model-engineer + admin (Grafana embed) + reporting/board-KRI views (FRONTEND-12,13)
 - Renders the Part 24.5 worked burst end-to-end on MSW (`VITE_USE_MOCKS=true`); contract needs flagged in CONTEXT.md (newest entry) — `[FE-proposed]` bodies + `/cases`, `/reports/ews-coverage`, `/reports/kris` tagged BACKEND.
 
-## 5. 🗄️ DATABASE (9 tasks — see prompts/05_DATABASE.md)
-- [ ] M1 ClickHouse (events/history) + hot-cold tiering
-- [ ] M2 Postgres (cases/users) + Redis (online features)
-- [ ] M3 Object store (MinIO/S3) + model registry layout
-- [ ] M4 WORM/immutable audit + retention/archival
-- [ ] M5 Encryption-at-rest config + DDL versioning
+## 5. 🗄️ DATABASE (9 tasks — see prompts/05_DATABASE.md) — **M1–M5 built REAL on synthetic data, all §8 gates green (ruff/black/mypy/sqlfluff/pytest 60 +10 integration), branch hawk-eye/database**
+- [x] M1 Core stores + encryption: MinIO 4 buckets (versioned, object-lock on models+audit-archive, SSE-S3, 5 least-priv policies, dataset Parquet layout, TF stub) + Postgres schemas via reversible Alembic + least-priv roles + Redis DB0/DB1 — DATABASE-1,2 (Part 23.3/21.5/9.3/8/28.2)
+- [x] M2 ClickHouse: 5 tables mirror L0/L6/EDD (BACKEND.md §1/§2/§5) + hot-cold TTL-MOVE tiering + cluster.xml + inverted/skip indices + parameterized search views — DATABASE-3,4 (Part 8/9.2/5.1)
+- [x] M3 WORM audit: append-only `hawkeye.audit` topic + audit_event.avsc + WORM writer (hash-chain + daily Merkle) + verify CLI (PASS/FAIL), all six record classes + investigators' actions — DATABASE-5,6 (Part 8/19.2/19.3/9.3)
+- [x] M4 Registry: `{layer}/{model}/{version}/` whole-transform-chain serializer + Ed25519 signing + verify-on-load (reject tamper) + access-logging + six-field metadata + Staging→Production→Archived + SoD — DATABASE-7,8 (Part 23.1-23.4/19.2)
+- [x] M5 Retention: DPDP/RBI windows + classification-aware + fraud carve-out + hot→cold→archive job + ClickHouse TTL-MOVE; WORM never expired early — DATABASE-9 (Part 28.2/9.3/23.3)
+  - Contracts published in CONTEXT.md (newest entry): CH DDLs+partition/TTL, MinIO buckets/registry layout, Redis keyspace, WORM schema+verify CLI, retention windows, encryption+KMS/HSM swap. Local dev py3.9 / pinned runtime py3.12. `ws_DATABASE.json` not in repo → validated against prompt §6 inventory mapping (all 11 components covered).
 
 ## 6. 🏗️ PLATFORM (41/41 tasks DONE — see prompts/06_PLATFORM.md) ✅ — branch hawk-eye/platform
 - [x] M1 walking skeleton — 26-svc compose (`config` validates), topology + **real degradation switch** (rules-only fallback proven), sizing+compute-placement. `make topology-smoke`/`degradation-demo` pass.
@@ -50,6 +51,6 @@
 
 ## 7. Cross-laptop blockers / coordination needed
 - [!] **[DATA→BACKEND]** EDD label-source-4 (DATA-23) stubbed against `BACKEND.md` §5 — needs real `POST /alerts/{id}/disposition`.
-- [!] **[DATA→DATABASE]** ClickHouse events DDL + object-store buckets (`datasets`, `feature-snapshots`) + retention tiering — DATA uses local fallback meanwhile (DATA-5/25).
+- [x] **[DATA→DATABASE]** ClickHouse events DDL + object-store buckets (`datasets`, `feature-snapshots`) + retention tiering — **RESOLVED by DATABASE-1/3/9**: `events`/`feature_backfill` DDL field-for-field with BACKEND.md §1 (`db/clickhouse/ddl/`), buckets created by `infra/storage/minio/bootstrap_minio.sh`, tiering in `db/retention/`. DATA: swap local fallback → live infra; reconcile when `l0_event` `.avsc`/`.proto` finalized (CONTEXT.md newest entry).
 - [x] **[DATA→PLATFORM]** Kafka/Redis/MinIO runtime + schema-registry hosting — **RESOLVED by PLATFORM-1/2** (`make core-up` brings real Kafka/Redis/MinIO/Postgres/ClickHouse/Flink/schema-registry). DATA can swap its in-memory fallbacks. *Open:* topic-name convergence (`hawkeye.*` vs DATA's `events.raw/signals`) — see CONTEXT.md log.
 - [~] **[FRONTEND→BACKEND]** Existing route bodies are ALREADY finalised in `backend/openapi.json` (FE: align `[FE-proposed]` types to it; I invented no fields). Genuinely net-new routes FE needs that BACKEND does not yet expose: `GET /cases`, `GET /cases/{id}`, `POST /cases/{id}/{status,assign,notes}`, `GET /reports/ews-coverage`, `GET /reports/kris`. FE renders on MSW meanwhile (`VITE_USE_MOCKS`). See CONTEXT.md newest entry.
