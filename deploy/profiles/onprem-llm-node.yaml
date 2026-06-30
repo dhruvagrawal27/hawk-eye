@@ -1,0 +1,40 @@
+# =============================================================================
+# Hawk-Eye — On-prem confidential-compute LLM node profile (PLATFORM-14, Part 26.4)
+# The migration target for the external NEAR AI call: the bank's OWN H100/H200 in
+# Intel TDX running gpt-oss-120b locally, OpenAI-compatible, same dual attestation.
+# SCAFFOLD/MOCK: needs real TDX+GPU hardware; the tee-attestation service mocks the
+# attestation surface until then.
+# =============================================================================
+onprem_llm_node:
+  purpose: "Fully on-prem, air-gapped narrative LLM (replaces external NEAR AI, Part 26.4)"
+  hardware:
+    gpu: "NVIDIA H100 or H200 (Hopper, confidential-compute capable)"
+    gpu_count: 1            # scale per latency/throughput
+    cpu_tee: "Intel TDX (Trust Domain Extensions)"
+    memory: "≥ 256 GB"
+    notes: "Data encrypted in use (memory, VRAM, PCIe); operator cannot read it (Part 25.2)."
+  model:
+    name: "gpt-oss-120b"
+    serving: "vLLM / TGI with OpenAI-compatible API"
+    endpoint: "https://llm-node.internal/v1"   # in-perimeter; no internet egress
+    reasoning_effort: medium                    # Part 25.7 (balance latency/quality)
+    temperature: 0.2                            # faithful, non-creative summaries
+  attestation:
+    mode: "dual (Intel TDX CPU + NVIDIA H200 GPU)"
+    tls_terminates_inside_enclave: true
+    verifier: "tee-attestation service (:8090) — mock now, real TDX/NVIDIA quotes in prod"
+    per_request: true
+  data_protection:
+    pii_tokenized_before_egress: true           # Part 25.3 (even in-perimeter, defence-in-depth)
+    residency: in-india                          # Part 16 / Part 9.3
+    egress: none                                 # air-gapped (Part 19.3)
+  k8s:
+    nodeSelector: { hawkeye.io/pool: gpu-tee }
+    tolerations: [{ key: nvidia.com/gpu, operator: Exists, effect: NoSchedule }]
+    resources:
+      requests: { cpu: "16", memory: 256Gi, nvidia.com/gpu: 1 }
+      limits: { cpu: "32", memory: 512Gi, nvidia.com/gpu: 1 }
+  migration_note: >
+    Same OpenAI-compatible interface + same attestation guarantees as the external
+    NEAR AI gateway, so swapping is a config change (base_url) — not a rewrite.
+    See infra/terraform/migration-map.md (LLM swap row).

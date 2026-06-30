@@ -3,6 +3,6 @@ FROM python:3.12.7-slim
 WORKDIR /svc
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app ./app
+COPY dswitch ./dswitch
 EXPOSE 8092
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8092"]
+CMD ["uvicorn", "dswitch.main:app", "--host", "0.0.0.0", "--port", "8092"]

@@ -1,9 +1,9 @@
 # =============================================================================
 # Hawk-Eye — PLATFORM-owned services compose
 # Blueprint Part 18/19/25/30. Grows per milestone; ALWAYS valid (root compose
-# includes it). Currently: degradation-switch (PLATFORM-4, REAL).
-# Added later: tee-attestation (M2), pam-shim (M2), vault (M2), otel-collector (M4),
-# alertmanager (M4), governance-api (M5), hitl-gate (M5).
+# includes it). M1: degradation-switch. M2: tee-attestation, pam-shim, vault.
+# Added later: otel-collector (M4), alertmanager (M4), governance-api (M5),
+# hitl-gate (M5).
 # =============================================================================
 name: hawk-eye
 
@@ -37,3 +37,124 @@ services:
       timeout: 10s
       retries: 5
       start_period: 15s
+
+  # --- TEE confidential-compute attestation (PLATFORM-14, MOCK) ---------------
+  tee-attestation:
+    build:
+      context: ../../services/tee-attestation
+      dockerfile: Dockerfile
+    image: hawkeye/tee-attestation:1.0.0
+    container_name: hawkeye-tee-attestation
+    networks: [hawkeye]
+    ports:
+      - "8090:8090"
+    environment:
+      TEE_ENCLAVE_MODE: ${TEE_ENCLAVE_MODE:-true}
+      LLM_MODEL: ${LLM_MODEL:-openai/gpt-oss-120b}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8090/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  # --- PAM shim for platform-admin sessions (PLATFORM-15, MOCK) ---------------
+  pam-shim:
+    build:
+      context: ../../services/pam-shim
+      dockerfile: Dockerfile
+    image: hawkeye/pam-shim:1.0.0
+    container_name: hawkeye-pam-shim
+    networks: [hawkeye]
+    ports:
+      - "8091:8091"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8091/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  # --- Secrets: HashiCorp Vault (dev mode) (PLATFORM-12) ----------------------
+  vault:
+    image: ${VAULT_IMAGE}
+    container_name: hawkeye-vault
+    networks: [hawkeye]
+    ports:
+      - "8200:8200"
+    cap_add: [IPC_LOCK]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN_ID:-hawkeye-dev-root}
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      VAULT_ADDR: http://localhost:8200
+    command: ["server", "-dev"]
+    healthcheck:
+      test: ["CMD-SHELL", "VAULT_ADDR=http://localhost:8200 vault status >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # --- Vault bootstrap: loads the 3 platform secrets by reference (PLATFORM-12) -
+  vault-init:
+    image: ${VAULT_IMAGE}
+    container_name: hawkeye-vault-init
+    networks: [hawkeye]
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN_ID:-hawkeye-dev-root}
+      NEAR_AI_API_KEY: ${NEAR_AI_API_KEY:-dev-placeholder-near-ai-key}
+      GROQ_API_KEY: ${GROQ_API_KEY:-dev-placeholder-groq-key}
+      PII_HMAC_KEY: ${PII_HMAC_KEY:-dev-only-hmac-key-rotate-in-vault}
+    entrypoint: ["/bin/sh", "/bootstrap/bootstrap-secrets.sh"]
+    volumes:
+      - ../secrets/bootstrap-secrets.sh:/bootstrap/bootstrap-secrets.sh:ro
+    restart: "no"
+
+  # --- Governance API: serves the governance DB to the dashboard (PLATFORM-32/35/41) ---
+  governance-api:
+    build:
+      context: ../..
+      dockerfile: services/governance-api/Dockerfile
+    image: hawkeye/governance-api:1.0.0
+    container_name: hawkeye-governance-api
+    networks: [hawkeye]
+    ports:
+      - "8093:8093"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GOVERNANCE_DB_URL: postgresql+psycopg2://${POSTGRES_USER:-hawkeye}:${POSTGRES_PASSWORD:-hawkeye_dev_pw}@postgres:5432/governance
+      AUTO_SEED: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8093/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # --- HITL natural-justice gate (PLATFORM-37) — alert-only proof ------------
+  hitl-gate:
+    build:
+      context: ../..
+      dockerfile: services/hitl-gate/Dockerfile
+    image: hawkeye/hitl-gate:1.0.0
+    container_name: hawkeye-hitl-gate
+    networks: [hawkeye]
+    ports:
+      - "8094:8094"
+    depends_on:
+      governance-api:
+        condition: service_healthy
+    environment:
+      GOVERNANCE_DB_URL: postgresql+psycopg2://${POSTGRES_USER:-hawkeye}:${POSTGRES_PASSWORD:-hawkeye_dev_pw}@postgres:5432/governance
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8094/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s

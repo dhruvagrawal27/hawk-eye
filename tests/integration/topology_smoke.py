@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "services" / "degradation-switch"))
 
-from app import scoring  # noqa: E402
+from dswitch import scoring  # noqa: E402
 
 # Canonical synthetic burst (DATA's create_beneficiary -> approve_payment scenario;
 # BACKEND.md §1 + blueprint Part 24.5/25.6 example).

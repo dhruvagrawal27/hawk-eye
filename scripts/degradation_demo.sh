@@ -39,7 +39,7 @@ else
   python3 - "$ROOT" <<'PY'
 import sys
 sys.path.insert(0, sys.argv[1] + "/services/degradation-switch")
-from app import scoring, health
+from dswitch import scoring, health
 ev = {"event_id":"evt_demo_01","ts":"2026-06-30T02:14:07Z",
  "actor":{"employee_id":"EMP-7f3a","tenure_days":2840,"leaver_flag":False},
  "action":{"verb":"approve_payment","channel":"cbs","maker_checker":"checker"},
