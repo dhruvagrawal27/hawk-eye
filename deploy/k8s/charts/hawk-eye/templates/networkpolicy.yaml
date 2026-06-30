@@ -1,0 +1,146 @@
+{{/*
+=============================================================================
+Hawk-Eye — NetworkPolicy: default-deny + explicit allows (micro-segmentation).
+Blueprint: Part 19.3 (strict segmentation / zero-trust between components / no
+           internet egress) · Part 9.3 (security zone) · Part 26.2 (egress is
+           NAT-allow-listed at the VPC layer, NOT here). PLATFORM task: PLATFORM-9.
+-----------------------------------------------------------------------------
+Zero-trust posture:
+  1. A namespace-wide DEFAULT-DENY (ingress + egress) — nothing talks to anything.
+  2. An ALLOW for DNS egress to kube-dns so Service discovery still works.
+  3. Per-workload ALLOW-INGRESS rules generated from each workload's `allowFrom`
+     list — only the named peers may reach it, on its declared ports.
+  4. A reciprocal ALLOW-EGRESS so the named peers may initiate to it.
+Internet egress is intentionally NOT opened here: the only allowed outbound
+(NEAR AI + Groq) is enforced by the NAT/VPC egress allow-list in Terraform
+(Part 26.2 / Part 19.3) because k8s NetworkPolicy cannot match external FQDNs.
+=============================================================================
+*/}}
+{{- if .Values.networkPolicy.enabled }}
+{{- $root := . -}}
+
+{{- if .Values.networkPolicy.defaultDeny }}
+---
+# (1) DEFAULT-DENY all ingress + egress in the namespace. Empty podSelector
+# matches every pod; empty policyTypes-with-no-rules denies all traffic.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "hawk-eye.fullname" $root }}-default-deny
+  labels:
+    {{- include "hawk-eye.labels" (dict "ctx" $root "name" "networkpolicy" "tier" "platform") | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+{{- end }}
+
+{{- if .Values.networkPolicy.allowDNS }}
+---
+# (2) ALLOW DNS egress (UDP/TCP 53) to kube-system kube-dns so in-cluster
+# Service names resolve under default-deny. This is the only blanket egress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "hawk-eye.fullname" $root }}-allow-dns
+  labels:
+    {{- include "hawk-eye.labels" (dict "ctx" $root "name" "networkpolicy" "tier" "platform") | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+{{- end }}
+
+{{/* (3)+(4) Per-workload explicit ingress allows from declared peers. */}}
+{{- range $name, $wl := .Values.workloads }}
+{{- if $wl.allowFrom }}
+{{- $sctx := dict "ctx" $root "name" $name }}
+{{- $tier := $wl.tier | default "app" }}
+---
+# ALLOW ingress to "{{ $name }}" only from its declared peers: {{ $wl.allowFrom | join ", " }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "hawk-eye.workloadName" (dict "ctx" $root "name" $name) }}-allow-ingress
+  labels:
+    {{- include "hawk-eye.labels" (dict "ctx" $root "name" $name "tier" $tier) | nindent 4 }}
+spec:
+  # Target = this workload's pods.
+  podSelector:
+    matchLabels:
+      {{- include "hawk-eye.selectorLabels" $sctx | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        {{- range $peer := $wl.allowFrom }}
+        - podSelector:
+            matchLabels:
+              {{- include "hawk-eye.selectorLabels" (dict "ctx" $root "name" $peer) | nindent 14 }}
+        {{- end }}
+      ports:
+        - port: {{ $wl.port }}
+          protocol: TCP
+        {{- range $wl.extraPorts }}
+        - port: {{ .port }}
+          protocol: TCP
+        {{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+(4) Reciprocal egress: let each declared peer initiate to this workload. We
+build a reverse index (peer -> [targets]) so each peer gets one egress policy
+permitting outbound only to the workloads it is allowed to call.
+*/}}
+{{- $egress := dict }}
+{{- range $name, $wl := $root.Values.workloads }}
+{{- range $peer := ($wl.allowFrom | default list) }}
+{{- $cur := index $egress $peer | default list }}
+{{- $egress = set $egress $peer (append $cur $name) }}
+{{- end }}
+{{- end }}
+{{- range $peer, $targets := $egress }}
+{{- $ptier := (index $root.Values.workloads $peer).tier | default "app" }}
+---
+# ALLOW egress from "{{ $peer }}" to: {{ $targets | join ", " }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "hawk-eye.workloadName" (dict "ctx" $root "name" $peer) }}-allow-egress
+  labels:
+    {{- include "hawk-eye.labels" (dict "ctx" $root "name" $peer "tier" $ptier) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "hawk-eye.selectorLabels" (dict "ctx" $root "name" $peer) | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    {{- range $t := $targets }}
+    {{- $twl := index $root.Values.workloads $t }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "hawk-eye.selectorLabels" (dict "ctx" $root "name" $t) | nindent 14 }}
+      ports:
+        - port: {{ $twl.port }}
+          protocol: TCP
+        {{- range $twl.extraPorts }}
+        - port: {{ .port }}
+          protocol: TCP
+        {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}

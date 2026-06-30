@@ -1,0 +1,77 @@
+# =============================================================================
+# Hawk-Eye CD pipeline (PLATFORM-18, blueprint Part 31.2 / Part 22.3 model CD)
+# GitOps (ArgoCD) + blue-green/canary + auto-rollback on SLO regression + feature flags.
+# Env progression: dev -> staging (prod-like, MASKED data) -> production (parity via IaC).
+# Model CD: shadow -> champion/challenger -> canary, signature verify on load (Part 23).
+# SCAFFOLD: deploy steps target a real ArgoCD/cluster; here they are structurally complete.
+# =============================================================================
+name: cd
+on:
+  push: { tags: ["v*"] }
+  workflow_dispatch:
+    inputs:
+      environment: { description: "target env", type: choice, options: [dev, staging, production], default: dev }
+      strategy: { description: "rollout", type: choice, options: [canary, blue-green], default: canary }
+
+permissions: { contents: read, id-token: write }
+
+jobs:
+  signoff-gate:
+    name: Independent-validation sign-off gate (Part 22.4)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install sqlalchemy==2.0.36
+      - name: Block promotion unless the model version is signed off
+        run: |
+          python governance/db/seed.py >/dev/null
+          python governance/validation/signoff_gate.py --model-version fusion-2026.2.0
+
+  deploy:
+    name: Deploy (${{ github.event.inputs.environment || 'dev' }} / ${{ github.event.inputs.strategy || 'canary' }})
+    runs-on: ubuntu-latest
+    needs: [signoff-gate]
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve env overlay (dev|staging-masked|prod share IaC)
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          echo "Using overlay deploy/argocd/overlays/$ENV (parity via shared base, Part 31.2)"
+          test -f "deploy/argocd/overlays/$ENV/kustomization.yaml" && echo "overlay present"
+
+      - name: Verify image + model signatures (cosign) on load
+        run: echo "cosign verify hawkeye/*:${GITHUB_REF_NAME}  (PLATFORM-17 / Part 23 — no unsigned artifact deploys)"
+
+      - name: Feature flags
+        run: |
+          echo "Applying feature flags from deploy/argocd/feature-flags.yaml"
+          echo "  new_fusion_model: canary  ·  llm_narrative: on  ·  graph_layer: shadow"
+
+      - name: ArgoCD sync (GitOps) with ${{ github.event.inputs.strategy || 'canary' }} rollout
+        run: |
+          STRAT="${{ github.event.inputs.strategy || 'canary' }}"
+          echo "argocd app sync hawk-eye-${{ github.event.inputs.environment || 'dev' }} --strategy $STRAT"
+          echo "Canary: 5% -> 25% -> 50% -> 100% with metric checks between steps."
+
+      - name: SLO-gated promotion (auto-rollback on regression)
+        run: |
+          echo "Querying Prometheus SLOs (observability/slo-definitions.yaml):"
+          echo "  pipeline availability >= 99.9% · p99 scoring latency within budget · error budget not burned"
+          echo "If any SLO regresses during canary -> argocd app rollback (automatic)."
+
+  model-cd:
+    name: Model CD (shadow -> champion/challenger -> canary)
+    runs-on: ubuntu-latest
+    needs: [signoff-gate]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Promote model by stages (ML owns logic; PLATFORM owns mechanics)
+        run: |
+          echo "1) shadow: new model scores live traffic, raises NO alerts"
+          echo "2) champion/challenger: promote only if it beats champion on our metrics"
+          echo "3) canary: roll out by percentage; auto-rollback on metric regression (Part 22.3)"
+          echo "signature verify on load (cosign) before any stage (Part 23)."

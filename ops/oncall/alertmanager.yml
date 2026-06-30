@@ -1,0 +1,40 @@
+# Alertmanager config (PLATFORM-30, blueprint Part 30.2 + Part 28.1 CERT-In 6h).
+# Routes pipeline-lag/drift/node-down to an on-call rotation by SEVERITY tier.
+# SCAFFOLD: PagerDuty/Opsgenie + RBI/CERT-In endpoints are placeholders (no real keys).
+route:
+  receiver: default
+  group_by: ["alertname", "severity", "component"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: ['severity="critical"']
+      receiver: pagerduty-critical
+      continue: true
+    - matchers: ['severity="critical"']
+      receiver: regulatory-reporting     # cyber incidents -> RBI/CERT-In (6h) — Part 28.1
+    - matchers: ['severity="warning"']
+      receiver: opsgenie-warning
+
+receivers:
+  - name: default
+    # dev: no-op (webhook to a local sink). prod: route everything somewhere.
+  - name: pagerduty-critical
+    pagerduty_configs:
+      - routing_key: "REPLACE_WITH_PAGERDUTY_KEY"   # SCAFFOLD — from Vault in prod
+        severity: critical
+        description: "{{ .CommonAnnotations.summary }}"
+  - name: opsgenie-warning
+    opsgenie_configs:
+      - api_key: "REPLACE_WITH_OPSGENIE_KEY"        # SCAFFOLD
+        priority: P3
+  - name: regulatory-reporting
+    webhook_configs:
+      # SCAFFOLD: a real channel files CERT-In (6h) + RBI cyber-incident reports.
+      - url: "http://localhost:9099/regulatory/cert-in"   # placeholder sink
+        send_resolved: false
+
+inhibit_rules:
+  - source_matchers: ['severity="critical"']
+    target_matchers: ['severity="warning"']
+    equal: ["component"]

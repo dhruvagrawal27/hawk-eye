@@ -1,0 +1,142 @@
+{{/*
+=============================================================================
+Hawk-Eye — Deployment per workload.
+Blueprint: Part 9.1 (topology) · Part 9.3 (residency/HA) · Part 16 (localization)
+           · Part 19.3 (least-privilege/non-root) · Part 30.1 (rolling update + HA).
+PLATFORM task: PLATFORM-9.
+-----------------------------------------------------------------------------
+Loops over .Values.workloads and renders one apps/v1 Deployment each. EVERY pod
+template carries the residency labels (data-residency: in-india + region) via
+hawk-eye.labels; the OPA/Conftest policy enforces this at render time. RollingUpdate
+strategy + readiness/liveness probes + topologySpread give HA (Part 30.1).
+=============================================================================
+*/}}
+{{- $root := . -}}
+{{- range $name, $wl := .Values.workloads }}
+{{- $tier := $wl.tier | default "app" }}
+{{- $replicas := $wl.replicas | default $root.Values.defaults.replicaCount }}
+{{- $strategy := $wl.strategy | default $root.Values.defaults.strategy }}
+{{- $resources := $wl.resources | default $root.Values.defaults.resources }}
+{{- $probes := $root.Values.defaults.probes }}
+{{- $probe := $wl.probe | default dict }}
+{{- $lctx := dict "ctx" $root "name" $name "tier" $tier }}
+{{- $sctx := dict "ctx" $root "name" $name }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hawk-eye.workloadName" (dict "ctx" $root "name" $name) }}
+  labels:
+    {{- include "hawk-eye.labels" $lctx | nindent 4 }}
+  annotations:
+    hawk-eye/tier: {{ $tier | quote }}
+    hawk-eye/golden-rule-alert-only: "true"
+spec:
+  replicas: {{ $replicas }}
+  # RollingUpdate => zero-downtime upgrades (Part 30.1 continuity).
+  strategy:
+    {{- toYaml $strategy | nindent 4 }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "hawk-eye.selectorLabels" $sctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        # NOTE: residency labels (data-residency / region) are included here via
+        # hawk-eye.labels — REQUIRED on the pod template by the OPA policy.
+        {{- include "hawk-eye.labels" $lctx | nindent 8 }}
+      annotations:
+        hawk-eye/data-residency: {{ $root.Values.global.residency.dataResidency | quote }}
+        hawk-eye/region: {{ $root.Values.global.residency.region | quote }}
+    spec:
+      {{- with $root.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # automountServiceAccountToken off by default (least privilege, Part 19.3).
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "hawk-eye.podSecurityContext" (dict "ctx" $root "wl" $wl) | nindent 8 }}
+      {{- if $root.Values.defaults.topologySpreadEnabled }}
+      # Spread replicas across nodes/racks for HA (Part 9.3 multi-rack).
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "hawk-eye.selectorLabels" $sctx | nindent 14 }}
+      {{- end }}
+      containers:
+        - name: {{ $name }}
+          image: {{ $wl.image | quote }}
+          imagePullPolicy: {{ include "hawk-eye.imagePullPolicy" (dict "ctx" $root "wl" $wl) }}
+          securityContext:
+            {{- include "hawk-eye.containerSecurityContext" (dict "ctx" $root) | nindent 12 }}
+          {{- with $wl.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $wl.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: primary
+              containerPort: {{ $wl.port }}
+              protocol: TCP
+            {{- range $wl.extraPorts }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: TCP
+            {{- end }}
+          {{- if or $wl.env $wl.secretEnv }}
+          env:
+            {{- range $wl.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- range $wl.secretEnv }}
+            # Secret VALUES are never in this chart — only references (Part 19.3 /
+            # PLATFORM-12). Secret must pre-exist (Vault/SSM-synced or sealed).
+            - name: {{ .name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretName }}
+                  key: {{ .secretKey }}
+                  optional: true
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml $resources | nindent 12 }}
+          {{- if and $probes.enabled (ne ($probe.type | default "tcp") "none") }}
+          {{- $probePort := $probe.port | default $wl.port }}
+          livenessProbe:
+            {{- if eq ($probe.type | default "tcp") "http" }}
+            httpGet:
+              path: {{ $probe.path | default "/" }}
+              port: {{ $probePort }}
+            {{- else }}
+            tcpSocket:
+              port: {{ $probePort }}
+            {{- end }}
+            initialDelaySeconds: {{ $probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ $probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ $probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ $probes.liveness.failureThreshold }}
+          readinessProbe:
+            {{- if eq ($probe.type | default "tcp") "http" }}
+            httpGet:
+              path: {{ $probe.path | default "/" }}
+              port: {{ $probePort }}
+            {{- else }}
+            tcpSocket:
+              port: {{ $probePort }}
+            {{- end }}
+            initialDelaySeconds: {{ $probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ $probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ $probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ $probes.readiness.failureThreshold }}
+          {{- end }}
+{{- end }}

@@ -1,0 +1,12 @@
+title: ML Model Extraction / Inversion Pattern
+id: hawkeye-siem-extraction
+status: stable
+description: High-volume inference querying by one actor — model extraction/inversion recon (Part 19.5)
+logsource: { product: hawk-eye, service: model-serving-audit }
+detection:
+  selection: { action: model_infer }
+  timeframe: 5m
+  condition: selection | count() by actor >= 100
+level: high
+falsepositives: [bulk backtesting jobs (allow-list service accounts)]
+tags: [attack.exfiltration, atlas.AML.T0024, atlas.AML.T0040]

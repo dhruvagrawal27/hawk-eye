@@ -1,0 +1,4 @@
+# production overlay (PLATFORM-18) — HA, CAB-gated, manual sync. On-prem in-India.
+global: { environment: production, dataMasking: false, dataResidency: in-india }
+replicaCount: 3
+featureFlags: { newFusionModel: stable, llmNarrative: on, graphLayer: on }

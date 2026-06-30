@@ -1,0 +1,12 @@
+title: Abnormal EDD Label Edits (Feedback Poisoning)
+id: hawkeye-siem-label-edits
+status: stable
+description: One actor editing a disproportionate share of EDD labels — feedback-loop poisoning (Part 19.2)
+logsource: { product: hawk-eye, service: feedback-audit }
+detection:
+  selection: { action: label_edit }
+  timeframe: 1d
+  condition: selection | count() by actor >= 20
+level: high
+falsepositives: [a labeling sprint by an authorized labeler (cross-check SoD persona)]
+tags: [atlas.AML.T0020, attack.impact]

@@ -1,0 +1,12 @@
+title: Unapproved Config / Threshold Change (Detector Blinding)
+id: hawkeye-siem-config-change
+status: stable
+description: A rule/threshold/model-config change without four-eyes approval — could blind detection (Part 19.5/31.3)
+logsource: { product: hawk-eye, service: change-audit }
+detection:
+  selection: { action: ['threshold_change','rule_change','config_change'] }
+  filter: { four_eyes_approved: true }
+  condition: selection and not filter
+level: critical
+falsepositives: [emergency change via the documented emergency-patch path (still audited)]
+tags: [attack.defense_evasion, attack.impair_defenses]

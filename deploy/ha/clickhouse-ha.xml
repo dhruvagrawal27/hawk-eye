@@ -1,0 +1,28 @@
+<!-- ClickHouse HA (PLATFORM-25, Part 9.2/30.1): sharded + replicated, hot-cold tiering.
+     ReplicatedMergeTree coordinated by ClickHouse Keeper. SCAFFOLD (needs a real cluster). -->
+<clickhouse>
+  <remote_servers>
+    <hawkeye_cluster>
+      <shard>
+        <internal_replication>true</internal_replication>
+        <replica><host>ch-shard1-r1</host><port>9000</port></replica>
+        <replica><host>ch-shard1-r2</host><port>9000</port></replica>
+      </shard>
+      <shard>
+        <internal_replication>true</internal_replication>
+        <replica><host>ch-shard2-r1</host><port>9000</port></replica>
+        <replica><host>ch-shard2-r2</host><port>9000</port></replica>
+      </shard>
+    </hawkeye_cluster>
+  </remote_servers>
+  <keeper_server><tcp_port>9181</tcp_port></keeper_server>
+  <storage_configuration>
+    <disks>
+      <hot><type>local</type><path>/var/lib/clickhouse/hot/</path></hot>
+      <cold><type>s3</type><endpoint>http://minio:9001/clickhouse-cold/</endpoint></cold>
+    </disks>
+    <policies><hot_cold><volumes>
+      <hot><disk>hot</disk></hot><cold><disk>cold</disk></cold>
+    </volumes></hot_cold></policies>
+  </storage_configuration>
+</clickhouse>

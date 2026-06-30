@@ -1,0 +1,58 @@
+# =============================================================================
+# Hawk-Eye — Compute-placement profiles (PLATFORM-6, SCAFFOLD)
+# Blueprint Part 9.1 (GPU nodes for train/graph; CPU for inference) + Part 22.5.
+# SCAFFOLD: needs real GPU hardware/quota to run. K8s/Helm (PLATFORM-9) and
+# Terraform (PLATFORM-7) reference these profiles for node selection + resources.
+# Decision rationale: docs/adr/ADR-0002-compute-placement.md.
+# =============================================================================
+profiles:
+
+  # --- Training: gradient-boosted trees (L3/L5 GBDT) -> CPU --------------------
+  tree-train:
+    workload: "LightGBM/XGBoost/CatBoost training (L3, XGB-Graph)"
+    placement: cpu
+    rationale: "Trees train fast on CPU and dominate honest tabular benchmarks (Part 20); GPU buys little."
+    k8s:
+      nodeSelector: { hawkeye.io/pool: cpu-train }
+      resources: { requests: { cpu: "8", memory: 32Gi }, limits: { cpu: "16", memory: 64Gi } }
+    aws_instance: m6i.4xlarge
+    onprem: "CPU pool (no GPU)"
+
+  # --- Training: deep sequence/graph nets (L4 USAD/TranAD, L5 GNN) -> GPU ------
+  seq-graph-train:
+    workload: "PyTorch/PyG sequence + graph model training (L4, L5 GNN)"
+    placement: gpu
+    rationale: "Deep sequence/graph training is the one place GPUs earn their keep (Part 9.1)."
+    k8s:
+      nodeSelector: { hawkeye.io/pool: gpu-train }
+      tolerations: [{ key: nvidia.com/gpu, operator: Exists, effect: NoSchedule }]
+      resources:
+        requests: { cpu: "8", memory: 64Gi, nvidia.com/gpu: 1 }
+        limits: { cpu: "16", memory: 128Gi, nvidia.com/gpu: 1 }
+    aws_instance: g5.xlarge        # or p4d for larger graphs (Part 26.3)
+    onprem: "On-prem GPU pool (e.g. H100/H200 nodes); shared with the TDX LLM node (PLATFORM-14)"
+
+  # --- Inference: all layers via ONNX (trees + small nets) -> CPU -------------
+  inference:
+    workload: "ONNX Runtime / Triton online scoring (L2–L6)"
+    placement: cpu
+    rationale: "Inference is mostly CPU (trees + small nets via ONNX) — Part 9.1/9.2; low latency, cheap."
+    k8s:
+      nodeSelector: { hawkeye.io/pool: cpu-serving }
+      resources: { requests: { cpu: "4", memory: 8Gi }, limits: { cpu: "8", memory: 16Gi } }
+    aws_instance: m6i.xlarge
+    onprem: "CPU serving pool (HA pair); GPU only if a large net is promoted to the hot path"
+
+# --- Pilot vs on-prem mapping ------------------------------------------------
+targets:
+  aws_pilot:
+    train_gpu: g5.xlarge | p4d.24xlarge
+    train_cpu: m6i.4xlarge
+    serving_cpu: m6i.xlarge
+  onprem_prod:
+    train_gpu: "on-prem GPU pool (H100/H200, Intel TDX for the LLM node)"
+    train_cpu: "on-prem CPU pool"
+    serving_cpu: "on-prem CPU serving pool"
+  lightsail_demo:
+    note: "No GPU on Lightsail (ADR-0001). Deep-model training runs elsewhere; the demo
+           serves pre-trained ONNX models on CPU Lightsail instances."

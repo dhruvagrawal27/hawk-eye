@@ -1,0 +1,24 @@
+# =============================================================================
+# Hawk-Eye — Root docker-compose entrypoint (PLATFORM / Laptop 06)
+# Blueprint: Part 8, Part 9.1.  Task: PLATFORM-1/2/3/4.
+# -----------------------------------------------------------------------------
+# This is a thin convenience wrapper. It `include:`s the real layers:
+#   - core ...... Kafka, Flink, Redis, ClickHouse, Postgres, MinIO, Feast, schema-registry
+#   - app ....... Triton/ONNX serving, FastAPI app, Keycloak, MLflow, Airflow, Prometheus, Grafana
+#   - platform .. degradation-switch, tee-attestation, pam-shim, governance-api, hitl-gate,
+#                 vault, otel-collector, alertmanager
+#
+# Image tags resolve from deploy/compose/.env (generated from deploy/versions.bom.yaml
+# via `make bom-env`). Run any of: `make up | core-up | app-up`.
+#
+# Ports are the canonical map in CONTEXT.md §7 (PLATFORM maintains it).
+# =============================================================================
+name: hawk-eye
+
+include:
+  - path: deploy/compose/docker-compose.core.yml
+    env_file: deploy/compose/.env
+  - path: deploy/compose/docker-compose.app.yml
+    env_file: deploy/compose/.env
+  - path: deploy/compose/docker-compose.platform.yml
+    env_file: deploy/compose/.env

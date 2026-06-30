@@ -1,0 +1,4 @@
+# dev overlay (PLATFORM-18) — single replica, synthetic data, all flags experimental.
+global: { environment: dev, dataMasking: false }
+replicaCount: 1
+featureFlags: { newFusionModel: canary, llmNarrative: on, graphLayer: shadow }

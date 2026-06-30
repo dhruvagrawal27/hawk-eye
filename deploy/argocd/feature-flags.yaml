@@ -1,0 +1,14 @@
+# Feature flags (PLATFORM-18, blueprint Part 31.2). Safe toggling of risky capabilities
+# per environment; flipped without redeploy. Read by services at runtime.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hawk-eye-feature-flags
+  labels: { data-residency: in-india }
+data:
+  # rollout states: off | shadow | canary | on | stable
+  new_fusion_model: "canary"     # new L6 model: canary % rollout, auto-rollback on SLO breach
+  llm_narrative: "on"            # TEE-LLM narrative gateway
+  graph_layer: "shadow"          # L5 graph scores in shadow until validated
+  degradation_force_rules_only: "false"   # BCP override (PLATFORM-4/28)
+  hitl_gate_enforced: "true"     # natural-justice gate ALWAYS on (alert-only, never flag off)

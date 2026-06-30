@@ -1,0 +1,32 @@
+# =============================================================================
+# Hawk-Eye — NEGATIVE fixture: a workload that VIOLATES residency.
+# Blueprint: Part 16 / Part 9.3 / Part 26.1. PLATFORM task: PLATFORM-9.
+# -----------------------------------------------------------------------------
+# This manifest is DELIBERATELY non-compliant and exists only to demonstrate the
+# residency gate FAILING. It must NEVER be applied to a cluster.
+#   conftest test deploy/k8s/policy/fixtures/bad-workload.yaml   # -> FAIL
+# Expected failures: missing data-residency label + non-India region (us-east-1).
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rogue-noncompliant
+  labels:
+    app.kubernetes.io/part-of: hawk-eye
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: rogue
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: rogue
+        # data-residency label intentionally OMITTED -> violation (a)
+        region: us-east-1   # non-India region -> violation (d)
+    spec:
+      containers:
+        - name: rogue
+          image: hashicorp/http-echo:1.0
+          ports:
+            - containerPort: 5678

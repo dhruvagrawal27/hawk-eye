@@ -1,0 +1,127 @@
+# =============================================================================
+# Hawk-Eye — SPIRE Agent DaemonSet + ConfigMap + RBAC (SCAFFOLD)
+# Owner: PLATFORM (Laptop 06)  ·  Task: PLATFORM-11  ·  Blueprint: Part 26.2 (mTLS),
+#        Part 9.3, Part 19.3, Part 16 (in-India residency)
+# -----------------------------------------------------------------------------
+# SCAFFOLD: one SPIRE agent per node. The agent attests each workload (by its k8s
+# ServiceAccount, ./service-accounts.yaml) and serves its X.509-SVID over the
+# Workload API unix socket — so a workload gets the identity
+# spiffe://hawk-eye/ns/default/sa/<service> without any shared secret.
+# Image pinned in deploy/versions.bom.yaml: ghcr.io/spiffe/spire-agent:1.11.0.
+# Plan-only; apply on the real cluster only.
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-agent
+  namespace: spire
+  labels: { app.kubernetes.io/part-of: hawk-eye, app.kubernetes.io/name: spire-agent, data-residency: in-india, region: ap-south-1 }
+automountServiceAccountToken: true   # agent presents a PSAT token for node attestation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spire-agent-cluster-role
+  labels: { app.kubernetes.io/part-of: hawk-eye }
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "nodes/proxy"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spire-agent-cluster-role-binding
+  labels: { app.kubernetes.io/part-of: hawk-eye }
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spire-agent-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: spire-agent
+    namespace: spire
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-agent
+  namespace: spire
+  labels: { app.kubernetes.io/part-of: hawk-eye, app.kubernetes.io/name: spire-agent, data-residency: in-india, region: ap-south-1 }
+data:
+  agent.conf: |
+    agent {
+      data_dir          = "/run/spire/data"
+      log_level         = "INFO"
+      server_address    = "spire-server"
+      server_port       = "8081"
+      trust_domain      = "hawk-eye"
+      # Workload API socket consumed by hawk-eye services for their SVID.
+      socket_path       = "/run/spire/sockets/agent.sock"
+    }
+
+    plugins {
+      NodeAttestor "k8s_psat" {
+        plugin_data { cluster = "hawk-eye" }
+      }
+      KeyManager "memory" { plugin_data {} }
+      # Bind SVIDs to the pod's k8s ServiceAccount (one identity per service).
+      WorkloadAttestor "k8s" {
+        plugin_data { skip_kubelet_verification = true }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: spire-agent
+  namespace: spire
+  labels: { app.kubernetes.io/part-of: hawk-eye, app.kubernetes.io/name: spire-agent, data-residency: in-india, region: ap-south-1 }
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: spire-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: hawk-eye
+        app.kubernetes.io/name: spire-agent
+        data-residency: in-india
+        region: ap-south-1
+    spec:
+      serviceAccountName: spire-agent
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: spire-agent
+          # Pin: deploy/versions.bom.yaml :: infra_extra.spire_agent
+          image: ghcr.io/spiffe/spire-agent:1.11.0
+          args: ["-config", "/run/spire/config/agent.conf"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - name: spire-config
+              mountPath: /run/spire/config
+              readOnly: true
+            - name: spire-sockets
+              mountPath: /run/spire/sockets
+            - name: spire-token
+              mountPath: /var/run/secrets/tokens
+      volumes:
+        - name: spire-config
+          configMap:
+            name: spire-agent
+        # hostPath socket dir is mounted by workloads via a CSI driver in prod.
+        - name: spire-sockets
+          hostPath:
+            path: /run/spire/sockets
+            type: DirectoryOrCreate
+        - name: spire-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: spire-agent
+                  expirationSeconds: 7200
+                  audience: spire-server

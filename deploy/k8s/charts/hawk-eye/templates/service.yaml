@@ -1,0 +1,40 @@
+{{/*
+=============================================================================
+Hawk-Eye — Service per workload (ClusterIP; in-cluster only).
+Blueprint: Part 9.1 (topology) · Part 9.3 (residency) · Part 19.3 (no public
+           exposure — all Services are ClusterIP; ingress is a separate, vetted
+           concern). PLATFORM task: PLATFORM-9.
+-----------------------------------------------------------------------------
+One Service per workload, exposing the primary port + any extraPorts. Service
+objects also carry the residency labels (every Hawk-Eye object is labelled
+in-india). Service selectors use only the STABLE selectorLabels.
+=============================================================================
+*/}}
+{{- $root := . -}}
+{{- range $name, $wl := .Values.workloads }}
+{{- $tier := $wl.tier | default "app" }}
+{{- $lctx := dict "ctx" $root "name" $name "tier" $tier }}
+{{- $sctx := dict "ctx" $root "name" $name }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hawk-eye.workloadName" (dict "ctx" $root "name" $name) }}
+  labels:
+    {{- include "hawk-eye.labels" $lctx | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "hawk-eye.selectorLabels" $sctx | nindent 4 }}
+  ports:
+    - name: primary
+      port: {{ $wl.port }}
+      targetPort: {{ $wl.port }}
+      protocol: TCP
+    {{- range $wl.extraPorts }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      targetPort: {{ .port }}
+      protocol: TCP
+    {{- end }}
+{{- end }}

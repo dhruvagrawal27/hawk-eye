@@ -1,0 +1,48 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "title": "Hawk-Eye — Four Golden Signals (per component)",
+  "tags": ["hawk-eye", "sre", "golden-signals"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "templating": { "list": [ {
+    "name": "component", "type": "query", "datasource": "Prometheus",
+    "query": "label_values(up, component)", "includeAll": true, "multi": true } ] },
+  "panels": [
+    { "type": "row", "title": "LATENCY", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    { "type": "timeseries", "title": "p99 inference latency (s)",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 1 },
+      "targets": [ { "expr": "histogram_quantile(0.99, sum by (le,model) (rate(serving_infer_latency_seconds_bucket[5m])))", "refId": "A" } ] },
+    { "type": "timeseries", "title": "p50 inference latency (s)",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 1 },
+      "targets": [ { "expr": "histogram_quantile(0.50, sum by (le,model) (rate(serving_infer_latency_seconds_bucket[5m])))", "refId": "A" } ] },
+
+    { "type": "row", "title": "TRAFFIC", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 } },
+    { "type": "timeseries", "title": "Events scored / s (by mode)",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 9 },
+      "targets": [ { "expr": "sum by (mode) (rate(degradation_scored_total[5m]))", "refId": "A" } ] },
+    { "type": "timeseries", "title": "Inference requests / s",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 9 },
+      "targets": [ { "expr": "sum(rate(serving_infer_total[5m]))", "refId": "A" } ] },
+
+    { "type": "row", "title": "ERRORS", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 } },
+    { "type": "stat", "title": "Targets down (up==0)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 17 },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "targets": [ { "expr": "count(up == 0)", "refId": "A" } ] },
+    { "type": "stat", "title": "Degraded (rules-only)",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 17 },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } } },
+      "targets": [ { "expr": "max(degradation_rules_only)", "refId": "A" } ] },
+    { "type": "timeseries", "title": "Alerts raised / s (by severity)",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 17 },
+      "targets": [ { "expr": "sum by (severity) (rate(degradation_alerts_total[5m]))", "refId": "A" } ] },
+
+    { "type": "row", "title": "SATURATION", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 } },
+    { "type": "timeseries", "title": "Scrape targets up (availability)",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 24 },
+      "targets": [ { "expr": "sum(up) by (component)", "refId": "A" } ] }
+  ]
+}

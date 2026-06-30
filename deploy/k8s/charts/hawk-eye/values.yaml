@@ -1,0 +1,375 @@
+# =============================================================================
+# Hawk-Eye Helm values — single source of truth for the rendered platform.
+# Blueprint: Part 9.3 (residency/HA) · Part 16 (RBI localization) ·
+#            Part 19.3 (micro-segmentation) · Part 26 (ap-south-1) · Part 30.1 (HA).
+# PLATFORM task: PLATFORM-9.
+# -----------------------------------------------------------------------------
+# Image tags are the canonical BOM pins (deploy/versions.bom.yaml). Do NOT drift
+# these by hand — they mirror the BOM, which CI's `bom-drift` gate enforces.
+# =============================================================================
+
+# --- Global block: applied to EVERY workload via _helpers.tpl ----------------
+global:
+  # RBI data-localization (Part 16) + on-prem residency (Part 9.3). These two
+  # labels are MANDATORY on every pod template; the OPA policy in
+  # deploy/k8s/policy/residency.rego FAILS the render if either is missing or
+  # if `region` is not an India region. Do not override per-workload.
+  residency:
+    dataResidency: in-india        # -> label data-residency: in-india
+    region: ap-south-1             # -> label region: ap-south-1 (Mumbai, India)
+
+  # Allowed India regions (defence-in-depth; the Rego policy hard-codes its own
+  # India allow-list, this is for documentation + any future templating use).
+  allowedRegions:
+    - ap-south-1                   # Mumbai
+    - ap-south-2                   # Hyderabad
+
+  # Common image registry prefix for first-party stub images (see BOM K8s refs).
+  imageRegistry: hawkeye
+
+  # Image pull policy. IfNotPresent keeps an egress-off cluster from reaching out
+  # for images that are already mirrored internally (Part 19.3 no-egress).
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+
+  # Kubernetes namespace these workloads expect to live in (informational; the
+  # release namespace is set by `helm install -n`). Used in NetworkPolicy DNS.
+  namespace: hawk-eye
+
+  # Cluster DNS suffix (used only in comments / future templating).
+  clusterDomain: cluster.local
+
+  # Default security context applied to every pod/container (least privilege,
+  # Part 19.3). Non-root, read-only root FS off by default (stubs write tmp),
+  # drop all caps. Stateful infra (kafka/clickhouse/postgres) can override.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    privileged: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
+# --- Cluster-wide HA / rollout defaults (Part 30.1) --------------------------
+# Per-workload `replicas` / `pdb` override these.
+defaults:
+  replicaCount: 1                  # dev/pilot default; HA workloads bump below
+  # RollingUpdate keeps the service available during upgrades (zero-downtime).
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  # PodDisruptionBudget defaults — keep at least 1 pod during voluntary drains.
+  pdb:
+    enabled: true
+    minAvailable: 1
+  # Topology spread: prefer spreading replicas across nodes (multi-rack, Part 9.3).
+  topologySpreadEnabled: true
+  # Default resource envelope (overridable per workload).
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # Default probes (HTTP). Workloads with no HTTP health port set probe.type=tcp.
+  probes:
+    enabled: true
+    liveness:
+      initialDelaySeconds: 20
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+# --- NetworkPolicy: default-deny + explicit allows (Part 19.3) ----------------
+networkPolicy:
+  enabled: true
+  # Render a namespace-wide default-deny (ingress + egress) policy. Every flow
+  # must then be explicitly allowed below = micro-segmentation / zero-trust.
+  defaultDeny: true
+  # Allow DNS egress to kube-dns so service discovery works under default-deny.
+  allowDNS: true
+  # Allow egress to the cluster API / kubelet metrics is NOT granted (least priv).
+  # The controlled internet egress allow-list (NEAR AI + Groq) is enforced at the
+  # NAT/VPC layer by Terraform (Part 26.2), NOT here — k8s NetworkPolicy cannot
+  # match external FQDNs reliably. We document it as an egress CIDR placeholder.
+  egressAllowlistCIDRs: []         # filled by platform from NAT egress IPs (scaffold)
+
+# =============================================================================
+# WORKLOADS — every core + app + platform service. The templates loop over this
+# map; each entry renders a Deployment + Service (+ PDB + NetworkPolicy allows).
+#
+# Per-workload keys:
+#   tier            core | app | platform        (label app.kubernetes.io/tier)
+#   image           full image ref (BOM pin)
+#   replicas        replica count (HA)
+#   port            primary container/service port (CONTEXT.md §7)
+#   extraPorts      [{name,port}] additional ports (UIs, metrics, etc.)
+#   serviceType     ClusterIP (default) | none (headless infra) — kept ClusterIP
+#   probe           {type: http|tcp|none, path, port}
+#   resources       override of defaults.resources
+#   pdb             {enabled, minAvailable}
+#   command/args    optional container entrypoint override
+#   env             [{name,value}] static env (NEVER secret values — see secretEnv)
+#   secretEnv       [{name, secretName, secretKey}] -> valueFrom.secretKeyRef
+#   allowFrom       [workload names] that may connect to this one (NetworkPolicy)
+#   security        per-workload securityContext overrides (e.g. infra non-1000)
+# =============================================================================
+workloads:
+
+  # ----- CORE: streaming + storage backbone (Part 9.1) ----------------------
+  kafka:
+    tier: core
+    image: apache/kafka:3.8.1
+    replicas: 1                    # dev: 1 broker (RF3 in prod, Part 9.1)
+    port: 9092
+    extraPorts:
+      - { name: controller, port: 9093 }
+      - { name: external, port: 29092 }
+    probe: { type: tcp, port: 9092 }
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits:   { cpu: "1",  memory: 1536Mi }
+    security:
+      runAsUser: 1000
+    allowFrom: [schema-registry, flink-jobmanager, flink-taskmanager, serving, backend, degradation-switch, governance-api]
+
+  schema-registry:
+    tier: core
+    image: apicurio/apicurio-registry-mem:2.6.5.Final
+    replicas: 1
+    port: 8085
+    probe: { type: http, path: /health/ready, port: 8085 }
+    allowFrom: [serving, backend, flink-jobmanager, flink-taskmanager]
+
+  flink-jobmanager:
+    tier: core
+    image: flink:1.20.0-scala_2.12-java17
+    replicas: 1
+    port: 8081                     # JobManager UI / REST
+    extraPorts:
+      - { name: rpc, port: 6123 }
+      - { name: blob, port: 6124 }
+    probe: { type: http, path: /, port: 8081 }
+    command: ["/docker-entrypoint.sh"]
+    args: ["jobmanager"]
+    env:
+      - { name: JOB_MANAGER_RPC_ADDRESS, value: "flink-jobmanager" }
+    allowFrom: [flink-taskmanager, backend, serving]
+
+  flink-taskmanager:
+    tier: core
+    image: flink:1.20.0-scala_2.12-java17
+    replicas: 2                    # HA: >1 task slot host
+    port: 6122                     # data port (no HTTP health -> tcp probe)
+    probe: { type: tcp, port: 6122 }
+    command: ["/docker-entrypoint.sh"]
+    args: ["taskmanager"]
+    env:
+      - { name: JOB_MANAGER_RPC_ADDRESS, value: "flink-jobmanager" }
+    pdb: { enabled: true, minAvailable: 1 }
+    allowFrom: [flink-jobmanager]
+
+  redis:
+    tier: core
+    image: redis:7.4.1-alpine
+    replicas: 1
+    port: 6379
+    probe: { type: tcp, port: 6379 }
+    allowFrom: [serving, backend, flink-taskmanager, degradation-switch]
+
+  clickhouse:
+    tier: core
+    image: clickhouse/clickhouse-server:25.3
+    replicas: 1
+    port: 8123                     # HTTP interface
+    extraPorts:
+      - { name: native, port: 9000 }
+    probe: { type: http, path: /ping, port: 8123 }
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits:   { cpu: "1",  memory: 2Gi }
+    # ClickHouse image runs as uid 101 (clickhouse); relax the non-1000 default.
+    security:
+      runAsUser: 101
+      runAsGroup: 101
+      fsGroup: 101
+    allowFrom: [backend, governance-api, grafana, airflow]
+
+  postgres:
+    tier: core
+    image: postgres:17.2
+    replicas: 1
+    port: 5432
+    probe: { type: tcp, port: 5432 }
+    # postgres image runs as uid 999 (postgres).
+    security:
+      runAsUser: 999
+      runAsGroup: 999
+      fsGroup: 999
+    secretEnv:
+      - { name: POSTGRES_PASSWORD, secretName: hawk-eye-postgres, secretKey: password }
+    env:
+      - { name: POSTGRES_DB, value: "hawkeye" }
+      - { name: POSTGRES_USER, value: "hawkeye" }
+    allowFrom: [backend, governance-api, keycloak, mlflow, airflow, hitl-gate]
+
+  minio:
+    tier: core
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    replicas: 1
+    port: 9001                     # S3 API (CONTEXT.md §7)
+    extraPorts:
+      - { name: console, port: 9002 }
+    probe: { type: http, path: /minio/health/live, port: 9001 }
+    command: ["minio"]
+    args: ["server", "/data", "--address", ":9001", "--console-address", ":9002"]
+    secretEnv:
+      - { name: MINIO_ROOT_PASSWORD, secretName: hawk-eye-minio, secretKey: password }
+    env:
+      - { name: MINIO_ROOT_USER, value: "hawkeye" }
+    allowFrom: [backend, mlflow, serving, airflow]
+
+  # ----- APP: serving + API + identity + MLOps (Part 9.1) -------------------
+  serving:
+    tier: app
+    image: hawkeye/serving-stub:1.0.0
+    replicas: 2                    # HA scoring path
+    port: 8001                     # KServe v2 (CONTEXT.md §7)
+    probe: { type: http, path: /healthz, port: 8001 }
+    pdb: { enabled: true, minAvailable: 1 }
+    allowFrom: [backend, degradation-switch]
+
+  backend:
+    tier: app
+    image: hawkeye/backend-stub:1.0.0
+    replicas: 2                    # HA API tier
+    port: 8000
+    probe: { type: http, path: /healthz, port: 8000 }
+    pdb: { enabled: true, minAvailable: 1 }
+    allowFrom: [grafana, governance-api, hitl-gate]
+
+  keycloak:
+    tier: app
+    image: quay.io/keycloak/keycloak:25.0.6
+    replicas: 1
+    port: 8080
+    probe: { type: http, path: /health/ready, port: 8080 }
+    command: ["/opt/keycloak/bin/kc.sh"]
+    args: ["start-dev", "--http-port=8080"]
+    secretEnv:
+      - { name: KEYCLOAK_ADMIN_PASSWORD, secretName: hawk-eye-keycloak, secretKey: password }
+    env:
+      - { name: KEYCLOAK_ADMIN, value: "admin" }
+    allowFrom: [backend, governance-api, hitl-gate]
+
+  mlflow:
+    tier: app
+    image: ghcr.io/mlflow/mlflow:v2.18.0
+    replicas: 1
+    port: 5000
+    probe: { type: http, path: /health, port: 5000 }
+    command: ["mlflow"]
+    args: ["server", "--host", "0.0.0.0", "--port", "5000"]
+    allowFrom: [serving, backend, airflow]
+
+  airflow:
+    tier: app
+    image: apache/airflow:2.10.4
+    replicas: 1
+    port: 8088                     # webserver (CONTEXT.md §7)
+    probe: { type: http, path: /health, port: 8088 }
+    command: ["airflow"]
+    args: ["webserver", "--port", "8088"]
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits:   { cpu: "1",  memory: 1Gi }
+    allowFrom: [grafana]
+
+  # ----- PLATFORM: observability + governance/security mocks (Part 9.1) ------
+  prometheus:
+    tier: platform
+    image: prom/prometheus:v3.0.1
+    replicas: 1
+    port: 9090
+    probe: { type: http, path: /-/ready, port: 9090 }
+    allowFrom: [grafana]
+
+  grafana:
+    tier: platform
+    image: grafana/grafana:11.4.0
+    replicas: 1
+    port: 3000
+    probe: { type: http, path: /api/health, port: 3000 }
+    secretEnv:
+      - { name: GF_SECURITY_ADMIN_PASSWORD, secretName: hawk-eye-grafana, secretKey: password }
+    allowFrom: []                  # entry point; reached via ingress (out of scope)
+
+  degradation-switch:
+    tier: platform
+    image: hawkeye/degradation-switch:1.0.0
+    replicas: 2                    # HA: the continuity control itself (Part 30.1)
+    port: 8092
+    probe: { type: http, path: /healthz, port: 8092 }
+    pdb: { enabled: true, minAvailable: 1 }
+    allowFrom: [backend]
+
+  tee-attestation:
+    tier: platform
+    image: hawkeye/tee-attestation:1.0.0
+    replicas: 1
+    port: 8090
+    probe: { type: http, path: /healthz, port: 8090 }
+    allowFrom: [backend, governance-api]
+
+  pam-shim:
+    tier: platform
+    image: hawkeye/pam-shim:1.0.0
+    replicas: 1
+    port: 8091
+    probe: { type: http, path: /healthz, port: 8091 }
+    allowFrom: [backend, governance-api]
+
+  vault:
+    tier: platform
+    image: hashicorp/vault:1.18
+    replicas: 1
+    port: 8200
+    probe: { type: http, path: /v1/sys/health, port: 8200 }
+    # Vault dev mode needs IPC_LOCK; we drop it via readOnlyRootFilesystem off and
+    # set skip-mlock semantics in config (dev only). Keep non-root where possible.
+    env:
+      - { name: VAULT_DEV_LISTEN_ADDRESS, value: "0.0.0.0:8200" }
+    secretEnv:
+      - { name: VAULT_DEV_ROOT_TOKEN_ID, secretName: hawk-eye-vault, secretKey: root-token }
+    allowFrom: [backend, governance-api, serving, mlflow]
+
+  governance-api:
+    tier: platform
+    image: hawkeye/backend-stub:1.0.0   # served by backend stub image (PLATFORM-31)
+    replicas: 1
+    port: 8093
+    probe: { type: http, path: /healthz, port: 8093 }
+    allowFrom: [grafana, backend]
+
+  hitl-gate:
+    tier: platform
+    image: hawkeye/backend-stub:1.0.0   # natural-justice gate (PLATFORM-37)
+    replicas: 1
+    port: 8094
+    probe: { type: http, path: /healthz, port: 8094 }
+    allowFrom: [backend]

@@ -1,0 +1,8 @@
+# Placeholder rules file so Prometheus rule_files glob has content.
+# Full SLO recording + alerting rules land in M4 (PLATFORM-29: slo.rules.yml,
+# golden-signals.rules.yml) and PLATFORM-21 (chaos/degradation alerts).
+groups:
+  - name: hawkeye-placeholder
+    rules:
+      - record: hawkeye:up:count
+        expr: count(up == 1)

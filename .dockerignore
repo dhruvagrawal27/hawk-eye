@@ -1,0 +1,19 @@
+# Keep build contexts small (esp. the repo-root context used by governance-api/hitl-gate).
+.git
+.venv-platform
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+data/raw
+data/generated
+ml/mlruns
+**/node_modules
+deploy/mtls/certs
+deploy/hsm/softhsm/tokens
+ci/security/reports
+*.tfstate
+.terraform
+governance/db/governance.db
+Insider_Fraud_Detection_Implementation_Blueprint (2).md

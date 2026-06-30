@@ -1,0 +1,11 @@
+title: Training-Data Distribution Anomaly (Poisoning)
+id: hawkeye-siem-training-anomaly
+status: stable
+description: A training batch whose feature distribution shifts sharply — training-set poisoning (Part 19.2)
+logsource: { product: hawk-eye, service: training-audit }
+detection:
+  selection: { action: training_batch }
+  condition: selection | where dist_shift_z >= 4.0
+level: high
+falsepositives: [genuine population shift (reorg/new product) — confirm via change record]
+tags: [atlas.AML.T0020, atlas.AML.T0019]

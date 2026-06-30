@@ -1,0 +1,45 @@
+# Hawk-Eye Prometheus scrape config (PLATFORM-3/29, blueprint Part 30.2).
+# Scrapes the four-golden-signal metrics from each component. SLO recording/alerting
+# rules live in observability/prometheus-rules (mounted at /etc/prometheus/rules).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    platform: hawk-eye
+    data_residency: in-india
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]   # added in M4 (PLATFORM-30)
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs: [{ targets: ["localhost:9090"] }]
+
+  - job_name: serving
+    metrics_path: /metrics
+    static_configs: [{ targets: ["serving:8001"], labels: { component: model-serving } }]
+
+  - job_name: backend
+    metrics_path: /metrics
+    static_configs: [{ targets: ["backend:8000"], labels: { component: api } }]
+
+  - job_name: degradation-switch
+    metrics_path: /metrics
+    static_configs: [{ targets: ["degradation-switch:8092"], labels: { component: degradation } }]
+
+  - job_name: governance-api
+    metrics_path: /metrics
+    static_configs: [{ targets: ["governance-api:8093"], labels: { component: governance } }]
+
+  - job_name: hitl-gate
+    metrics_path: /metrics
+    static_configs: [{ targets: ["hitl-gate:8094"], labels: { component: hitl } }]
+
+  - job_name: tee-attestation
+    metrics_path: /metrics
+    static_configs: [{ targets: ["tee-attestation:8090"], labels: { component: tee } }]
