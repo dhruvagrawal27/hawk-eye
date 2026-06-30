@@ -1,4 +1,5 @@
 """Unit tests for the sizing calculator (PLATFORM-5, blueprint Part 9.2 / 26.3)."""
+
 import pytest
 from sizing_calculator import size, _clamp
 
@@ -34,7 +35,9 @@ def test_costs_present_and_positive():
     assert s.aws_monthly_usd["TOTAL"] > 0
     assert s.lightsail_monthly_usd["TOTAL"] > 0
     # every cost component is non-negative
-    assert all(v >= 0 for k, v in s.aws_monthly_usd.items() if isinstance(v, (int, float)))
+    assert all(
+        v >= 0 for k, v in s.aws_monthly_usd.items() if isinstance(v, (int, float))
+    )
 
 
 def test_lightsail_is_cheaper_for_demo():

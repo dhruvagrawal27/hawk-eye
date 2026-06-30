@@ -9,6 +9,7 @@ up green and for PLATFORM demos (HITL/degradation/alerts sink) to have an endpoi
   GET  /api/v1/rules             L1 rule names (for the degradation demo)
 PLATFORM writes NO real rules/fusion logic here — BACKEND owns it (BACKEND.md).
 """
+
 from __future__ import annotations
 
 from fastapi import FastAPI
@@ -20,9 +21,14 @@ app = FastAPI(title="hawk-eye BACKEND stub", version="0.0.1-stub")
 _ALERTS: dict[str, dict] = {}
 
 L1_RULES = [
-    "NEW_BENEFICIARY_THEN_HIGHVALUE", "SWIFT_CBS_MISMATCH", "DB_WRITE_NO_APP_TXN",
-    "DORMANT_REACTIVATION", "ENTITLEMENT_SELF_GRANT", "OFF_HOURS_HIGH_VALUE",
-    "MAKER_CHECKER_COLLUSION_HINT", "BULK_EXPORT_LEAVER_WINDOW",
+    "NEW_BENEFICIARY_THEN_HIGHVALUE",
+    "SWIFT_CBS_MISMATCH",
+    "DB_WRITE_NO_APP_TXN",
+    "DORMANT_REACTIVATION",
+    "ENTITLEMENT_SELF_GRANT",
+    "OFF_HOURS_HIGH_VALUE",
+    "MAKER_CHECKER_COLLUSION_HINT",
+    "BULK_EXPORT_LEAVER_WINDOW",
 ]
 
 
@@ -44,8 +50,12 @@ def rules():
 
 @app.get("/api/v1/alerts")
 def list_alerts(status: str | None = None, risk_gte: int = 0):
-    items = [a for a in _ALERTS.values()
-             if (status is None or a.get("status") == status) and a.get("risk_score", 0) >= risk_gte]
+    items = [
+        a
+        for a in _ALERTS.values()
+        if (status is None or a.get("status") == status)
+        and a.get("risk_score", 0) >= risk_gte
+    ]
     return {"alerts": sorted(items, key=lambda a: a.get("risk_score", 0), reverse=True)}
 
 
@@ -58,11 +68,19 @@ def ingest_alert(alert: dict):
 @app.post("/api/v1/alerts/{alert_id}/disposition")
 def disposition(alert_id: str, d: Disposition):
     a = _ALERTS.get(alert_id, {})
-    a["status"] = {"fraud": "confirmed_fraud", "false_positive": "closed_fp",
-                   "inconclusive": "inconclusive"}.get(d.outcome, "open")
+    a["status"] = {
+        "fraud": "confirmed_fraud",
+        "false_positive": "closed_fp",
+        "inconclusive": "inconclusive",
+    }.get(d.outcome, "open")
     _ALERTS[alert_id] = a
-    return {"alert_id": alert_id, "status": a["status"], "label_written": True,
-            "feedback_queued_for_retraining": True, "audit_id": f"aud_{alert_id[-6:]}"}
+    return {
+        "alert_id": alert_id,
+        "status": a["status"],
+        "label_written": True,
+        "feedback_queued_for_retraining": True,
+        "audit_id": f"aud_{alert_id[-6:]}",
+    }
 
 
 @app.get("/metrics")

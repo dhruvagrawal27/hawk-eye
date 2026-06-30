@@ -9,6 +9,7 @@ Keycloak seeds the realm roles (deploy/compose/config/keycloak/hawk-eye-realm.js
 owns the API. This module provides the reusable enforcement primitive + the SoD matrix that
 the demo (governance/rbac/demo.py) and route guards use.
 """
+
 from __future__ import annotations
 
 import os
@@ -21,23 +22,25 @@ PERSONAS = ("builder", "labeler", "actor", "administrator")
 # Each duty is permitted to exactly ONE persona — the SoD matrix.
 DUTY_PERSONA = {
     "build_model": "builder",
-    "touch_training_data": "builder",   # the builder owns training data + model build
-    "label_data": "labeler",            # labeling is segregated from building (poisoning defence)
-    "act_on_alert": "actor",            # investigators act; cannot build or label
+    "touch_training_data": "builder",  # the builder owns training data + model build
+    "label_data": "labeler",  # labeling is segregated from building (poisoning defence)
+    "act_on_alert": "actor",  # investigators act; cannot build or label
     "administer_platform": "administrator",
 }
 
 # Conflicting persona pairs that must never co-occur on one identity (toxic combinations).
 TOXIC_PAIRS = [
-    ("builder", "labeler"),     # who builds cannot label (Part 19.2 poisoning)
-    ("builder", "actor"),       # who builds cannot close their own alerts (Part 19.3)
-    ("actor", "administrator"), # who acts cannot administer
+    ("builder", "labeler"),  # who builds cannot label (Part 19.2 poisoning)
+    ("builder", "actor"),  # who builds cannot close their own alerts (Part 19.3)
+    ("actor", "administrator"),  # who acts cannot administer
     ("labeler", "administrator"),
 ]
 
 
 def make_token(username: str, personas: list[str]) -> str:
-    return jwt.encode({"sub": username, "personas": personas}, JWT_SECRET, algorithm="HS256")
+    return jwt.encode(
+        {"sub": username, "personas": personas}, JWT_SECRET, algorithm="HS256"
+    )
 
 
 def decode(token: str) -> dict:
@@ -72,7 +75,9 @@ def enforce(token: str, duty: str) -> None:
     assert_no_toxic_combo(personas)
     if not can(personas, duty):
         required = DUTY_PERSONA.get(duty, "<unknown>")
-        raise SoDViolation(f"persona(s) {personas} cannot perform '{duty}' (requires '{required}')")
+        raise SoDViolation(
+            f"persona(s) {personas} cannot perform '{duty}' (requires '{required}')"
+        )
 
 
 # --- FastAPI dependency factory (used by services that gate routes) ----------

@@ -31,15 +31,15 @@ REQUIRED_TAGS = {
 }
 
 # Monthly non-infra costs (USD, order-of-magnitude).
-LLM_API_MONTHLY = 600          # NEAR AI + Groq tokens (tokenized, bounded by rate limits)
-LICENSES_MONTHLY = 0           # all OSS (on-prem stack); commercial = 0 by design
-SUPPORT_FTE_MONTHLY = 0        # captured under staffing, not FinOps infra
+LLM_API_MONTHLY = 600  # NEAR AI + Groq tokens (tokenized, bounded by rate limits)
+LICENSES_MONTHLY = 0  # all OSS (on-prem stack); commercial = 0 by design
+SUPPORT_FTE_MONTHLY = 0  # captured under staffing, not FinOps infra
 
 
 def showback(txns_per_day: int = 30_000_000, telemetry: float = 12.0) -> dict:
     s = size(txns_per_day, telemetry)
-    infra = s.lightsail_monthly_usd["TOTAL"]            # chosen deploy target (ADR-0001)
-    infra_vpc = s.aws_monthly_usd["TOTAL"]              # scale-up path
+    infra = s.lightsail_monthly_usd["TOTAL"]  # chosen deploy target (ADR-0001)
+    infra_vpc = s.aws_monthly_usd["TOTAL"]  # scale-up path
     total = infra + LLM_API_MONTHLY + LICENSES_MONTHLY
     return {
         "cost_center": "fraud-risk-management",
@@ -69,15 +69,17 @@ def tco(years: int = 3, txns_per_day: int = 30_000_000) -> dict:
         "buy_commercial_platform": buy,
         "verdict": "build" if build < buy else "buy",
         "note": "OSS on-prem stack + escalation discipline (Part 20) keeps build TCO low; "
-                "no per-seat license; data stays in-India (Part 16).",
+        "no per-seat license; data stays in-India (Part 16).",
     }
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Hawk-Eye FinOps (Part 34.2)")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sb = sub.add_parser("showback"); sb.add_argument("--txns-per-day", type=int, default=30_000_000)
-    t = sub.add_parser("tco"); t.add_argument("--years", type=int, default=3)
+    sb = sub.add_parser("showback")
+    sb.add_argument("--txns-per-day", type=int, default=30_000_000)
+    t = sub.add_parser("tco")
+    t.add_argument("--years", type=int, default=3)
     tg = sub.add_parser("tags")  # noqa: F841
     a = ap.parse_args()
     if a.cmd == "showback":

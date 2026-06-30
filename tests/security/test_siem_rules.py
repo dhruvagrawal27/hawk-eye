@@ -1,5 +1,6 @@
 """SIEM detection-rule tests (PLATFORM-21, Part 19.5). Each of the 4 attack signatures
 must fire; benign activity must not. Also asserts the Sigma rule files exist."""
+
 import sys
 from pathlib import Path
 
@@ -27,7 +28,13 @@ def test_training_data_anomaly_fires():
 
 
 def test_unapproved_config_change_fires():
-    events = [{"action": "threshold_change", "target": "L3_threshold", "four_eyes_approved": False}]
+    events = [
+        {
+            "action": "threshold_change",
+            "target": "L3_threshold",
+            "four_eyes_approved": False,
+        }
+    ]
     assert detect.detect_config_change(events).matched
 
 

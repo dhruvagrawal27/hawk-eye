@@ -17,7 +17,6 @@ import argparse
 import datetime as dt
 import json
 import subprocess
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,8 +25,8 @@ TRACE = Path(__file__).resolve().parent / "traceability.yaml"
 
 # Allowed change windows (Part 31.3 scheduled windows). UTC hours; weekday 0=Mon.
 ALLOWED_WINDOWS = [
-    {"weekday": 5, "start_h": 18, "end_h": 23},   # Sat evening
-    {"weekday": 6, "start_h": 0, "end_h": 6},      # Sun early
+    {"weekday": 5, "start_h": 18, "end_h": 23},  # Sat evening
+    {"weekday": 6, "start_h": 0, "end_h": 6},  # Sun early
 ]
 
 
@@ -43,18 +42,21 @@ def release_notes(version: str) -> str:
     rng = f"{last_tag}..HEAD" if last_tag else "HEAD~20..HEAD"
     log = _git(["log", rng, "--pretty=format:- %s (%h)"])
     today = dt.date.today().isoformat()
-    return (f"# Release {version} ({today})\n\n"
-            f"Versioned release (Part 34.3). Range: {rng or 'recent'}\n\n"
-            f"## Changes\n{log or '- (no commits found)'}\n\n"
-            f"## Gates passed\nCI pyramid + ML/data gates + security scans + signoff-gate "
-            f"(see .github/workflows/ci.yml, cd.yml).\n\n"
-            f"## CAB\nCAB approval required before production deploy (recorded in governance "
-            f"approvals; resolution CAB-*). Rollback: governance/change-mgmt/rollback-runbook.md\n")
+    return (
+        f"# Release {version} ({today})\n\n"
+        f"Versioned release (Part 34.3). Range: {rng or 'recent'}\n\n"
+        f"## Changes\n{log or '- (no commits found)'}\n\n"
+        f"## Gates passed\nCI pyramid + ML/data gates + security scans + signoff-gate "
+        f"(see .github/workflows/ci.yml, cd.yml).\n\n"
+        f"## CAB\nCAB approval required before production deploy (recorded in governance "
+        f"approvals; resolution CAB-*). Rollback: governance/change-mgmt/rollback-runbook.md\n"
+    )
 
 
 def traceability() -> dict:
     try:
         import yaml
+
         data = yaml.safe_load(TRACE.read_text()) if TRACE.exists() else {}
     except Exception:
         data = {}
@@ -66,15 +68,20 @@ def window_check(now: dt.datetime | None = None) -> dict:
     for w in ALLOWED_WINDOWS:
         if now.weekday() == w["weekday"] and w["start_h"] <= now.hour < w["end_h"]:
             return {"in_window": True, "window": w, "now_utc": now.isoformat()}
-    return {"in_window": False, "allowed_windows": ALLOWED_WINDOWS, "now_utc": now.isoformat(),
-            "note": "production change blocked outside scheduled windows (Part 31.3); "
-                    "use the emergency-patch path for criticals."}
+    return {
+        "in_window": False,
+        "allowed_windows": ALLOWED_WINDOWS,
+        "now_utc": now.isoformat(),
+        "note": "production change blocked outside scheduled windows (Part 31.3); "
+        "use the emergency-patch path for criticals.",
+    }
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Release governance (Part 31.3/34.3)")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    n = sub.add_parser("notes"); n.add_argument("--version", default="v0.1.0")
+    n = sub.add_parser("notes")
+    n.add_argument("--version", default="v0.1.0")
     sub.add_parser("traceability")
     sub.add_parser("window-check")
     a = ap.parse_args()

@@ -1,12 +1,15 @@
 """SoD RBAC tests (PLATFORM-33, Part 19.3/19.6) — builder≠labeler≠actor≠administrator."""
+
 import pytest
 import route_guards as rg
 
 
 def test_each_persona_only_its_own_duty():
     cases = {
-        "builder": "build_model", "labeler": "label_data",
-        "actor": "act_on_alert", "administrator": "administer_platform",
+        "builder": "build_model",
+        "labeler": "label_data",
+        "actor": "act_on_alert",
+        "administrator": "administer_platform",
     }
     for persona, own_duty in cases.items():
         assert rg.can([persona], own_duty) is True

@@ -31,15 +31,22 @@ def main() -> int:
     for u, personas in users.items():
         row = u.ljust(14)
         for duty in duties:
-            allowed = rg.can(personas, duty)
+            # exercise the real route-guard path: decode the persona's JWT + enforce
+            try:
+                rg.enforce(tokens[u], duty)
+                allowed = True
+            except rg.SoDViolation:
+                allowed = False
             # the ONLY allowed cell is the persona's own duty
-            expected = (rg.DUTY_PERSONA[duty] in personas)
+            expected = rg.DUTY_PERSONA[duty] in personas
             if allowed != expected:
                 ok = False
             row += ("✓" if allowed else "✗").ljust(14)
         print(row)
 
-    print("\nToxic-combination check (an identity holding 2 conflicting personas is rejected):")
+    print(
+        "\nToxic-combination check (an identity holding 2 conflicting personas is rejected):"
+    )
     try:
         rg.assert_no_toxic_combo(["builder", "actor"])
         print("  FAIL — builder+actor was allowed")
@@ -47,7 +54,14 @@ def main() -> int:
     except rg.SoDViolation as e:
         print(f"  ✓ rejected: {e}")
 
-    print("\n" + ("SoD PASS — builder≠labeler≠actor≠administrator enforced." if ok else "SoD FAIL"))
+    print(
+        "\n"
+        + (
+            "SoD PASS — builder≠labeler≠actor≠administrator enforced."
+            if ok
+            else "SoD FAIL"
+        )
+    )
     return 0 if ok else 1
 
 

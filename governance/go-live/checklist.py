@@ -18,8 +18,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "db"))
 import models as m  # noqa: E402
 
-CATEGORY_ORDER = ["regulatory", "security", "reliability", "quality", "data",
-                  "operating_model", "program"]
+CATEGORY_ORDER = [
+    "regulatory",
+    "security",
+    "reliability",
+    "quality",
+    "data",
+    "operating_model",
+    "program",
+]
 
 
 def _parse_filter(flt: str | None) -> dict:
@@ -55,8 +62,14 @@ def resolve(session) -> list[dict]:
                 evidence_ref = f"{t.evidence_table}#{row.id}"
         t.status = "met" if met else "not_met"
         t.evidence_ref = evidence_ref
-        results.append({"category": t.category, "item": t.item, "status": t.status,
-                        "evidence": evidence_ref})
+        results.append(
+            {
+                "category": t.category,
+                "item": t.item,
+                "status": t.status,
+                "evidence": evidence_ref,
+            }
+        )
     session.commit()
     return results
 
@@ -84,8 +97,13 @@ def render(results: list[dict], handoff: dict) -> dict:
     total = len(results)
     met = sum(1 for r in results if r["status"] == "met")
     gate = "GO" if met == total else "NO-GO"
-    return {"gate": gate, "met": met, "total": total, "by_category": by_cat,
-            "threat_intel_feedback": handoff}
+    return {
+        "gate": gate,
+        "met": met,
+        "total": total,
+        "by_category": by_cat,
+        "threat_intel_feedback": handoff,
+    }
 
 
 def main() -> int:
@@ -103,7 +121,9 @@ def main() -> int:
     print("=" * 64)
     print("  HAWK-EYE — GO-LIVE READINESS CHECKLIST (Part 34.6)")
     print("=" * 64)
-    for cat in CATEGORY_ORDER + [c for c in summary["by_category"] if c not in CATEGORY_ORDER]:
+    for cat in CATEGORY_ORDER + [
+        c for c in summary["by_category"] if c not in CATEGORY_ORDER
+    ]:
         items = summary["by_category"].get(cat)
         if not items:
             continue

@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "governance" / "db"))
 
-RUSHED_MIN = 3.0   # dispositions faster than this look rushed (fatigue proxy)
+RUSHED_MIN = 3.0  # dispositions faster than this look rushed (fatigue proxy)
 
 # Synthetic disposition feed (real source: hawkeye.feedback / BACKEND disposition events).
 SAMPLE = [
@@ -39,12 +39,17 @@ def compute(dispositions: list[dict]) -> dict:
     override_rate = round(len(overridden) / len(ai_fraud), 4) if ai_fraud else 0.0
     rushed = [d for d in dispositions if d["mins"] < RUSHED_MIN]
     alert_fatigue = round(len(rushed) / len(dispositions), 4) if dispositions else 0.0
-    return {"override_rate": override_rate, "alert_fatigue": alert_fatigue,
-            "n_dispositions": len(dispositions), "n_ai_fraud": len(ai_fraud)}
+    return {
+        "override_rate": override_rate,
+        "alert_fatigue": alert_fatigue,
+        "n_dispositions": len(dispositions),
+        "n_ai_fraud": len(ai_fraud),
+    }
 
 
 def write_metrics(metrics: dict, period: str = "live") -> None:
     import models as m
+
     s = m.get_session()
     for name in ("override_rate", "alert_fatigue"):
         s.add(m.OperatingMetric(metric=name, value=metrics[name], period=period))
@@ -54,11 +59,17 @@ def write_metrics(metrics: dict, period: str = "live") -> None:
 def main() -> int:
     metrics = compute(SAMPLE)
     print("Override-rate / Alert-fatigue panel (PLATFORM-39, Part 33.4):")
-    print(f"  override_rate : {metrics['override_rate']:.0%}  "
-          f"({'OK' if metrics['override_rate'] <= 0.30 else 'HIGH — review model calibration'})")
-    print(f"  alert_fatigue : {metrics['alert_fatigue']:.0%}  "
-          f"({'OK' if metrics['alert_fatigue'] <= 0.40 else 'HIGH — tune thresholds / staffing'})")
-    print(f"  over {metrics['n_dispositions']} dispositions ({metrics['n_ai_fraud']} AI-fraud)")
+    print(
+        f"  override_rate : {metrics['override_rate']:.0%}  "
+        f"({'OK' if metrics['override_rate'] <= 0.30 else 'HIGH — review model calibration'})"
+    )
+    print(
+        f"  alert_fatigue : {metrics['alert_fatigue']:.0%}  "
+        f"({'OK' if metrics['alert_fatigue'] <= 0.40 else 'HIGH — tune thresholds / staffing'})"
+    )
+    print(
+        f"  over {metrics['n_dispositions']} dispositions ({metrics['n_ai_fraud']} AI-fraud)"
+    )
     try:
         write_metrics(metrics)
         print("  -> written to governance DB operating_metrics (surfaced in dashboard)")

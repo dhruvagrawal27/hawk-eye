@@ -1,15 +1,10 @@
 """Unit tests for the staffing calculator, FinOps, and vuln tracker (PLATFORM-39/22)."""
-import sys
-from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "security" / "vuln-mgmt"))
-
-import staffing_calculator as sc   # tools/staffing-calculator (conftest path)
-import finops                       # tools/finops (conftest path)
-import tracker                      # security/vuln-mgmt (path above)
+import staffing_calculator as sc  # tools/staffing-calculator (conftest path)
+import finops  # tools/finops (conftest path)
+import tracker  # security/vuln-mgmt (conftest path)
 
 
 # --- staffing (Erlang) -------------------------------------------------------
@@ -29,7 +24,7 @@ def test_staffing_meets_target_sl():
 
 def test_erlang_c_bounds():
     assert sc.erlang_c(0, 5) == 0.0
-    assert sc.erlang_c(5, 5) == 1.0      # agents <= load -> always wait
+    assert sc.erlang_c(5, 5) == 1.0  # agents <= load -> always wait
     assert 0.0 < sc.erlang_c(3, 5) < 1.0
 
 
@@ -55,7 +50,7 @@ def test_tco_build_vs_buy():
 
 # --- vuln tracker ------------------------------------------------------------
 def test_tracker_ingest_and_rank():
-    findings = tracker.ingest([])         # sample
+    findings = tracker.ingest([])  # sample
     assert findings
     # sorted by severity rank (critical first)
     ranks = [tracker.SEV_RANK.get(f["severity"], 9) for f in findings]

@@ -11,6 +11,7 @@ Endpoints:
   POST /admin/force {forced}     toggle forced rules-only (audited admin action)
   GET  /metrics                 Prometheus
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,7 +29,9 @@ from . import health, kafka_worker, scoring
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("degradation-switch")
 
-SERVING_INFER_BASE = os.environ.get("SERVING_INFER_BASE", "http://serving:8001/v2/models")
+SERVING_INFER_BASE = os.environ.get(
+    "SERVING_INFER_BASE", "http://serving:8001/v2/models"
+)
 app = FastAPI(title="hawk-eye degradation-switch", version="1.0.0")
 
 SCORED = Counter("degradation_scored_total", "events scored", ["mode"])
@@ -43,7 +46,7 @@ class ScoreRequest(BaseModel):
 
 class ForceRequest(BaseModel):
     forced: bool
-    actor: str = "platform-admin"   # PAM-gated in prod (PLATFORM-15); audited below
+    actor: str = "platform-admin"  # PAM-gated in prod (PLATFORM-15); audited below
 
 
 @app.on_event("startup")
@@ -81,8 +84,16 @@ def _fetch_layer_scores(event: dict) -> dict[str, float] | None:
         try:
             r = httpx.post(
                 f"{SERVING_INFER_BASE}/{model}/infer",
-                json={"inputs": [{"name": "features", "shape": [len(vec)],
-                                  "datatype": "FP32", "data": vec}]},
+                json={
+                    "inputs": [
+                        {
+                            "name": "features",
+                            "shape": [len(vec)],
+                            "datatype": "FP32",
+                            "data": vec,
+                        }
+                    ]
+                },
                 timeout=2.0,
             )
             scores[layer] = float(r.json()["outputs"][0]["data"][0])
@@ -99,7 +110,7 @@ def score_ep(req: ScoreRequest):
     if mode == "full" and layer_scores is None:
         layer_scores = _fetch_layer_scores(req.event)
         if layer_scores is None:
-            mode = "rules_only"   # serving became unreachable mid-request: degrade
+            mode = "rules_only"  # serving became unreachable mid-request: degrade
     alert = scoring.score_event(req.event, mode, layer_scores)
     SCORED.labels(mode).inc()
     if alert:
@@ -111,7 +122,9 @@ def score_ep(req: ScoreRequest):
 def force_ep(req: ForceRequest):
     health.set_forced(req.forced)
     # Audit the privileged admin action (quis custodiet, Part 19.3). Prod -> hawkeye.audit.
-    log.info("AUDIT admin.force forced=%s actor=%s ts=%s", req.forced, req.actor, time.time())
+    log.info(
+        "AUDIT admin.force forced=%s actor=%s ts=%s", req.forced, req.actor, time.time()
+    )
     return {"forced": req.forced, "mode": health.current_mode()}
 
 

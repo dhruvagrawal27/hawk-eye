@@ -35,16 +35,24 @@ def _approval_header(filename: str, session) -> str:
     model = m.TABLE_MODELS.get(table)
     if model is None:
         return ""
-    row = session.query(model).filter_by(**filt).first() if filt else session.query(model).first()
+    row = (
+        session.query(model).filter_by(**filt).first()
+        if filt
+        else session.query(model).first()
+    )
     if row is None:
         return ""
     if table == "policies":
-        return (f"> **APPROVAL RECORD (seeded MOCK)** — Approved by **{row.approved_by}** on "
-                f"**{row.approval_date}** · Resolution **{row.resolution_id}** · status "
-                f"`{row.status}`.\n\n")
+        return (
+            f"> **APPROVAL RECORD (seeded MOCK)** — Approved by **{row.approved_by}** on "
+            f"**{row.approval_date}** · Resolution **{row.resolution_id}** · status "
+            f"`{row.status}`.\n\n"
+        )
     if table == "dpia":
-        return (f"> **APPROVAL RECORD (seeded MOCK)** — DPIA **{row.name}**, DPO **{row.dpo}**, "
-                f"approved **{row.approval_date}**, status `{row.status}`.\n\n")
+        return (
+            f"> **APPROVAL RECORD (seeded MOCK)** — DPIA **{row.name}**, DPO **{row.dpo}**, "
+            f"approved **{row.approval_date}**, status `{row.status}`.\n\n"
+        )
     return ""
 
 
@@ -53,12 +61,15 @@ def main() -> int:
     session = m.get_session()
     sources = sorted(p for p in HERE.glob("*.md") if p.parent == HERE)
     if not sources:
-        print("No source docs in governance/docs/ yet (PLATFORM-36 content). Nothing to render.")
+        print(
+            "No source docs in governance/docs/ yet (PLATFORM-36 content). Nothing to render."
+        )
         return 0
 
     try:
         from weasyprint import HTML  # optional
         import markdown as md
+
         have_pdf = True
     except Exception:
         have_pdf = False
@@ -82,8 +93,10 @@ def main() -> int:
     for name in rendered:
         index += f"- [{name}](./{name})\n"
     (OUT / "index.md").write_text(index)
-    print(f"Rendered {len(rendered)} governance docs -> {OUT.relative_to(HERE.parents[1])}"
-          f"{' (with PDF)' if have_pdf else ' (md only; install weasyprint for PDF)'}")
+    print(
+        f"Rendered {len(rendered)} governance docs -> {OUT.relative_to(HERE.parents[1])}"
+        f"{' (with PDF)' if have_pdf else ' (md only; install weasyprint for PDF)'}"
+    )
     for n in rendered:
         print(f"  {n}")
     return 0

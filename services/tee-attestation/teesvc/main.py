@@ -8,6 +8,7 @@ Endpoints:
 Demo: request -> quote -> verify (`make` target / curl). Egress carries only tokenized
 prompts; a raw-PII prompt is rejected (tokenize-before-egress, Part 25.3).
 """
+
 from __future__ import annotations
 
 import os
@@ -28,19 +29,28 @@ VERIFY = Counter("tee_verify_total", "verifications", ["result"])
 
 
 class AttestRequest(BaseModel):
-    prompt: str                       # MUST be tokenized already (Part 25.3)
+    prompt: str  # MUST be tokenized already (Part 25.3)
     model: str = DEFAULT_MODEL
-    provider: str = "near_ai"         # near_ai (TEE) | groq (non-TEE)
+    provider: str = "near_ai"  # near_ai (TEE) | groq (non-TEE)
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "tee-attestation", "enclave_mode": ENCLAVE_MODE, "mock": True}
+    return {
+        "status": "ok",
+        "service": "tee-attestation",
+        "enclave_mode": ENCLAVE_MODE,
+        "mock": True,
+    }
 
 
 @app.get("/pubkey")
 def pubkey():
-    return {"algorithm": "ed25519", "public_key_hex": attestation.public_key_hex(), "mock": True}
+    return {
+        "algorithm": "ed25519",
+        "public_key_hex": attestation.public_key_hex(),
+        "mock": True,
+    }
 
 
 @app.post("/attest")
@@ -51,11 +61,18 @@ def attest(req: AttestRequest):
             ATTEST.labels("groq", "pii_rejected").inc()
             raise HTTPException(422, "PII not tokenized before egress; refusing")
         ATTEST.labels("groq", "non_tee").inc()
-        return {"provider": "groq", "tee_attested": False, "attestation_id": None,
-                "model": req.model, "pii_tokenized": True,
-                "note": "Groq is not a TEE path (Part 25.4); logged degradation."}
+        return {
+            "provider": "groq",
+            "tee_attested": False,
+            "attestation_id": None,
+            "model": req.model,
+            "pii_tokenized": True,
+            "note": "Groq is not a TEE path (Part 25.4); logged degradation.",
+        }
     try:
-        report = attestation.issue_quote(req.prompt, req.model, req.provider, ENCLAVE_MODE)
+        report = attestation.issue_quote(
+            req.prompt, req.model, req.provider, ENCLAVE_MODE
+        )
     except ValueError as e:
         ATTEST.labels(req.provider, "pii_rejected").inc()
         raise HTTPException(422, str(e))

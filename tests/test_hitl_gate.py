@@ -1,6 +1,4 @@
 """Tests for the HITL natural-justice gate (PLATFORM-37) — proves ALERT-ONLY in software."""
-import sys
-from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -11,7 +9,10 @@ from hitlsvc.main import app
 client = TestClient(app)
 
 CLS = {
-    "alert_id": "alr_3d7e22", "entity_id": "EMP-7f3a", "risk_score": 87, "severity": "high",
+    "alert_id": "alr_3d7e22",
+    "entity_id": "EMP-7f3a",
+    "risk_score": 87,
+    "severity": "high",
     "reason_codes": [{"source": "rule", "code": "NEW_BENEFICIARY_THEN_HIGHVALUE"}],
     "proportionality": "Monitors only risk-relevant maker-checker + payment signals (Part 29.2).",
     "explanation": "New payee paid INR 48,00,000 off-hours, 27 min after onboarding.",
@@ -24,7 +25,7 @@ def test_classification_held_pending_review_then_human_decides():
     r = client.post("/api/v1/classifications", json=CLS)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["status"] == "pending_review"           # ALERT-ONLY: not auto-acted
+    assert body["status"] == "pending_review"  # ALERT-ONLY: not auto-acted
     cid = body["classification_id"]
 
     # queue shows it pending
@@ -36,9 +37,14 @@ def test_classification_held_pending_review_then_human_decides():
     assert d["proportionality"] and d["explanation"]
 
     # human approves -> alert raised for human action, NEVER an auto-block
-    dec = client.post(f"/api/v1/classifications/{cid}/decision",
-                      json={"decision": "approve", "reviewer": "Asha (analyst)",
-                            "justification": "Confirmed shell beneficiary; refer to Vigilance."})
+    dec = client.post(
+        f"/api/v1/classifications/{cid}/decision",
+        json={
+            "decision": "approve",
+            "reviewer": "Asha (analyst)",
+            "justification": "Confirmed shell beneficiary; refer to Vigilance.",
+        },
+    )
     out = dec.json()
     assert out["status"] == "reviewed_confirmed"
     assert out["outcome"] == "alert_raised_for_human_action"
@@ -48,8 +54,10 @@ def test_classification_held_pending_review_then_human_decides():
 def test_decision_requires_justification():
     seed_mod.main()
     cid = client.post("/api/v1/classifications", json=CLS).json()["classification_id"]
-    r = client.post(f"/api/v1/classifications/{cid}/decision",
-                    json={"decision": "approve", "reviewer": "x", "justification": "  "})
+    r = client.post(
+        f"/api/v1/classifications/{cid}/decision",
+        json={"decision": "approve", "reviewer": "x", "justification": "  "},
+    )
     assert r.status_code == 400
 
 

@@ -25,11 +25,20 @@ import models as m  # noqa: E402
 
 def check(model_version: str) -> dict:
     s = m.get_session()
-    validation = (s.query(m.ModelValidation)
-                  .filter_by(model_version=model_version, signoff_status="signed_off").first())
-    promotion = (s.query(m.Approval)
-                 .filter_by(model_version=model_version, artifact_type="model_promotion",
-                            decision="approved").first())
+    validation = (
+        s.query(m.ModelValidation)
+        .filter_by(model_version=model_version, signoff_status="signed_off")
+        .first()
+    )
+    promotion = (
+        s.query(m.Approval)
+        .filter_by(
+            model_version=model_version,
+            artifact_type="model_promotion",
+            decision="approved",
+        )
+        .first()
+    )
     allowed = validation is not None and promotion is not None
     reasons = []
     if validation is None:
@@ -46,11 +55,17 @@ def check(model_version: str) -> dict:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Independent-validation sign-off gate (PLATFORM-34)")
+    ap = argparse.ArgumentParser(
+        description="Independent-validation sign-off gate (PLATFORM-34)"
+    )
     ap.add_argument("--model-version", required=True)
     a = ap.parse_args()
     r = check(a.model_version)
-    verdict = "ALLOW promotion to Production" if r["allowed"] else "BLOCK promotion to Production"
+    verdict = (
+        "ALLOW promotion to Production"
+        if r["allowed"]
+        else "BLOCK promotion to Production"
+    )
     print(f"[signoff-gate] {a.model_version}: {verdict}")
     for reason in r["reasons"]:
         print(f"   - {reason}")

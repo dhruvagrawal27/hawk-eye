@@ -13,6 +13,7 @@ Ties to the SoD `administrator` persona (PLATFORM-33). Endpoints:
   GET  /sessions                                             -> audit view (who/when/what)
   GET  /health, /metrics
 """
+
 from __future__ import annotations
 
 import time
@@ -30,7 +31,13 @@ CMDS = Counter("pam_commands_total", "privileged commands", ["result"])
 
 # Least-privilege command allow-lists per platform role (no standing super-admin).
 ROLE_ALLOW = {
-    "platform_admin": {"restart_service", "view_logs", "rotate_secret", "scale", "deploy_config"},
+    "platform_admin": {
+        "restart_service",
+        "view_logs",
+        "rotate_secret",
+        "scale",
+        "deploy_config",
+    },
     "sre_oncall": {"restart_service", "view_logs", "scale", "failover"},
     "db_admin": {"backup", "restore", "view_schema"},
     "security_admin": {"rotate_secret", "view_audit", "update_policy"},
@@ -40,9 +47,9 @@ FORBIDDEN_ACCOUNTS = {"root", "admin", "shared", "service", "svc", "ops", ""}
 
 
 class StartReq(BaseModel):
-    admin: str            # named human admin (no shared accounts)
+    admin: str  # named human admin (no shared accounts)
     role: str
-    reason: str           # justification (four-eyes/ticket ref in prod)
+    reason: str  # justification (four-eyes/ticket ref in prod)
 
 
 class CmdReq(BaseModel):
@@ -63,20 +70,30 @@ def health():
 @app.post("/sessions/start")
 def start(req: StartReq):
     if req.admin.lower() in FORBIDDEN_ACCOUNTS:
-        raise HTTPException(403, f"shared/anonymous account '{req.admin}' forbidden (Part 19.3)")
+        raise HTTPException(
+            403, f"shared/anonymous account '{req.admin}' forbidden (Part 19.3)"
+        )
     if req.role not in ROLE_ALLOW:
         raise HTTPException(400, f"unknown role '{req.role}'")
     if not req.reason.strip():
         raise HTTPException(400, "a justification is required for privileged access")
     sid = "pam_" + uuid.uuid4().hex[:10]
     SESSIONS[sid] = {
-        "session_id": sid, "admin": req.admin, "role": req.role, "reason": req.reason,
-        "started_ts": time.time(), "ended_ts": None,
+        "session_id": sid,
+        "admin": req.admin,
+        "role": req.role,
+        "reason": req.reason,
+        "started_ts": time.time(),
+        "ended_ts": None,
         "recording": {"status": "recording", "stub": True},  # session-recording stub
         "commands": [],
     }
     _audit({"event": "session.start", "session_id": sid, "admin": req.admin})
-    return {"session_id": sid, "recording": "started (stub)", "allowed_commands": sorted(ROLE_ALLOW[req.role])}
+    return {
+        "session_id": sid,
+        "recording": "started (stub)",
+        "allowed_commands": sorted(ROLE_ALLOW[req.role]),
+    }
 
 
 @app.post("/sessions/{sid}/command")
@@ -85,13 +102,20 @@ def command(sid: str, req: CmdReq):
     if not s or s["ended_ts"] is not None:
         raise HTTPException(404, "no active session")
     allowed = req.command in ROLE_ALLOW[s["role"]]
-    record = {"command": req.command, "target": req.target, "ts": time.time(),
-              "allowed": allowed}
+    record = {
+        "command": req.command,
+        "target": req.target,
+        "ts": time.time(),
+        "allowed": allowed,
+    }
     s["commands"].append(record)
     _audit({"event": "session.command", "session_id": sid, **record})
     CMDS.labels("allowed" if allowed else "denied").inc()
     if not allowed:
-        raise HTTPException(403, f"least-privilege: '{req.command}' not permitted for role '{s['role']}'")
+        raise HTTPException(
+            403,
+            f"least-privilege: '{req.command}' not permitted for role '{s['role']}'",
+        )
     return {"executed": True, "command": req.command, "recorded": True}
 
 
@@ -101,12 +125,19 @@ def end(sid: str):
     if not s:
         raise HTTPException(404, "no such session")
     s["ended_ts"] = time.time()
-    s["recording"] = {"status": "stored", "recording_uri": f"worm://pam-recordings/{sid}.cast", "stub": True}
+    s["recording"] = {
+        "status": "stored",
+        "recording_uri": f"worm://pam-recordings/{sid}.cast",
+        "stub": True,
+    }
     _audit({"event": "session.end", "session_id": sid})
-    return {"session_id": sid, "duration_s": round(s["ended_ts"] - s["started_ts"], 2),
-            "command_count": len(s["commands"]),
-            "denied_count": sum(1 for c in s["commands"] if not c["allowed"]),
-            "recording_uri": s["recording"]["recording_uri"]}
+    return {
+        "session_id": sid,
+        "duration_s": round(s["ended_ts"] - s["started_ts"], 2),
+        "command_count": len(s["commands"]),
+        "denied_count": sum(1 for c in s["commands"] if not c["allowed"]),
+        "recording_uri": s["recording"]["recording_uri"],
+    }
 
 
 @app.get("/sessions")

@@ -1,4 +1,5 @@
 """Tests for capacity forecast, release governance, and the override/fatigue panel (M3/M4/M5)."""
+
 import datetime as dt
 
 import capacity_forecast as cf
@@ -9,7 +10,7 @@ import release as rel
 # --- capacity (PLATFORM-31) --------------------------------------------------
 def test_capacity_forecast_grows():
     fc = cf.forecast(txns_per_day=10_000_000, growth=0.5, years=3)
-    assert len(fc) == 4                       # year 0..3
+    assert len(fc) == 4  # year 0..3
     assert fc[-1]["txns_per_day"] > fc[0]["txns_per_day"]
     assert fc[-1]["events_per_day"] > fc[0]["events_per_day"]
 
@@ -28,10 +29,13 @@ def test_override_rate_computation():
 
 
 def test_override_rate_all_overridden():
-    disp = [{"ai": "fraud", "human": "false_positive", "analyst": "a", "mins": 1} for _ in range(4)]
+    disp = [
+        {"ai": "fraud", "human": "false_positive", "analyst": "a", "mins": 1}
+        for _ in range(4)
+    ]
     m = op.compute(disp)
     assert m["override_rate"] == 1.0
-    assert m["alert_fatigue"] == 1.0          # all rushed
+    assert m["alert_fatigue"] == 1.0  # all rushed
 
 
 # --- release governance (PLATFORM-19) ----------------------------------------

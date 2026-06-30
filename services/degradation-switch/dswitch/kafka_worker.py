@@ -8,6 +8,7 @@ Runs in a daemon thread started at app startup. If confluent-kafka is missing or
 broker is unreachable it logs and exits the thread — the HTTP /score endpoint still
 works, so the switch is testable without a running cluster.
 """
+
 from __future__ import annotations
 
 import json
@@ -33,11 +34,13 @@ def _run() -> None:
         log.warning("confluent-kafka unavailable (%s); Kafka worker disabled", e)
         return
     try:
-        consumer = Consumer({
-            "bootstrap.servers": BOOTSTRAP,
-            "group.id": "degradation-switch",
-            "auto.offset.reset": "latest",
-        })
+        consumer = Consumer(
+            {
+                "bootstrap.servers": BOOTSTRAP,
+                "group.id": "degradation-switch",
+                "auto.offset.reset": "latest",
+            }
+        )
         producer = Producer({"bootstrap.servers": BOOTSTRAP})
         consumer.subscribe([IN_TOPIC])
         log.info("Kafka worker consuming %s -> %s", IN_TOPIC, ALERTS_TOPIC)

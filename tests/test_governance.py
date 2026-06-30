@@ -1,15 +1,10 @@
 """Tests for the governance backbone (PLATFORM-32/34/41)."""
-import sys
-from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "governance" / "validation"))
-
-import seed as seed_mod       # governance/db/seed.py (conftest path)
-import signoff_gate           # governance/validation/signoff_gate.py
-from govapi.main import app   # services/governance-api/govapi/main.py
+import seed as seed_mod  # governance/db/seed.py (conftest path)
+import signoff_gate  # governance/validation/signoff_gate.py (conftest path)
+from govapi.main import app  # services/governance-api/govapi/main.py (conftest path)
 
 client = TestClient(app)
 
@@ -52,8 +47,10 @@ def test_unknown_artifact_404():
 
 def test_incident_reporting_form_creates_record():
     _seed()
-    r = client.post("/api/v1/governance/incidents",
-                    json={"description": "drift spike on L3", "incident_type": "ai_model"})
+    r = client.post(
+        "/api/v1/governance/incidents",
+        json={"description": "drift spike on L3", "incident_type": "ai_model"},
+    )
     assert r.status_code == 200 and r.json()["incident_id"]
 
 

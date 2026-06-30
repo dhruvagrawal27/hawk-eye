@@ -3,6 +3,7 @@
 Polls the serving v2 readiness endpoint. If serving is unhealthy (or a forced override
 is set), the switch routes scoring to L1-rules-only. Cached briefly to avoid hammering.
 """
+
 from __future__ import annotations
 
 import os
@@ -10,8 +11,12 @@ import time
 
 import httpx
 
-SERVING_HEALTH_URL = os.environ.get("ML_SERVING_HEALTH_URL", "http://serving:8001/v2/health/ready")
-FORCE_RULES_ONLY = os.environ.get("DEGRADATION_FORCE_RULES_ONLY", "false").lower() == "true"
+SERVING_HEALTH_URL = os.environ.get(
+    "ML_SERVING_HEALTH_URL", "http://serving:8001/v2/health/ready"
+)
+FORCE_RULES_ONLY = (
+    os.environ.get("DEGRADATION_FORCE_RULES_ONLY", "false").lower() == "true"
+)
 _CACHE_TTL = 5.0
 
 _state = {"healthy": False, "checked": 0.0, "forced": FORCE_RULES_ONLY}

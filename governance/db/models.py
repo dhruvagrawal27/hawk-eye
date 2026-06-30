@@ -5,6 +5,7 @@ seed, and go-live tooling run on **SQLite** (local/CI, zero infra) AND **Postgre
 (compose/prod). Pick the backend with GOVERNANCE_DB_URL
 (default: sqlite:///<repo>/governance/db/governance.db).
 """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -12,7 +13,14 @@ import os
 from pathlib import Path
 
 from sqlalchemy import (
-    Date, DateTime, Float, ForeignKey, Integer, String, Text, create_engine,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    create_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
@@ -213,10 +221,17 @@ class GovernanceAudit(Base):
 
 # Map evidence-table names (used by go_live_ticks.evidence_table) to model classes.
 TABLE_MODELS = {
-    "policies": Policy, "committees": Committee, "committee_minutes": CommitteeMinutes,
-    "approvals": Approval, "model_validations": ModelValidation, "vendors": Vendor,
-    "dpia": DPIA, "incidents": Incident, "security_reports": SecurityReport,
-    "uat_signoffs": UATSignoff, "operating_metrics": OperatingMetric,
+    "policies": Policy,
+    "committees": Committee,
+    "committee_minutes": CommitteeMinutes,
+    "approvals": Approval,
+    "model_validations": ModelValidation,
+    "vendors": Vendor,
+    "dpia": DPIA,
+    "incidents": Incident,
+    "security_reports": SecurityReport,
+    "uat_signoffs": UATSignoff,
+    "operating_metrics": OperatingMetric,
     "staffing_plans": StaffingPlan,
 }
 

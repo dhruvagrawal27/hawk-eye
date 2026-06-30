@@ -4,6 +4,7 @@ Adds the platform tool + service roots to sys.path so unit/contract/integration
 tests can import them without packaging. Each laptop adds its own tests under
 tests/<ws>/; this conftest only wires PLATFORM-owned import roots.
 """
+
 import sys
 from pathlib import Path
 
@@ -23,6 +24,7 @@ for p in (
     ROOT / "governance" / "db",
     ROOT / "governance" / "go-live",
     ROOT / "governance" / "rbac",
+    ROOT / "governance" / "validation",
     ROOT / "security" / "vuln-mgmt",
 ):
     sys.path.insert(0, str(p))

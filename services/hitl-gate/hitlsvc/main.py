@@ -16,6 +16,7 @@ Endpoints:
   POST /api/v1/classifications/{id}/decision     -> human approve/reject (alert-only)
   GET  /health, /metrics
 """
+
 from __future__ import annotations
 
 import time
@@ -41,13 +42,13 @@ class Classification(BaseModel):
     risk_score: int
     severity: str = "medium"
     reason_codes: list[dict] = []
-    proportionality: str               # why monitoring this signal is proportionate (Part 15/29.2)
-    explanation: str                   # human-readable why-it-flagged
+    proportionality: str  # why monitoring this signal is proportionate (Part 15/29.2)
+    explanation: str  # human-readable why-it-flagged
     model_version: str | None = None
 
 
 class Decision(BaseModel):
-    decision: str                      # approve | reject
+    decision: str  # approve | reject
     reviewer: str
     justification: str
 
@@ -58,7 +59,11 @@ def _dpia_signed_off() -> dict | None:
         s = models.get_session()
         dpia = s.query(models.DPIA).filter(models.DPIA.status == "approved").first()
         if dpia:
-            return {"dpia_id": dpia.id, "dpo": dpia.dpo, "approved": str(dpia.approval_date)}
+            return {
+                "dpia_id": dpia.id,
+                "dpo": dpia.dpo,
+                "approved": str(dpia.approval_date),
+            }
     except Exception:
         return None
     return None
@@ -74,26 +79,38 @@ def submit(c: Classification):
     dpia = _dpia_signed_off()
     if dpia is None:
         # Cannot process an employee classification without a DPIA sign-off (Part 28).
-        raise HTTPException(412, "no approved employee-monitoring DPIA sign-off; "
-                                 "cannot process classification (natural-justice binding)")
+        raise HTTPException(
+            412,
+            "no approved employee-monitoring DPIA sign-off; "
+            "cannot process classification (natural-justice binding)",
+        )
     cid = "cls_" + uuid.uuid4().hex[:10]
     CLASSIFICATIONS[cid] = {
         "classification_id": cid,
-        "status": "pending_review",          # held — never auto-acted (ALERT-ONLY)
+        "status": "pending_review",  # held — never auto-acted (ALERT-ONLY)
         "submitted_ts": time.time(),
         "dpia_binding": dpia,
-        "decision": None, "reviewer": None, "reviewed_ts": None,
+        "decision": None,
+        "reviewer": None,
+        "reviewed_ts": None,
         **c.model_dump(),
     }
-    PENDING.set(sum(1 for v in CLASSIFICATIONS.values() if v["status"] == "pending_review"))
-    return {"classification_id": cid, "status": "pending_review",
-            "message": "held for human review — no action taken (alert-only)",
-            "dpia_binding": dpia}
+    PENDING.set(
+        sum(1 for v in CLASSIFICATIONS.values() if v["status"] == "pending_review")
+    )
+    return {
+        "classification_id": cid,
+        "status": "pending_review",
+        "message": "held for human review — no action taken (alert-only)",
+        "dpia_binding": dpia,
+    }
 
 
 @app.get("/api/v1/classifications")
 def queue(status: str | None = "pending_review"):
-    items = [v for v in CLASSIFICATIONS.values() if status is None or v["status"] == status]
+    items = [
+        v for v in CLASSIFICATIONS.values() if status is None or v["status"] == status
+    ]
     return {"status": status, "count": len(items), "classifications": items}
 
 
@@ -117,17 +134,28 @@ def decide(cid: str, d: Decision):
     if not d.justification.strip():
         raise HTTPException(400, "a justification is required (natural justice)")
     # Even on approve: the OUTCOME is an alert/case raised for a human — never an auto-block.
-    c["status"] = "reviewed_confirmed" if d.decision == "approve" else "reviewed_dismissed"
+    c["status"] = (
+        "reviewed_confirmed" if d.decision == "approve" else "reviewed_dismissed"
+    )
     c["decision"] = d.decision
     c["reviewer"] = d.reviewer
     c["justification"] = d.justification
     c["reviewed_ts"] = time.time()
-    c["outcome"] = ("alert_raised_for_human_action" if d.decision == "approve"
-                    else "dismissed_false_positive")
+    c["outcome"] = (
+        "alert_raised_for_human_action"
+        if d.decision == "approve"
+        else "dismissed_false_positive"
+    )
     DECISIONS.labels(d.decision).inc()
-    PENDING.set(sum(1 for v in CLASSIFICATIONS.values() if v["status"] == "pending_review"))
-    return {"classification_id": cid, "status": c["status"], "outcome": c["outcome"],
-            "note": "alert-only: approval raises an alert for human action; money is never auto-blocked"}
+    PENDING.set(
+        sum(1 for v in CLASSIFICATIONS.values() if v["status"] == "pending_review")
+    )
+    return {
+        "classification_id": cid,
+        "status": c["status"],
+        "outcome": c["outcome"],
+        "note": "alert-only: approval raises an alert for human action; money is never auto-blocked",
+    }
 
 
 @app.get("/metrics")

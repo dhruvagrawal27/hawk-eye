@@ -8,6 +8,7 @@ Every read is audited (quis custodiet, Part 19.3 — even governance access is l
 Runs on SQLite (local/CI) or Postgres (compose, GOVERNANCE_DB_URL). Auto-seeds on first
 start if empty (AUTO_SEED=true) so the dashboard has data out of the box.
 """
+
 from __future__ import annotations
 
 import os
@@ -24,11 +25,17 @@ app = FastAPI(title="hawk-eye governance-api", version="1.0.0")
 READS = Counter("governance_reads_total", "governance record reads", ["resource"])
 
 ARTIFACTS = {
-    "policies": models.Policy, "committees": models.Committee, "vendors": models.Vendor,
-    "validations": models.ModelValidation, "dpia": models.DPIA,
-    "security-reports": models.SecurityReport, "approvals": models.Approval,
-    "incidents": models.Incident, "operating-metrics": models.OperatingMetric,
-    "staffing": models.StaffingPlan, "uat": models.UATSignoff,
+    "policies": models.Policy,
+    "committees": models.Committee,
+    "vendors": models.Vendor,
+    "validations": models.ModelValidation,
+    "dpia": models.DPIA,
+    "security-reports": models.SecurityReport,
+    "approvals": models.Approval,
+    "incidents": models.Incident,
+    "operating-metrics": models.OperatingMetric,
+    "staffing": models.StaffingPlan,
+    "uat": models.UATSignoff,
 }
 
 
@@ -49,6 +56,7 @@ def _startup():
         if s.query(models.GoLiveTick).count() == 0:
             try:
                 import seed
+
                 seed.main()
             except Exception:
                 pass
@@ -62,7 +70,12 @@ def health():
 @app.get("/api/v1/governance/committees/{committee_id}/minutes")
 def committee_minutes(committee_id: int):
     s = models.get_session()
-    rows = [_row(o) for o in s.query(models.CommitteeMinutes).filter_by(committee_id=committee_id).all()]
+    rows = [
+        _row(o)
+        for o in s.query(models.CommitteeMinutes)
+        .filter_by(committee_id=committee_id)
+        .all()
+    ]
     return {"committee_id": committee_id, "minutes": rows}
 
 
@@ -70,7 +83,9 @@ def committee_minutes(committee_id: int):
 def approval_queue():
     """PLATFORM-35: pending approvals awaiting a committee decision."""
     s = models.get_session()
-    rows = [_row(o) for o in s.query(models.Approval).filter_by(decision="pending").all()]
+    rows = [
+        _row(o) for o in s.query(models.Approval).filter_by(decision="pending").all()
+    ]
     return {"pending": rows, "count": len(rows)}
 
 
@@ -79,17 +94,22 @@ def board_pack():
     """PLATFORM-35: board/SCBMF-pack rollup across the inventory."""
     s = models.get_session()
     return {
-        "models_validated": s.query(models.ModelValidation).filter_by(signoff_status="signed_off").count(),
+        "models_validated": s.query(models.ModelValidation)
+        .filter_by(signoff_status="signed_off")
+        .count(),
         "approvals": s.query(models.Approval).filter_by(decision="approved").count(),
         "open_incidents": s.query(models.Incident).filter_by(status="open").count(),
-        "vapt_passed": s.query(models.SecurityReport).filter_by(report_type="vapt", status="passed").count() > 0,
+        "vapt_passed": s.query(models.SecurityReport)
+        .filter_by(report_type="vapt", status="passed")
+        .count()
+        > 0,
         "vendors_assessed": s.query(models.Vendor).count(),
         "committees": s.query(models.Committee).count(),
     }
 
 
 class IncidentForm(BaseModel):
-    incident_type: str = "ai_model"   # ai_model | cyber | personal_data_breach
+    incident_type: str = "ai_model"  # ai_model | cyber | personal_data_breach
     severity: str = "medium"
     description: str
     model_version: str | None = None
@@ -113,8 +133,10 @@ def get_artifacts(artifact_type: str, request: Request):
     # Declared AFTER the specific /governance/* routes so it doesn't shadow them.
     model = ARTIFACTS.get(artifact_type)
     if model is None:
-        raise HTTPException(404, f"unknown artifact_type '{artifact_type}'. "
-                                 f"Try: {', '.join(ARTIFACTS)}")
+        raise HTTPException(
+            404,
+            f"unknown artifact_type '{artifact_type}'. " f"Try: {', '.join(ARTIFACTS)}",
+        )
     s = models.get_session()
     rows = [_row(o) for o in s.query(model).all()]
     actor = request.headers.get("x-user", "dashboard")
