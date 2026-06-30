@@ -2,6 +2,8 @@
 
 The data backbone: L0 unified event model, synthetic agent-based simulator, streaming/feature substrate, source connectors (mock), the full feature catalogue (Part 6), dataset & label sourcing, and data governance/quality/lineage. **Local-first, synthetic-only, alert-only.**
 
+> 📖 **New here / want to explain the data?** Read **[`docs/DATASET.md`](docs/DATASET.md)** — a from-zero explainer of the dataset and the L0 schema (what it is, where it lives, how to access it, the 12 fraud typologies, the labels, the public datasets, real numbers, and an FAQ).
+
 ## Run it
 ```bash
 # from repo root — no third-party install needed beyond numpy/pandas/pyarrow
