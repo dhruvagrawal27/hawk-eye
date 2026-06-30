@@ -7,7 +7,9 @@ from app.routes import (
     alert_routes,
     audit_routes,
     auth_routes,
+    case_routes,
     compliance_routes,
+    coverage_routes,
     disposition_routes,
     entity_routes,
     events_routes,
@@ -34,6 +36,8 @@ for module in (
     audit_routes,
     admin_routes,
     report_routes,
+    coverage_routes,
+    case_routes,
     compliance_routes,
     events_routes,
 ):
