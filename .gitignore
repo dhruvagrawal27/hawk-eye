@@ -42,3 +42,19 @@ secrets/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# --- PLATFORM (Laptop 06) re-includes: keep committed example/config that broad rules above catch ---
+!.env.example
+!deploy/secrets/
+!deploy/secrets/**
+!ci/security/sbom/.gitkeep
+# real generated dev material stays ignored:
+deploy/mtls/**/*.key
+deploy/mtls/**/*.pem
+deploy/hsm/softhsm/tokens/
+ci/security/reports/
+tests/**/node_modules/
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log

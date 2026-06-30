@@ -37,8 +37,8 @@
 - [ ] M5 Encryption-at-rest config + DDL versioning
 
 ## 6. 🏗️ PLATFORM (41 tasks — see prompts/06_PLATFORM.md)
-- [ ] M1 docker-compose walking skeleton + service map + env/secrets
-- [ ] M2 Terraform (AWS ap-south-1 + on-prem) + K8s manifests
+- [~] M1 docker-compose walking skeleton + service map + env/secrets — BOM + Makefile + compose entrypoint + ports map done; core/app compose + topology + sizing in progress
+- [ ] M2 Terraform (AWS ap-south-1 + on-prem + **Lightsail**) + K8s manifests — *deviation: Lightsail is now the pilot deploy target (ADR-0001, CONTEXT.md log)*
 - [ ] M3 Security: network/zero-trust, secrets/KMS/HSM(mock), tokenization-egress, TEE-attestation(mock), adversarial-ML/VAPT(mock)
 - [ ] M4 Reliability: HA/DR/BCP, observability (Prom/Grafana/OTel), CI/CD, test harness
 - [ ] M5 Governance MOCKS (24 items): policies, committees, DPIA, model-risk/validation, fairness program, operating model, go-live checklist

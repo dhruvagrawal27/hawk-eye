@@ -1,0 +1,28 @@
+# Hawk-Eye platform-service + tooling Python deps (PLATFORM / Laptop 06).
+# Versions mirror deploy/versions.bom.yaml :: python_deps. Pin exactly (Part 24.3 / 19.5).
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+pydantic==2.10.4
+pydantic-settings==2.7.0
+psycopg2-binary==2.9.10
+sqlalchemy==2.0.36
+httpx==0.28.1
+cryptography==44.0.0
+pyjwt==2.10.1
+python-jose==3.3.0
+prometheus-client==0.21.1
+opentelemetry-sdk==1.29.0
+opentelemetry-exporter-otlp==1.29.0
+opentelemetry-api==1.29.0
+python-pkcs11==0.7.0
+jinja2==3.1.5
+pyyaml==6.0.2
+confluent-kafka==2.6.1
+redis==5.2.1
+clickhouse-connect==0.8.11
+weasyprint==63.1
+markdown==3.7
+pytest==8.3.4
+ruff==0.8.4
+black==24.10.0
+mypy==1.14.0

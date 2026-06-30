@@ -3,25 +3,37 @@
 > Your **own** file. Record decisions, files created, blueprint validations, deviations, and blockers. Update every session. Read `CONTEXT.md`, `BACKEND.md`, `TODO.md` first; append cross-cutting decisions to `CONTEXT.md`. You maintain the **service map / ports / env / secrets** section of `CONTEXT.md`. Full brief: [prompts/06_PLATFORM.md](../../prompts/06_PLATFORM.md).
 
 ## Status
-- Branch: `hawk-eye/platform` · Owns: `platform/`, `infra/`, `.github/`, root `docker-compose.yml`, `tests/` harness
+- Branch: `hawk-eye/platform` · Owns: `platform/`, `infra/`, `.github/`, root `docker-compose.yml`, `tests/` harness, `deploy/`, `observability/`, `security/`, `governance/`, `ops/`, `ci/`, `tools/`, `services/`
+- Milestone progress: **M1 in progress** (foundation done).
 
 ## Decisions
--
+- **DEV-001 (deviation): Deployment target = AWS Lightsail** for the pilot/demo, overriding the blueprint Part 26 default of EC2-in-VPC. Documented in `docs/adr/ADR-0001-ec2-in-vpc.md` and CONTEXT.md integration log. EC2-in-VPC + on-prem paths retained. Terraform `target = aws | onprem | lightsail`.
+- **DEC-001 BOM as source of truth.** `deploy/versions.bom.yaml` holds every Part 24.3 pin + tooling; `tools/bom_to_env.py` generates `deploy/compose/.env`; CI `bom-drift` enforces. No hardcoded image tags elsewhere.
+- **DEC-002 Compose layering.** Root `docker-compose.yml` `include:`s `core` (data infra), `app` (serving/identity/observability), `platform` (PLATFORM services). `make up|core-up|app-up`.
+- **DEC-003 Serving stub.** Local serving = a CPU FastAPI stub implementing the KServe/Triton **v2 inference protocol** on :8001 with a dummy ONNX model, so the topology validates without GPU Triton. ML swaps the real Triton image (BOM `stack.triton`).
+- **DEC-004 Ports.** Added 13 new platform ports to CONTEXT.md §7 (schema-registry 8085, Flink 8081, Airflow 8088, Alertmanager 9093, OTel 4317/4318/8889, Vault 8200, TEE 8090, PAM 8091, degradation 8092, governance-api 8093, hitl 8094, ArgoCD 8083).
+- **DEC-005 Governance DB.** Separate logical DB `governance` on the shared Postgres; PLATFORM owns its schema (`governance/db/schema.sql`); served read-only via `governance-api`.
 
 ## Files created
--
+- `deploy/versions.bom.yaml` (BOM, PLATFORM-1), `tools/bom_to_env.py`, `deploy/compose/.env` (generated)
+- root `Makefile` (PLATFORM-1), root `docker-compose.yml` (include wrapper)
+- `.env.example`, `tools/requirements.txt`
+- `.gitignore` PLATFORM re-includes (keep `.env.example`, `deploy/secrets/`)
+- Full owned directory skeleton (`deploy/ infra/ observability/ security/ governance/ ops/ ci/ tools/ tests/ docs/`)
 
 ## Blueprint validation (Part → task → ✓)
--
+- **Part 24.3 → PLATFORM-1**: BOM lists every pinned component from the Part 24.3 table (verified line-by-line) + the platform DevSecOps tooling. ✓
+- **Part 17.C → PLATFORM-1**: `make help` exposes up/down/core-up/app-up/topology-smoke/lint/test/tf-plan/sbom/scan/dr-drill/seed-governance/go-live + more. ✓ (targets defined; underlying scripts land per-milestone)
 
 ## MOCK artifacts produced (the 24 human/legal/hardware items)
--
+- (none yet — M5)
 
 ## Deviations / assumptions
--
+- **Lightsail deployment** (DEV-001 above) — the one substantive deviation; everything else tracks the blueprint.
+- Local toolchain present: docker compose v5, python 3.12 + pyyaml, node 23, openssl, jq. **Absent locally:** terraform, helm, conftest → those validate in CI (syntactically authored, `terraform validate`/`helm lint`/`conftest` run in `.github/workflows`).
 
 ## Blockers (mirror in TODO.md §7 + CONTEXT.md)
--
+- (none) — other laptops' artifacts are stubbed per §3 stub rules until they ship.
 
 ## Session log (newest first)
--
+- **2026-06-30 S1** — Read all coordination files + every cited blueprint Part (8,9,12,13,15,16,19,24.3,25-34). Created branch `hawk-eye/platform`. Built foundation: BOM, Makefile, root compose, .env, dir skeleton. Updated CONTEXT.md (ports table + 4 log entries incl. Lightsail deviation + BACKEND proposals), TODO.md §6, this log. Next: M1 core/app/platform compose + topology + degradation switch + sizing.
