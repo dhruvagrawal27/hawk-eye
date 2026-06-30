@@ -92,8 +92,13 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - name: Invoke ML's behavioral/fairness suite if present
+        # Install the real ML stack (not platform deps — those lack numpy/torch/lightgbm) and use
+        # ML's per-file runner, which isolates each test file in its own process (torch/LightGBM
+        # libomp safety + robustness). torch_geometric-dependent tests skip cleanly if PyG is absent.
         run: |
-          if [ -d tests/ml ]; then pip install -r tools/requirements.txt; python -m pytest tests/ml -q; \
+          if [ -d tests/ml ]; then \
+            pip install -e 'ml/[all]' pytest; \
+            python -m ml.tests.run; \
           else echo "tests/ml not present yet (ML laptop owns it) — gate wired, skipping"; fi
 
   security:
