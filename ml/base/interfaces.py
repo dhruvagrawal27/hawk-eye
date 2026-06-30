@@ -77,19 +77,20 @@ class ReasonCode:
 
 
 class Severity(str, Enum):
+    # The wire contract (BACKEND.md §2) is exactly {low, medium, high} — alerts that leave the
+    # perimeter MUST use one of these so BACKEND's Severity enum never rejects an ML alert.
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
-    CRITICAL = "critical"
 
 
 def severity_from_score(risk_score: float) -> Severity:
-    """Map a 0-100 calibrated risk score to a severity band.
+    """Map a 0-100 calibrated risk score to a severity band (BACKEND.md §2: low|medium|high).
 
-    Bands chosen so the BACKEND.md §2 worked example (risk_score 87 -> 'high') holds.
+    Bands chosen so the BACKEND.md §2 worked example (risk_score 87 -> 'high') holds. There is
+    intentionally NO 'critical' band — the contract is three levels; intensity above 'high' is
+    carried by the calibrated risk_score (0-100) + confidence, not a 4th severity label.
     """
-    if risk_score >= 90:
-        return Severity.CRITICAL
     if risk_score >= 70:
         return Severity.HIGH
     if risk_score >= 40:

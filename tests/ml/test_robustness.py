@@ -431,7 +431,9 @@ def test_extraction_pattern_detection_fires():
 def test_band_score_coarsens_raw_probability():
     """Banding discards the fine-grained probability membership-inference would need."""
     assert band_score(0.05).band == "low"
-    assert band_score(0.95).band == "critical"
+    assert (
+        band_score(0.95).band == "high"
+    )  # BACKEND.md §2: top band is 'high' (no 'critical')
     # Two distinct raw scores in the same band are indistinguishable to the caller.
     assert band_score(0.10).band == band_score(0.30).band
 
