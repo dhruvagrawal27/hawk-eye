@@ -100,18 +100,21 @@ jobs:
       - uses: actions/checkout@v4
       - name: Prepare output dirs
         run: mkdir -p ci/security/sbom ci/security/reports
-      - name: Syft SBOM (SPDX + CycloneDX)
+      - name: Syft SBOM (SPDX + CycloneDX) — pinned binary, report-only
         continue-on-error: true
-        uses: anchore/sbom-action@v0
-        with: { format: spdx-json, output-file: ci/security/sbom/sbom.spdx.json }
-      - name: Grype CVE scan (report-only)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin v1.18.1 || true
+          syft dir:. -o spdx-json=ci/security/sbom/sbom.spdx.json -o cyclonedx-json=ci/security/sbom/sbom.cdx.json || true
+      - name: Grype CVE scan — pinned binary, report-only
         continue-on-error: true
-        uses: anchore/scan-action@v4
-        with: { path: ".", fail-build: "false", severity-cutoff: "high", output-format: "table" }
-      - name: Trivy IaC/config scan (report-only)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin v0.86.1 || true
+          grype dir:. -o table || true
+      - name: Trivy IaC/config scan — pinned binary, report-only
         continue-on-error: true
-        uses: aquasecurity/trivy-action@0.28.0
-        with: { scan-type: "config", scan-ref: "infra/terraform", format: "table", exit-code: "0" }
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.58.1 || true
+          trivy config infra/terraform deploy/k8s --exit-code 0 || true
       - name: gitleaks secrets scan (pinned binary, report-only)
         continue-on-error: true
         run: |
