@@ -7,6 +7,8 @@ import { queryKeys } from '@/lib/queryKeys'
 import type { Alert } from '@/lib/types'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { AlertHeader } from '@/components/AlertHeader'
+import { LayerWaterfall } from '@/components/LayerWaterfall'
+import { FusionSankey } from '@/components/FusionSankey'
 import { Entity360Timeline } from '@/components/Entity360Timeline'
 import { AlertHeatmap } from '@/components/AlertHeatmap'
 import { ScoreOverTime } from '@/components/ScoreOverTime'
@@ -83,6 +85,14 @@ function AlertDetailBody({ alert }: { alert: Alert }) {
   return (
     <div className="space-y-4">
       <AlertHeader alert={alert} />
+
+      {/* Six-layer detection fusion — the headline "how this score was built" across L1→L6
+          (our differentiator vs a 3-stream blend): the waterfall decomposes it, the Sankey shows
+          the layers merging into the fused score. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <LayerWaterfall alert={alert} />
+        <FusionSankey alert={alert} />
+      </div>
 
       {/* Natural-justice posture — set expectations before any action is taken. */}
       <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
