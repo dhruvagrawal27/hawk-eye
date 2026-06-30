@@ -2,7 +2,7 @@
 
 > Each laptop keeps its own section current (`[ ]` todo, `[~]` in-progress, `[x]` done, `[!]` blocked). Task IDs and the full task lists live in [`BUILD_PLAN.md`](BUILD_PLAN.md) and in each laptop's prompt under `prompts/`. **A task is `[x]` only when its blueprint requirement is validated.** Put cross-laptop blockers in §7.
 
-## 1. 📥 DATA (28 tasks — see prompts/01_DATA.md) — **M1–M5 built & tested (90/90), branch hawk-eye/data**
+## 1. 📥 DATA (28 tasks — see prompts/01_DATA.md) — **M1–M5 built, tested & VERIFIED (28/28 tasks, 97/97 tests), branch hawk-eye/data**
 - [x] M1 Foundations: L0 schema (+avsc/sample), schema registry, Kafka(topics+clients), Flink(window job), normalizer, Feast+Redis (pure-python fallbacks for infra)
 - [x] M2 Simulator + public datasets: 12-typology red-team library (8 fast + 4 slow), ground-truth labels, worked burst, augmentation, 6 dataset loaders
 - [x] M3 Source connectors (SCAFFOLD: CBS/payments/IAM-PAM/DLP-DBaudit/HR-IGA/real-telemetry + mock fixtures) + reliability/dedupe/DLQ/count-recon + [x] SWIFT↔CBS recon (REAL)

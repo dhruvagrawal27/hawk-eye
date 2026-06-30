@@ -38,8 +38,8 @@ TS_COL = "context.ts"
 def _to_epoch_days(ts: pd.Series) -> pd.Series:
     """Parse ISO-8601 (`...Z`) timestamps to float days since epoch (UTC)."""
     dt = pd.to_datetime(ts, utc=True, errors="coerce")
-    # nanoseconds -> days
-    return dt.view("int64") / 1e9 / 86400.0
+    # nanoseconds -> days (astype int64 on datetime64[ns]; view() is deprecated)
+    return dt.astype("int64") / 1e9 / 86400.0
 
 
 def _decay_weights(epoch_days: pd.Series, halflife_days: float) -> np.ndarray:

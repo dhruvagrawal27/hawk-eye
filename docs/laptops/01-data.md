@@ -3,7 +3,13 @@
 > Full brief: [prompts/01_DATA.md](../../prompts/01_DATA.md). Branch `hawk-eye/data`, owns `data/`.
 
 ## Status (2026-06-30)
-**M1–M5 implemented & tested. 100 modules, `python -m data.tests.run` → 90 passed / 0 failed.** Simulator runs end-to-end emitting all 12 typologies (8 fast + 4 slow), both lanes, deterministic.
+**M1–M5 implemented, tested & VERIFIED. `python -m data.tests.run` → 97 passed / 0 failed** (clean even with `-W error::FutureWarning`). All **28/28 DATA tasks acceptance-verified** task-by-task (M1 13 spot-checks, M2–M5 28 spot-checks, 7 live behavioural checks, DATA-28 Phase-0 capstone). Simulator runs end-to-end emitting all 12 typologies (8 fast + 4 slow), deterministic.
+
+### Verification pass — gaps found & fixed
+- **DATA-1:** `l0_event.proto` was missing → **added** (`data/schemas/l0_event.proto`, all 5 field-group messages, parity-tested vs BACKEND.md §1).
+- **DATA-17:** source-onboarding playbook + status tracker were missing → **added** (`data/docs/source_onboarding_playbook.md` with the 8 stages + `data/ingest/onboarding_status.py` dashboard).
+- **DATA-22:** the online==offline parity test was only described, not asserted → **added** real parity test (`data/tests/test_parity.py`: materialize→online read == offline `get_historical_features`).
+- **Hygiene:** added `data/requirements.txt`, `data/tests/test_deliverables.py` (gap guard), fixed a `Series.view` pandas deprecation in `features/baselines.py`.
 
 ## Decisions (with blueprint Part)
 - **L0 schema (DATA-1, Part 5.1):** stdlib dataclasses (no pydantic dep) in `data/schemas/l0_event.py`; five field groups Actor/Action/Object/Context/Linkage; matches `BACKEND.md` §1 field-for-field; `.avsc` + `sample_event.json` generated from source.
@@ -42,4 +48,5 @@
 M1 DATA-1..6 ✓REAL · M2 DATA-7..12 ✓REAL · M3 DATA-13/14/15/18 SCAFFOLD, DATA-16/17 ✓REAL · M4 DATA-19..22 ✓REAL · M5 DATA-23 MOCK(EDD stub), DATA-24/25/26/27 ✓REAL, DATA-28 ✓REAL (sim→features path green).
 
 ## Session log (newest first)
+- **2026-06-30 (verify)** — Task-by-task verification of all 28 DATA tasks vs acceptance checks. Found+fixed 3 deliverable gaps (l0_event.proto, onboarding playbook+tracker, online/offline parity test) + requirements.txt + deliverables test + pandas deprecation. Suite 90→97 green (clean under `-W error::FutureWarning`). All acceptance criteria spot-checked or live-called (recon fire/quiet, EDD §5 ingest, splits temporal/leaky, catalog covers every L0 field, Phase-0 capstone sim→features). Pushed.
 - **2026-06-30** — Built core (L0 schema/config/eventbus) + fanned out 6 module areas (sim/features/ingest/connectors/datasets/governance). Full suite 90/90 green; simulator emits 12/12 typologies both lanes; worked burst reproduces the INR 48,00,000 approval. Committed on `hawk-eye/data`.
