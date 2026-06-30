@@ -8,11 +8,11 @@ import {
   ConfidenceMeter,
   ContributingLayers,
   PiiTokenizedBadge,
-  RiskScore,
   SeverityBadge,
   StatusBadge,
 } from '@/components/badges'
 import { Card } from '@/components/ui/card'
+import { ScoreGauge } from '@/components/ui/score-gauge'
 import { Separator } from '@/components/ui/separator'
 
 /**
@@ -29,7 +29,7 @@ export function AlertHeader({ alert }: { alert: Alert }) {
     <Card className="overflow-hidden">
       {/* Top band: score + identity + live SLA */}
       <div className="flex flex-wrap items-start gap-4 p-4">
-        <RiskScore score={alert.risk_score} size="lg" />
+        <ScoreGauge score={alert.risk_score} size="md" label="risk" />
 
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">

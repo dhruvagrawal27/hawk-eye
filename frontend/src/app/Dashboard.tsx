@@ -8,6 +8,8 @@ import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/PageHeader'
+import { LiveEventTape } from '@/components/realtime/LiveEventTape'
+import { EventRateChart } from '@/components/charts/EventRateChart'
 import { slaInfo, severityRank } from '@/lib/format'
 
 /** Role-aware landing. Greets the user, surfaces their permitted screens, and (for triage roles)
@@ -62,6 +64,14 @@ export function Dashboard() {
           />
         </div>
       ) : null}
+
+      {/* Live operations — realtime event tape + ingestion rate (study Phase 1). */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <LiveEventTape height={340} />
+        </div>
+        <EventRateChart height={120} />
+      </div>
 
       <div>
         <h2 className="mb-2 text-sm font-medium text-muted-foreground">Your screens</h2>

@@ -31,6 +31,10 @@ export const env = {
   },
   /** Grafana 11.x ops dashboards, embedded in the Admin view (FRONTEND-13). */
   grafanaUrl: import.meta.env.VITE_GRAFANA_URL ?? 'http://localhost:3000',
+  /** Realtime stream endpoint (used by WsRealtimeSource once the backend exposes /ws). */
+  wsBaseUrl:
+    import.meta.env.VITE_WS_BASE_URL ??
+    `${window.location.origin.replace(/^http/, 'ws')}/ws/alerts`,
   /** Idle auto-logout window (FRONTEND-2 session controls). */
   idleTimeoutMinutes: readNumber(import.meta.env.VITE_IDLE_TIMEOUT_MINUTES, 15),
   mode: import.meta.env.MODE,

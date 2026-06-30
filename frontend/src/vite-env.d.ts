@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_OIDC_POST_LOGOUT_REDIRECT_URI?: string
   readonly VITE_OIDC_SCOPE?: string
   readonly VITE_GRAFANA_URL?: string
+  readonly VITE_WS_BASE_URL?: string
   readonly VITE_IDLE_TIMEOUT_MINUTES?: string
 }
 
