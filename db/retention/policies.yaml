@@ -1,0 +1,137 @@
+# =============================================================================
+# Hawk-Eye — Retention & archival tiering policy (DATABASE-9)
+# Blueprint: Part 28.2 (tiered hot ClickHouse -> cold object store -> archive,
+#            aligned to DPDP retention + RBI record-keeping; classification drives
+#            retention, l.1203, 1208); Part 9.3 (data minimization + retention
+#            limits aligned to RBI, l.363); Part 23.3 (lifecycle archives old
+#            model versions, l.865).
+# -----------------------------------------------------------------------------
+# Windows are keyed to DATA CLASSIFICATION (Part 28.2): pii/pan/sensitive vs
+# operational. Confirmed-fraud cases + their audit/evidence get a FRAUD CARVE-OUT
+# (held far longer for investigation + regulator). The retention job NEVER expires
+# an object-lock/WORM object below its lock period — it refuses and logs.
+#
+# Tiers: hot (ClickHouse SSD) -> cold (object store) -> archive (object store) -> expire.
+# All windows are parameters; adjust to the bank's final DPDP/RBI legal opinion.
+# =============================================================================
+
+meta:
+  version: "1.0.0"
+  owner: DATABASE
+  rationale: >
+    DPDP Act 2023 requires data minimization + purpose-limited retention; RBI
+    record-keeping (e.g. fraud monitoring, KYC, audit trail) requires multi-year
+    holds. Operational telemetry ages out fast; PII/PAN is minimized; fraud
+    evidence + audit is held longest. Object-lock periods are floors, never
+    shortened (regulator-grade immutability, Part 9.3 / 19.3).
+
+# ---- classification → base handling (Part 28.2) -----------------------------
+classifications:
+  pii:        { mask: true,  describe: "personal identifiers (tokenized in-store)" }
+  pan:        { mask: true,  describe: "primary account numbers (tokenized)" }
+  sensitive:  { mask: true,  describe: "financial/behavioural sensitive" }
+  operational: { mask: false, describe: "system/operational telemetry" }
+
+# ---- per-store retention windows --------------------------------------------
+stores:
+
+  clickhouse:
+    # hot->cold->archive->expire (days). TTL-MOVE in DDL handles hot->cold->archive;
+    # the job applies/forces moves and drops expired partitions (operational only).
+    tables:
+      events:
+        classification: sensitive
+        hot_days: 30
+        cold_days: 365          # move to archive after 365d
+        archive_days: 1825      # 5y total before expire-eligible (operational events)
+        expire: true
+      scores:
+        classification: operational
+        hot_days: 30
+        cold_days: 365
+        archive_days: 1825
+        expire: true
+      alerts:
+        classification: sensitive
+        hot_days: 30
+        cold_days: 365
+        archive_days: 2920      # 8y (RBI fraud record-keeping)
+        expire: false           # alerts are evidence; do not auto-expire
+      dispositions:
+        classification: sensitive
+        hot_days: 30
+        cold_days: 365
+        archive_days: 3650      # 10y; fraud carve-out extends (below)
+        expire: false
+      feature_backfill:
+        classification: operational
+        hot_days: 30
+        cold_days: 180
+        archive_days: 1095      # 3y
+        expire: true
+      report_outputs:
+        classification: sensitive
+        hot_days: 90
+        cold_days: 730
+        archive_days: 3650      # 10y regulatory
+        expire: false
+
+  object_store:
+    # MinIO lifecycle rules (transition + expiration). Object-lock buckets honor
+    # the lock: expiration NEVER precedes the lock period.
+    buckets:
+      models:
+        classification: operational
+        object_lock: true
+        lock_days: 30
+        transition_archive_days: 365   # old versions -> archive tier (Part 23.3)
+        expire_noncurrent_days: 1825   # expire NON-current versions after 5y
+      datasets:
+        classification: sensitive
+        object_lock: false
+        transition_archive_days: 365
+        expire_days: 2555              # 7y (curated training sets / lineage)
+      feature-snapshots:
+        classification: operational
+        object_lock: false
+        transition_archive_days: 180
+        expire_days: 1095              # 3y
+      audit-archive:
+        classification: sensitive
+        object_lock: true
+        lock_days: 3650               # 10y WORM hold (DPDP/RBI audit)
+        transition_archive_days: 365  # age to archive tier but REMAIN immutable
+        expire_days: null             # never auto-expire audit (regulator-grade)
+
+  postgres:
+    # App/metadata DB. Closed cases age to cold export then archive; PII vault is
+    # retained per legal hold (BACKEND owns the write path/key).
+    tables:
+      cases:        { classification: sensitive,  retain_days: 2920, fraud_carveout: true }
+      case_notes:   { classification: sensitive,  retain_days: 2920, fraud_carveout: true }
+      case_history: { classification: sensitive,  retain_days: 3650, fraud_carveout: true }
+      alerts_metadata: { classification: sensitive, retain_days: 2920 }
+      model_governance: { classification: operational, retain_days: 3650 }
+      approvals:    { classification: operational, retain_days: 3650 }
+      pii_vault:    { classification: pii, retain_days: null, legal_hold: true }  # held per DPDP erasure/retention legal basis
+
+# ---- fraud carve-out (longer hold for confirmed-fraud) ----------------------
+fraud_carveout:
+  applies_when: "disposition.outcome == 'fraud'"   # confirmed_fraud
+  # Confirmed-fraud cases + their audit/evidence are held much longer than the
+  # default sensitive window (investigation continuity + regulator + litigation).
+  min_retain_days: 5475        # 15y
+  covers:
+    - clickhouse.alerts          # alerts tied to confirmed-fraud entities
+    - clickhouse.dispositions    # the fraud disposition rows
+    - postgres.cases             # the case + notes + history
+    - object_store.audit-archive # the sealed audit trail (already immutable)
+  note: >
+    The job extends (never shortens) retention for rows/objects linked to a
+    confirmed-fraud disposition. Object-lock objects are already immutable; the
+    carve-out only ever LENGTHENS a lock, never shortens it.
+
+# ---- WORM safety invariant (hard rule) --------------------------------------
+worm_invariant:
+  rule: "never expire or shorten an object-lock object below its lock period"
+  on_violation: "refuse + log"     # the job raises and logs; it never bypasses lock
