@@ -8,21 +8,25 @@ from __future__ import annotations
 
 import os
 import random
+import sys
 from typing import Optional
 
 import numpy as np
-
-from ml._optional import optional_import
 
 GLOBAL_SEED = 1405  # matches DATA's SimConfig.seed (CONTEXT.md) for cross-workstream parity
 
 
 def seed_everything(seed: int = GLOBAL_SEED, *, deterministic_torch: bool = True) -> int:
-    """Seed Python, numpy, and (if present) torch. Returns the seed used."""
+    """Seed Python, numpy, and torch (ONLY if torch is already loaded). Returns the seed used.
+
+    Critically we do NOT force-import torch here: that would co-load torch + LightGBM into one
+    process and segfault on macOS. torch-using modules (L2 AE, L4/L5 deep, transfer) call
+    seed_everything() inside their fit() AFTER importing torch, so torch is seeded when it matters.
+    """
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
-    torch = optional_import("torch")
+    torch = sys.modules.get("torch")  # seed torch only if it's already imported (don't force-load)
     if torch is not None:
         torch.manual_seed(seed)
         if torch.cuda.is_available():  # pragma: no cover - no GPU in CI

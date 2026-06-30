@@ -15,6 +15,7 @@ Usage::
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import os
 from types import ModuleType
 from typing import Optional
@@ -65,9 +66,24 @@ def optional_import(name: str) -> Optional[ModuleType]:
     return mod
 
 
+_has_cache: dict[str, bool] = {}
+
+
 def has(name: str) -> bool:
-    """True iff the optional dependency is importable."""
-    return optional_import(name) is not None
+    """True iff the optional dependency is INSTALLED — checked WITHOUT importing it.
+
+    Uses ``importlib.util.find_spec`` so probing ``HAS_TORCH`` does not actually load torch
+    (which would force torch + LightGBM to co-load and segfault on macOS). The real import
+    happens lazily via ``optional_import``/``require`` only when a method actually uses the lib.
+    """
+    if name in _has_cache:
+        return _has_cache[name]
+    try:
+        result = importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError, ModuleNotFoundError):
+        result = False
+    _has_cache[name] = result
+    return result
 
 
 def require(name: str, *, reason: str = "") -> ModuleType:
