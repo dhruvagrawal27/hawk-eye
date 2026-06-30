@@ -47,7 +47,9 @@ def temporal_split(
 
 def _sortable(s: pd.Series) -> np.ndarray:
     """Coerce a timestamp-ish column to a sortable numeric/datetime array."""
-    if np.issubdtype(s.dtype, np.number):
+    # Use pandas' dtype check (not np.issubdtype): pandas 3.0 string columns are the
+    # extension StringDtype, which np.issubdtype cannot interpret.
+    if pd.api.types.is_numeric_dtype(s):
         return s.to_numpy()
     try:
         return pd.to_datetime(s, utc=True, errors="raise").astype("int64").to_numpy()

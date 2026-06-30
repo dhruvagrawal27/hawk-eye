@@ -55,6 +55,9 @@ The L0 event JSON, the L6 alert JSON, the API route table, RBAC roles, and the s
 ## 8. INTEGRATION LOG — append below (newest first)
 > Format: `### YYYY-MM-DD — [WS] — title` then a short note. Append; never overwrite.
 
+### 2026-06-30 — [DATA] — pandas 3.0 compatibility (affects all laptops using pandas)
+DATA tests now pass on **both pandas 2.2.1 and 3.0.3** (100/100). Heads-up for everyone: pandas 3.0 makes string columns the extension `StringDtype`, so **`np.issubdtype(series.dtype, np.number)` raises `TypeError`** — use **`pd.api.types.is_numeric_dtype(series)`** instead. (Fixed in `data/datasets/splits.py`; regression test in `data/tests/test_pandas3_compat.py`.)
+
 ### 2026-06-30 — [DATA] — DATA verified 28/28 tasks; proto + parity added
 Task-by-task acceptance verification passed; suite 97/97. Added `data/schemas/l0_event.proto` (Kafka/Flink serdes mirror of the L0 dataclass — consumers can codegen from it) and a proven **online==offline feature parity** test (no train/serve skew). Source-onboarding playbook + status tracker added (`data/docs/source_onboarding_playbook.md`, `data/ingest/onboarding_status.py`). No contract changes — L0 fields unchanged.
 
