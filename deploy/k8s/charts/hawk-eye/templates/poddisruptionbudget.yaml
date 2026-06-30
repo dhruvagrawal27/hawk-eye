@@ -1,0 +1,33 @@
+{{/*
+=============================================================================
+Hawk-Eye — PodDisruptionBudget per workload (HA / continuity).
+Blueprint: Part 30.1 (HA / graceful degradation / BCP) · Part 9.3 (resilience).
+PLATFORM task: PLATFORM-9.
+-----------------------------------------------------------------------------
+A PDB caps voluntary disruptions (node drains, rolling upgrades) so a quorum of
+each workload stays up. policy/v1 is GA on k8s 1.31. PDBs only render where
+enabled AND replicas > 1 (a minAvailable >= replicas would block all drains,
+so single-replica dev infra is skipped to avoid wedging node maintenance).
+=============================================================================
+*/}}
+{{- $root := . -}}
+{{- range $name, $wl := .Values.workloads }}
+{{- $replicas := $wl.replicas | default $root.Values.defaults.replicaCount }}
+{{- $pdb := $wl.pdb | default $root.Values.defaults.pdb }}
+{{- $tier := $wl.tier | default "app" }}
+{{- if and $pdb.enabled (gt (int $replicas) 1) }}
+{{- $sctx := dict "ctx" $root "name" $name }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "hawk-eye.workloadName" (dict "ctx" $root "name" $name) }}
+  labels:
+    {{- include "hawk-eye.labels" (dict "ctx" $root "name" $name "tier" $tier) | nindent 4 }}
+spec:
+  minAvailable: {{ $pdb.minAvailable | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "hawk-eye.selectorLabels" $sctx | nindent 6 }}
+{{- end }}
+{{- end }}

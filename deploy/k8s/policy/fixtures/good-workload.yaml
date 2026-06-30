@@ -1,0 +1,34 @@
+# =============================================================================
+# Hawk-Eye — POSITIVE fixture: a residency-compliant workload.
+# Blueprint: Part 16 / Part 9.3 / Part 26.1. PLATFORM task: PLATFORM-9.
+# -----------------------------------------------------------------------------
+# Sanity fixture: this PASSES the residency gate.
+#   conftest test deploy/k8s/policy/fixtures/good-workload.yaml   # -> PASS
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliant-example
+  annotations:
+    hawk-eye/golden-rule-alert-only: "true"
+  labels:
+    app.kubernetes.io/part-of: hawk-eye
+    data-residency: in-india
+    region: ap-south-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: example
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: example
+        data-residency: in-india   # required (Part 16)
+        region: ap-south-1         # India region (Part 26.1)
+    spec:
+      containers:
+        - name: example
+          image: hashicorp/http-echo:1.0
+          ports:
+            - containerPort: 5678

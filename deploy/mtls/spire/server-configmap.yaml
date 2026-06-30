@@ -1,0 +1,85 @@
+# =============================================================================
+# Hawk-Eye — SPIRE Server configuration (SCAFFOLD)
+# Owner: PLATFORM (Laptop 06)  ·  Task: PLATFORM-11  ·  Blueprint: Part 26.2 (mTLS),
+#        Part 9.3, Part 19.3 (no shared/anonymous accounts), Part 16 (in-India residency)
+# -----------------------------------------------------------------------------
+# SCAFFOLD: the real-fabric SPIFFE/SPIRE control plane that replaces the dev CA in
+# ./gen-certs.sh. Trust domain = hawk-eye. The server is the CA/issuer of short-lived
+# X.509-SVIDs; agents attest workloads and hand them their SVID via the Workload API.
+# Image pinned in deploy/versions.bom.yaml: ghcr.io/spiffe/spire-server:1.11.0.
+#
+# NOTE: This is plan-only scaffold. Apply only on the real cluster; not part of the
+# local docker-compose stack (which uses gen-certs.sh).
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spire
+  labels:
+    app.kubernetes.io/part-of: hawk-eye
+    data-residency: in-india
+    region: ap-south-1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-server
+  namespace: spire
+  labels:
+    app.kubernetes.io/part-of: hawk-eye
+    app.kubernetes.io/name: spire-server
+    data-residency: in-india
+    region: ap-south-1
+data:
+  server.conf: |
+    server {
+      bind_address      = "0.0.0.0"
+      bind_port         = "8081"
+      trust_domain      = "hawk-eye"
+      data_dir          = "/run/spire/data"
+      log_level         = "INFO"
+      # Short-lived SVIDs (auto-rotated). CA is long-lived; leaves are minutes.
+      default_x509_svid_ttl = "1h"
+      ca_ttl                = "24h"
+      ca_subject {
+        country      = ["IN"]
+        organization = ["Hawk-Eye"]
+        common_name  = "Hawk-Eye SPIRE CA"
+      }
+    }
+
+    plugins {
+      # On-prem dev: SQLite. Real fabric: swap to Postgres (the platform Postgres).
+      DataStore "sql" {
+        plugin_data {
+          database_type     = "sqlite3"
+          connection_string = "/run/spire/data/datastore.sqlite3"
+        }
+      }
+
+      # Node attestation: Kubernetes PSAT (projected service-account token).
+      NodeAttestor "k8s_psat" {
+        plugin_data {
+          clusters = {
+            "hawk-eye" = {
+              service_account_allow_list = ["spire:spire-agent"]
+            }
+          }
+        }
+      }
+
+      # Issued SVID keys held by the server (dev). Real fabric: KMS/HSM upstream CA.
+      KeyManager "disk" {
+        plugin_data { keys_path = "/run/spire/data/keys.json" }
+      }
+
+      # Workload identities are bound to k8s ServiceAccount via the agent (k8s plugin).
+    }
+
+    health_checks {
+      listener_enabled = true
+      bind_address     = "0.0.0.0"
+      bind_port        = "8082"
+      live_path        = "/live"
+      ready_path       = "/ready"
+    }

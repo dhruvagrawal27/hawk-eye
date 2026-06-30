@@ -1,0 +1,21 @@
+Hawk-Eye platform chart {{ .Chart.Version }} (app {{ .Chart.AppVersion }}) installed
+as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+GOLDEN RULES baked into this release:
+  - ALERT-ONLY: no workload here auto-blocks; the platform scores & explains only.
+  - DATA-RESIDENCY: every pod is labelled data-residency={{ .Values.global.residency.dataResidency }}
+    region={{ .Values.global.residency.region }} (RBI localization, Part 16 / Part 9.3).
+  - ZERO-TRUST: default-deny NetworkPolicy + explicit allows (Part 19.3).
+
+Workloads rendered ({{ len .Values.workloads }} total): Deployment + Service each,
+plus PodDisruptionBudgets for HA workloads and per-peer NetworkPolicy allows.
+
+Verify residency compliance BEFORE applying:
+  helm template {{ .Release.Name }} . | conftest test -
+
+Inspect a Service (in-cluster only; all Services are ClusterIP):
+  kubectl -n {{ .Release.Namespace }} get svc -l app.kubernetes.io/part-of=hawk-eye
+
+NOTE (SCAFFOLD): secret values are NOT in this chart. Create the referenced
+secrets (hawk-eye-postgres, hawk-eye-minio, hawk-eye-keycloak, hawk-eye-grafana,
+hawk-eye-vault) from Vault/SSM before the dependent pods become Ready.

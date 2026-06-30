@@ -1,0 +1,3 @@
+# Generated dev mTLS material — NEVER commit private keys.
+*
+!.gitignore

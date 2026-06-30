@@ -1,0 +1,54 @@
+# =============================================================================
+# Hawk-Eye — Umbrella Helm chart for the full on-prem / Lightsail platform.
+# Blueprint: Part 9.1 (reference topology) · Part 9.3 (residency/HA) ·
+#            Part 16 (RBI data-localization) · Part 19.3 (micro-segmentation /
+#            zero-trust) · Part 26 (AWS ap-south-1 pilot) · Part 30.1 (HA/BCP).
+# PLATFORM task: PLATFORM-9 (K8s/Helm + data-residency).
+# -----------------------------------------------------------------------------
+# One chart that renders Deployment + Service + NetworkPolicy + PDB for EVERY
+# core + app + platform workload. Every pod template carries the residency
+# labels `data-residency: in-india` and `region: ap-south-1` (Part 9.3 / 16)
+# which the OPA/Conftest policy in deploy/k8s/policy/ enforces at render time.
+#
+# SCAFFOLD: needs a real Kubernetes 1.31 cluster to deploy. `helm template`
+# and `helm lint` render/validate offline with no cluster.
+# =============================================================================
+apiVersion: v2
+name: hawk-eye
+description: >-
+  Hawk-Eye real-time, ALERT-ONLY, on-prem insider & privileged-user
+  fraud-detection platform (synthetic data). Renders all core, application and
+  platform workloads with India data-residency labels, default-deny
+  micro-segmentation, rolling updates, probes and PodDisruptionBudgets.
+type: application
+
+# Chart version (this chart) vs. appVersion (the platform release line).
+version: 1.0.0
+appVersion: "1.0.0"
+
+# Targets Kubernetes 1.31.x (BOM: kubernetes 1.31.4). networking.k8s.io/v1,
+# policy/v1 (PodDisruptionBudget) and apps/v1 are all GA at this version.
+kubeVersion: ">=1.31.0-0 <1.32.0-0"
+
+home: https://example.internal/hawk-eye
+sources:
+  - https://example.internal/hawk-eye
+
+keywords:
+  - fraud-detection
+  - insider-threat
+  - alert-only
+  - on-prem
+  - data-residency-in-india
+  - zero-trust
+
+maintainers:
+  - name: PLATFORM (Laptop 06)
+    email: platform@hawk-eye.internal
+
+annotations:
+  # Surfaced to operators / GitOps; mirrors the golden rules.
+  hawk-eye/golden-rule-alert-only: "true"
+  hawk-eye/data-residency: in-india
+  hawk-eye/region: ap-south-1
+  hawk-eye/synthetic-data-only: "true"
