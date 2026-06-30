@@ -13,11 +13,15 @@ import { SlaTimer } from '@/components/SlaTimer'
 import { ConfidenceMeter, ContributingLayers, RiskScore, SeverityBadge } from '@/components/badges'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
-/** Layout grid shared by the row and the header in TriageQueue — keep the two in lock-step. */
+/**
+ * Layout grid shared by the row and the header in TriageQueue — keep the two in lock-step.
+ * Leading 2.25rem column is the bulk-select checkbox.
+ */
 export const ALERT_ROW_GRID =
-  'grid grid-cols-[3.25rem_5.5rem_minmax(8rem,1fr)_minmax(11rem,1.4fr)_6.5rem_6.5rem_5.5rem_9rem_8rem_6rem] items-center gap-2'
+  'grid grid-cols-[2.25rem_3.25rem_5.5rem_minmax(8rem,1fr)_minmax(11rem,1.4fr)_6.5rem_6.5rem_5.5rem_9rem_8rem_6rem] items-center gap-2'
 
 const severityGutter: Record<Severity, string> = {
   critical: 'bg-severity-critical motion-safe:animate-pulse-urgent',
@@ -40,6 +44,8 @@ export function AlertRow({
   canClaim = false,
   claiming = false,
   selected = false,
+  selectable = false,
+  onSelectChange,
   onOpen,
   onClaim,
   now,
@@ -50,6 +56,10 @@ export function AlertRow({
   canClaim?: boolean
   claiming?: boolean
   selected?: boolean
+  /** When true the leading checkbox is interactive (bulk-select enabled for this role). */
+  selectable?: boolean
+  /** Fired when the row's checkbox toggles — `next` is the desired selected state. */
+  onSelectChange?: (alert: Alert, next: boolean) => void
   onOpen: (alert: Alert) => void
   onClaim?: (alert: Alert) => void
   now?: Date
@@ -84,6 +94,17 @@ export function AlertRow({
       />
 
       <div className={cn(ALERT_ROW_GRID, 'py-[var(--row-py)]')}>
+        {/* bulk-select checkbox — clicks here must not open the alert */}
+        <div role="cell" className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+          {selectable ? (
+            <Checkbox
+              checked={selected}
+              onCheckedChange={(v) => onSelectChange?.(alert, v === true)}
+              aria-label={`Select ${alert.alert_id}`}
+            />
+          ) : null}
+        </div>
+
         {/* risk */}
         <div role="cell" className="flex justify-center">
           <RiskScore score={alert.risk_score} size="sm" />

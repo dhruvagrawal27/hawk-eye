@@ -5,6 +5,7 @@ import { Topbar } from './Topbar'
 import { Spinner } from '@/components/ui/spinner'
 import { TopStatusBar } from '@/components/layout/TopStatusBar'
 import { CommandPalette } from '@/components/command/CommandPalette'
+import { OnboardingOverlay } from '@/components/OnboardingOverlay'
 
 /** Authenticated shell: a Bloomberg-style status strip, left nav + top bar, the routed view
  * (lazy-loaded, Suspense-wrapped), and the global Cmd-K command palette. */
@@ -32,6 +33,7 @@ export function AppLayout() {
         </div>
       </div>
       <CommandPalette />
+      <OnboardingOverlay />
     </div>
   )
 }

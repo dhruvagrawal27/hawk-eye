@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { NotificationCenter } from '@/components/NotificationCenter'
 import { IstClock } from './IstClock'
 
 function initials(name: string): string {
@@ -39,6 +40,7 @@ export function Topbar() {
 
       <div className="flex items-center gap-3">
         <IstClock />
+        <NotificationCenter />
         <DensityToggle />
 
         {/* Demo role switcher (mock SSO) — swap persona to inspect RBAC end-to-end. */}

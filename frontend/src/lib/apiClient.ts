@@ -37,10 +37,12 @@ import type {
   ModelQualityResponse,
   NarrativeMemo,
   Paginated,
+  AttestationDetail,
   PeerComparisonResponse,
   ReportExport,
   Rule,
   RuleParam,
+  ScoreHistoryResponse,
   TimelineResponse,
   TokenResponse,
   UnmaskBody,
@@ -97,6 +99,10 @@ export const apiClient = {
   getEntityPeers(id: string): Promise<PeerComparisonResponse> {
     return request(`/entities/${encodeURIComponent(id)}/peers`)
   },
+  /** [FE-proposed] 0–100 fused-risk-score history for the entity (ScoreOverTime on AlertDetail). */
+  getScoreHistory(id: string): Promise<ScoreHistoryResponse> {
+    return request(`/entities/${encodeURIComponent(id)}/score-history`)
+  },
   /**
    * [FE-proposed] GET /graph — global top-risk subgraph for the Graph Explorer. `minScore` filters
    * the seed entities by risk; `limit` caps the seed count. One-line swap to the real route later.
@@ -118,6 +124,13 @@ export const apiClient = {
   /** POST per BACKEND.md §3/§7 — gateway runs at call time; deterministic template fallback guarantees a body. */
   getNarrative(alertId: string): Promise<NarrativeMemo> {
     return request(`/narratives/${encodeURIComponent(alertId)}`, { method: 'POST', body: {} })
+  },
+  /**
+   * [FE-proposed] Per-request TEE attestation detail for a narrative (Part 25). Lazily fetched by
+   * ProvenanceBadge only when the narrative reports `tee_attested`.
+   */
+  getAttestation(alertId: string): Promise<AttestationDetail> {
+    return request(`/narratives/${encodeURIComponent(alertId)}/attestation`)
   },
 
   /* ── Active-learning feedback (Part 10 relabel loop) ───────────────────── */

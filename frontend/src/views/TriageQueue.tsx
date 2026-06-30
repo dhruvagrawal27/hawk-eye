@@ -9,8 +9,8 @@
  * refined client-side so typing feels instant. CLAIM is one click, gated on `triage`, and surfaces
  * the audit_id (golden rules #1 alert-only / #2 RBAC / #3 PII / #5 IST·INR / #6 loading-empty-error).
  */
-import { useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   getCoreRowModel,
@@ -21,6 +21,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   ArrowDownNarrowWide,
+  ArrowUp,
   ArrowUpDown,
   ArrowUpNarrowWide,
   Filter,
@@ -28,6 +29,8 @@ import {
   ListChecks,
   RotateCw,
   Search,
+  UserPlus2,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { apiClient } from '@/lib/apiClient'
@@ -44,6 +47,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/toaster'
@@ -110,18 +114,50 @@ export function TriageQueue() {
   const { user, can } = useAuth()
   const mayTriage = can('triage')
 
-  /* server-bound filters → become the query key (refetch on change) */
-  const [status, setStatus] = useState<AlertStatus | ''>('')
-  const [riskGte, setRiskGte] = useState<number>(0)
-  const [assignee, setAssignee] = useState('')
-  const [type, setType] = useState('')
-  /* client-only refinements */
-  const [search, setSearch] = useState('')
-  const [dedupe, setDedupe] = useState(true)
-  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
-    key: 'composite',
-    dir: 'desc',
-  })
+  /**
+   * SAVED VIEWS — the active filters/sort live in the URL (`useSearchParams`) so a configured view
+   * is shareable, bookmarkable, and survives reload. The URL is the single source of truth; setters
+   * write back to it (omitting defaults to keep links clean). `replace` avoids polluting history on
+   * every keystroke.
+   */
+  const [params, setParams] = useSearchParams()
+
+  const status = (params.get('status') ?? '') as AlertStatus | ''
+  const riskGte = Number(params.get('risk_gte') ?? 0) || 0
+  const assignee = params.get('assignee') ?? ''
+  const type = params.get('type') ?? ''
+  const search = params.get('q') ?? ''
+  const dedupe = params.get('dedupe') !== '0' // dedupe is on by default
+  const sortKey = (params.get('sort') ?? 'composite') as SortKey
+  const sort = {
+    key: SORT_KEYS.includes(sortKey) ? sortKey : 'composite',
+    dir: (params.get('dir') === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc',
+  }
+
+  /** Patch one or more view params at once, dropping keys set to a default/empty value. */
+  const patchParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          for (const [k, v] of Object.entries(patch)) {
+            if (v === null || v === '') next.delete(k)
+            else next.set(k, v)
+          }
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setParams],
+  )
+
+  const setStatus = (v: AlertStatus | '') => patchParams({ status: v || null })
+  const setRiskGte = (v: number) => patchParams({ risk_gte: v ? String(v) : null })
+  const setAssignee = (v: string) => patchParams({ assignee: v.trim() || null })
+  const setType = (v: string) => patchParams({ type: v.trim() || null })
+  const setSearch = (v: string) => patchParams({ q: v || null })
+  const setDedupe = (v: boolean) => patchParams({ dedupe: v ? null : '0' })
 
   const query: AlertQuery = useMemo(
     () => ({
@@ -206,6 +242,98 @@ export function TriageQueue() {
 
   const sortedRows = table.getRowModel().rows
 
+  /* ── BULK SELECT ────────────────────────────────────────────────────────────
+   * Selection is keyed by the representative row's alert_id and lives in component state (not the
+   * URL — it's ephemeral, not part of the shareable view). A deduped row stands in for its whole
+   * group, so bulk actions fan out over `group`. Stale ids (filtered out, refetched away) are
+   * ignored when we resolve the current selection back to live rows. */
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+
+  const rowById = useMemo(() => {
+    const m = new Map<string, QueueRow>()
+    for (const r of sortedRows) m.set(r.original.alert.alert_id, r.original)
+    return m
+  }, [sortedRows])
+
+  // Only count selections that still resolve to a visible row.
+  const selectedRows = useMemo(
+    () => [...selectedIds].map((id) => rowById.get(id)).filter((r): r is QueueRow => Boolean(r)),
+    [selectedIds, rowById],
+  )
+  const selectedCount = selectedRows.length
+  // The set of underlying alert_ids a bulk action will touch (expands deduped groups).
+  const selectedAlertIds = useMemo(
+    () => selectedRows.flatMap((r) => r.group.map((a) => a.alert_id)),
+    [selectedRows],
+  )
+
+  const allVisibleSelected = sortedRows.length > 0 && selectedCount === sortedRows.length
+  const someVisibleSelected = selectedCount > 0 && !allVisibleSelected
+
+  const toggleRow = useCallback((alert: Alert, next: boolean) => {
+    setSelectedIds((prev) => {
+      const set = new Set(prev)
+      if (next) set.add(alert.alert_id)
+      else set.delete(alert.alert_id)
+      return set
+    })
+  }, [])
+
+  const toggleSelectAll = useCallback(
+    (next: boolean) => {
+      setSelectedIds(next ? new Set(sortedRows.map((r) => r.original.alert.alert_id)) : new Set())
+    },
+    [sortedRows],
+  )
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
+
+  /* Bulk action — fans an assignment across every selected (expanded) alert via the same
+   * single-alert `assign` endpoint CLAIM uses; we surface one aggregate toast. All three variants are
+   * assign-only routing (claim → me, assign → a named owner, escalate → the escalation queue): never
+   * a disposition, block, or close (golden rule #1 — nothing auto-blocks or auto-closes). */
+  type BulkKind = 'claim' | 'assign' | 'escalate'
+  const bulkAction = useMutation({
+    mutationFn: async ({ assignee }: { kind: BulkKind; assignee: string }) => {
+      const results = await Promise.allSettled(
+        selectedAlertIds.map((id) => apiClient.assignAlert(id, { assignee })),
+      )
+      const ok = results.filter((r) => r.status === 'fulfilled').length
+      return { ok, failed: results.length - ok }
+    },
+    onSuccess: ({ ok, failed }, { kind }) => {
+      const verb = kind === 'escalate' ? 'Escalated' : kind === 'assign' ? 'Assigned' : 'Claimed'
+      if (failed === 0) toast.success(`${verb} ${ok} alert${ok === 1 ? '' : 's'}`)
+      else
+        toast.warning(`${verb} ${ok}/${ok + failed} alerts`, {
+          description: `${failed} could not be updated.`,
+        })
+      clearSelection()
+      void queryClient.invalidateQueries({ queryKey: ['alerts'] })
+    },
+    onError: (err) =>
+      toast.error('Bulk action failed', {
+        description:
+          err instanceof ApiError ? err.message : 'Could not update the selected alerts.',
+      }),
+  })
+
+  const runBulk = useCallback(
+    (kind: BulkKind) => {
+      if (selectedAlertIds.length === 0) return
+      let assignee: string
+      if (kind === 'claim') assignee = user?.username ?? 'me'
+      else if (kind === 'escalate') assignee = 'escalation'
+      else {
+        const input = window.prompt('Assign selected alerts to (username):', '')?.trim()
+        if (!input) return
+        assignee = input
+      }
+      bulkAction.mutate({ kind, assignee })
+    },
+    [bulkAction, selectedAlertIds, user],
+  )
+
   /* ── virtualization ───────────────────────────────────────────────────────── */
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
@@ -221,9 +349,12 @@ export function TriageQueue() {
   const filtersActive = Boolean(status || riskGte || assignee || type || search)
 
   function toggleSort(key: SortKey) {
-    setSort((prev) =>
-      prev.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' },
-    )
+    const dir = sort.key === key && sort.dir === 'desc' ? 'asc' : 'desc'
+    // 'composite' desc is the default view, so encode it as a clean URL (no sort/dir params).
+    patchParams({
+      sort: key === 'composite' && dir === 'desc' ? null : key,
+      dir: dir === 'desc' ? null : 'asc',
+    })
   }
 
   function headerProps(key: SortKey) {
@@ -236,11 +367,8 @@ export function TriageQueue() {
   }
 
   function resetFilters() {
-    setStatus('')
-    setRiskGte(0)
-    setAssignee('')
-    setType('')
-    setSearch('')
+    // Clear filter params but keep sort/dedupe (the "view" shape) intact.
+    patchParams({ status: null, risk_gte: null, assignee: null, type: null, q: null })
   }
 
   return (
@@ -372,6 +500,55 @@ export function TriageQueue() {
         )}
       </div>
 
+      {/* ── bulk action bar — gated on triage; acts on the expanded selection ──── */}
+      {mayTriage && selectedCount > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.06] px-3 py-2">
+          <Badge variant="default" className="tabular-nums">
+            {selectedCount} selected
+          </Badge>
+          {selectedAlertIds.length !== selectedCount ? (
+            <span className="text-xs text-muted-foreground">
+              · {selectedAlertIds.length} alerts (groups expanded)
+            </span>
+          ) : null}
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={bulkAction.isPending}
+              onClick={() => runBulk('claim')}
+            >
+              <UserPlus2 className="size-3.5" /> Claim
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={bulkAction.isPending}
+              onClick={() => runBulk('assign')}
+            >
+              <UserPlus2 className="size-3.5" /> Assign…
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={bulkAction.isPending}
+              onClick={() => runBulk('escalate')}
+            >
+              <ArrowUp className="size-3.5" /> Escalate
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={clearSelection}
+              aria-label="Clear selection"
+            >
+              <X className="size-3.5" /> Clear
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {/* ── table ────────────────────────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
         {/* sticky header — one cell per AlertRow grid column, in order. */}
@@ -382,6 +559,15 @@ export function TriageQueue() {
             'border-b border-border bg-muted/30 px-3 py-2 pl-4 text-xs font-medium text-muted-foreground',
           )}
         >
+          <span className="flex justify-center">
+            {mayTriage ? (
+              <Checkbox
+                checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
+                onCheckedChange={(v) => toggleSelectAll(v === true)}
+                aria-label="Select all visible alerts"
+              />
+            ) : null}
+          </span>
           <SortHeader {...headerProps('risk_score')} className="justify-center" />
           <SortHeader {...headerProps('composite')} />
           <span>Entity</span>
@@ -440,6 +626,9 @@ export function TriageQueue() {
                         duplicateCount={dedupe ? row.group.length - 1 : 0}
                         canClaim={mayTriage}
                         claiming={claim.isPending && claim.variables === row.alert.alert_id}
+                        selectable={mayTriage}
+                        selected={selectedIds.has(row.alert.alert_id)}
+                        onSelectChange={toggleRow}
                         onOpen={(a) => navigate(`/alerts/${a.alert_id}`)}
                         onClaim={(a) => claim.mutate(a.alert_id)}
                       />
@@ -493,6 +682,7 @@ function QueueSkeleton() {
     <div className="divide-y divide-border">
       {Array.from({ length: 10 }).map((_, i) => (
         <div key={i} className={cn(ALERT_ROW_GRID, 'px-3 py-2.5 pl-4')}>
+          <Skeleton className="mx-auto size-4 rounded" />
           <Skeleton className="mx-auto size-8 rounded-full" />
           <Skeleton className="h-5 w-16" />
           <Skeleton className="h-4 w-24" />

@@ -27,6 +27,7 @@ import { MaskedPII } from '@/components/MaskedPII'
 import { SlaTimer } from '@/components/SlaTimer'
 import { CaseNotes } from '@/components/CaseNotes'
 import { CaseHistory } from '@/components/CaseHistory'
+import { CaseDossier, ExportDossierButton } from '@/components/CaseDossier'
 import { RiskScore, SeverityBadge, StatusBadge, ContributingLayers } from '@/components/badges'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -88,6 +89,7 @@ export function CaseDetailShell() {
           </span>
         }
         description={<span className="font-mono text-xs text-muted-foreground">{caseId}</span>}
+        actions={caseQuery.data ? <ExportDossierButton /> : null}
       />
 
       <QueryBoundary
@@ -113,42 +115,45 @@ function CaseDetailBody({ detail }: { detail: CaseDetail }) {
     detail.exposure_inr ?? detail.alerts.reduce((sum, a) => sum + (a.exposure_inr ?? 0), 0)
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-      <div className="space-y-4">
-        <LinkedAlertsPanel alerts={detail.alerts} />
+    <>
+      <CaseDossier detail={detail} />
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] print:hidden">
+        <div className="space-y-4">
+          <LinkedAlertsPanel alerts={detail.alerts} />
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="flex items-center gap-1.5">
-              <MessagesSquare className="size-4 text-muted-foreground" /> Notes
-              <Badge variant="muted" className="ml-1">
-                {detail.notes.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CaseNotes caseId={detail.case_id} notes={detail.notes} />
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="flex items-center gap-1.5">
+                <MessagesSquare className="size-4 text-muted-foreground" /> Notes
+                <Badge variant="muted" className="ml-1">
+                  {detail.notes.length}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CaseNotes caseId={detail.case_id} notes={detail.notes} />
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-1.5">
-              <History className="size-4 text-muted-foreground" /> Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CaseHistory history={detail.history} />
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-1.5">
+                <History className="size-4 text-muted-foreground" /> Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CaseHistory history={detail.history} />
+            </CardContent>
+          </Card>
+        </div>
+
+        <aside className="space-y-4 lg:sticky lg:top-4">
+          <CaseSummaryCard detail={detail} exposure={exposure} />
+          <WorkflowCard detail={detail} />
+          <AssignmentCard detail={detail} />
+        </aside>
       </div>
-
-      <aside className="space-y-4 lg:sticky lg:top-4">
-        <CaseSummaryCard detail={detail} exposure={exposure} />
-        <WorkflowCard detail={detail} />
-        <AssignmentCard detail={detail} />
-      </aside>
-    </div>
+    </>
   )
 }
 

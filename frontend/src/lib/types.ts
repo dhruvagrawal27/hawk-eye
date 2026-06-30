@@ -226,12 +226,76 @@ export interface GraphEvidence {
   nodes: GraphEvidenceNodeRef[]
   edges: GraphEvidenceEdgeRef[]
 }
+
+/**
+ * [FE-proposed] L6 fusion breakdown — the headline "why this fired": the fused score against the
+ * decision threshold, decomposed into the per-layer probabilities that the fusion meta-learner
+ * weighed (L3 GBDT, L5 graph, L2 unsupervised). `weight` is the meta-learner's coefficient for that
+ * layer; `proba` is the layer's own 0–1 output (null when a layer did not contribute). The
+ * "rescued by graph fusion" insight (GBDT alone would have missed it) is derived client-side from
+ * the GBDT component vs `threshold` — see lib/fusion.ts.
+ */
+export type FusionLayer = 'L3_gbdt' | 'L5_graph' | 'L2_unsupervised'
+export interface FusionComponent {
+  layer: FusionLayer | ContributingLayer | string
+  label: string // e.g. "Gradient-boosted trees"
+  sublabel: string // e.g. "supervised · tabular"
+  proba: number | null // 0–1 layer output; null if the layer did not fire
+  weight: number // meta-learner coefficient for this layer in the fusion
+}
+export interface FusionBreakdown {
+  fused: number // 0–1 fused probability (the meta-learner output)
+  threshold: number // decision threshold on the same 0–1 scale
+  components: FusionComponent[]
+}
 export interface ExplanationResponse {
   alert_id: AlertId
   shap: ShapContribution[]
   rules: RuleProvenanceItem[]
   attention: AttentionSession[]
   graph?: GraphEvidence
+  /** [FE-proposed] L6 fusion decomposition driving ScoreComposition (the top "why this fired"). */
+  fusion?: FusionBreakdown
+}
+
+/* ───────────────────────────── Score history [FE-proposed: GET /entities/{id}/score-history] ─── */
+/**
+ * [FE-proposed] A 0–100 fused-risk-score time series for an entity, so AlertDetail can plot how the
+ * entity's risk evolved into the current alert (severity bands as ReferenceAreas). Swap to the real
+ * route when BACKEND specifies it.
+ */
+export interface ScoreHistoryPoint {
+  ts: IsoTimestamp
+  score: number // 0–100 fused risk score at that timestamp
+  event_id?: EventId // the L0 event that moved the score, if any
+  note?: string // short human label, e.g. "new beneficiary created"
+}
+export interface ScoreHistoryResponse {
+  entity_id: EntityId
+  points: ScoreHistoryPoint[]
+  /** Current decision threshold projected onto the 0–100 scale, for a reference line. */
+  threshold_score?: number
+}
+
+/* ───────────────────────────── TEE attestation detail [FE-proposed: GET /narratives/{id}/attestation] ─ */
+/**
+ * [FE-proposed] Per-request TEE attestation record (Part 25). Lazily fetched by ProvenanceBadge only
+ * when a narrative reports `tee_attested`. Mirrors the fields a TDX / confidential-inference gateway
+ * returns and stores for audit; honest degradation renders without this when not attested.
+ */
+export interface AttestationDetail {
+  alert_id: AlertId
+  tee_attested: boolean
+  provider: NarrativeProvider | string // e.g. "near_ai"
+  gateway?: string // e.g. "near-ai-confidential-1"
+  model: string // e.g. "openai/gpt-oss-120b"
+  signing_address?: string // on-chain / enclave signing key
+  signing_algo?: string // e.g. "secp256k1" / "ed25519"
+  intel_quote_sha256?: string // SHA-256 of the Intel TDX quote
+  attestation_id?: string | null
+  verified_ts?: IsoTimestamp
+  /** Extra provenance rows the gateway may include (rendered as-is in the KeyValueGrid). */
+  extra?: { label: string; value: string }[]
 }
 
 /* ───────────────────────────── Narrative memo [BACKEND.md §7 / Part 25] ───────────────────── */

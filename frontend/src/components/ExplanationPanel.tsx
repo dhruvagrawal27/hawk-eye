@@ -10,7 +10,15 @@
  *   5. AI narrative         — a plain-language reading aid (Part 25). AI explains; L1–L6 decide.
  */
 import { useQuery } from '@tanstack/react-query'
-import { BarChartHorizontal, ScrollText, Activity, Share2, Sparkles, GitBranch } from 'lucide-react'
+import {
+  BarChartHorizontal,
+  ScrollText,
+  Activity,
+  Share2,
+  Sparkles,
+  GitBranch,
+  Crosshair,
+} from 'lucide-react'
 import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { cn } from '@/lib/cn'
@@ -25,6 +33,8 @@ import { ShapChart } from '@/components/ShapChart'
 import { RuleProvenance } from '@/components/RuleProvenance'
 import { AttentionView } from '@/components/AttentionView'
 import { AiNarrative } from '@/components/AiNarrative'
+import { ScoreComposition } from '@/components/ScoreComposition'
+import { ProvenanceBadge } from '@/components/ProvenanceBadge'
 import type { GraphEvidence } from '@/lib/types'
 
 /* ── Section chrome ─────────────────────────────────────────────────────── */
@@ -127,6 +137,24 @@ function GraphEvidenceSummary({ graph }: { graph: GraphEvidence }) {
   )
 }
 
+/* ── Narrative trust panel (Part 25) ────────────────────────────────────────
+ * Shares the narrative query (same key as AiNarrative, so react-query dedupes the fetch) purely to
+ * read its attestation state, then expands the TEE badge into the ProvenanceBadge trust panel —
+ * verifiable detail when attested, an honest "standard cloud inference" line when not.
+ */
+function NarrativeProvenance({ alertId }: { alertId: string }) {
+  const query = useQuery({
+    queryKey: queryKeys.narrative(alertId),
+    queryFn: () => apiClient.getNarrative(alertId),
+  })
+  if (!query.data) return null
+  return (
+    <div className="mt-3">
+      <ProvenanceBadge alertId={alertId} attested={query.data.tee_attested} />
+    </div>
+  )
+}
+
 /* ── Loading skeleton ───────────────────────────────────────────────────── */
 function PanelSkeleton() {
   return (
@@ -174,6 +202,17 @@ export function ExplanationPanel({ alertId }: { alertId: string }) {
       >
         {data ? (
           <div className="space-y-3">
+            {/* 0 · Score composition — the headline "why this fired" (L6 fusion vs threshold). */}
+            {data.fusion ? (
+              <Section
+                icon={Crosshair}
+                title="Why this fired"
+                description="Fused L6 score against the decision threshold, decomposed into the layer contributions the fusion meta-learner weighed."
+              >
+                <ScoreComposition fusion={data.fusion} />
+              </Section>
+            ) : null}
+
             {/* 1 · SHAP feature attribution */}
             <Section
               icon={BarChartHorizontal}
@@ -267,6 +306,8 @@ export function ExplanationPanel({ alertId }: { alertId: string }) {
               <CardContent>
                 <Separator className="mb-3" />
                 <AiNarrative alertId={alertId} />
+                {/* Trust panel — expand the TEE badge into verifiable attestation detail. */}
+                <NarrativeProvenance alertId={alertId} />
               </CardContent>
             </Card>
           </div>

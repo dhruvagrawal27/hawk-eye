@@ -178,6 +178,10 @@ export function ReasonSourceBadge({
 }
 
 /* ── TEE / AI provenance (Part 25) ──────────────────────────────────────── */
+// The collapsible trust panel that *expands* the TEE badge into verifiable attestation detail lives
+// in its own file (it fetches lazily); re-exported here so provenance UI has one import surface.
+export { ProvenanceBadge } from '@/components/ProvenanceBadge'
+
 export function TeeAttestedBadge({
   attested,
   className,

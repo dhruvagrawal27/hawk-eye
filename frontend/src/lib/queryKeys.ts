@@ -8,10 +8,12 @@ export const queryKeys = {
   entityTimeline: (id: string) => ['entity', id, 'timeline'] as const,
   entityGraph: (id: string, depth = 1) => ['entity', id, 'graph', depth] as const,
   entityPeers: (id: string) => ['entity', id, 'peers'] as const,
+  scoreHistory: (id: string) => ['entity', id, 'score-history'] as const,
   graphOverview: (minScore = 0, limit?: number) =>
     ['graph', 'overview', minScore, limit ?? null] as const,
   explanation: (alertId: string) => ['explanation', alertId] as const,
   narrative: (alertId: string) => ['narrative', alertId] as const,
+  attestation: (alertId: string) => ['narrative', alertId, 'attestation'] as const,
   rules: () => ['rules'] as const,
   models: () => ['models'] as const,
   drift: () => ['drift'] as const,

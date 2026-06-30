@@ -1,12 +1,21 @@
-import { FileCheck2, Radar, ScaleIcon, ScrollText, ShieldCheck } from 'lucide-react'
+import { FileCheck2, Gauge, Radar, ScaleIcon, ScrollText, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/auth/rbac'
 import { ROLE_META } from '@/auth/capabilities'
+import type { Role } from '@/lib/types'
 import { PageHeader } from '@/components/PageHeader'
 import { RulesEditor } from '@/components/RulesEditor'
 import { EwsCoverage } from '@/components/EwsCoverage'
 import { RegulatoryExport } from '@/components/RegulatoryExport'
+import { ApprovalQueue } from '@/components/ApprovalQueue'
+import { DeptRollup } from '@/components/DeptRollup'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+
+/**
+ * Manager / executive oversight roles that see the Command center (approval queue + dept rollup)
+ * embedded in the compliance console. A subset of the roles that already reach this screen.
+ */
+const COMMAND_CENTER_ROLES: Role[] = ['dgm_compliance', 'agm_vigilance']
 
 /**
  * Compliance console (FRONTEND-12; blueprint Part 24.4 screen 5, l.956 + Part 11 reporting + Part 24.2
@@ -19,6 +28,7 @@ import { Badge } from '@/components/ui/badge'
 export function ComplianceView() {
   const { role } = useAuth()
   const roleLabel = role ? ROLE_META[role].short : undefined
+  const showCommandCenter = role ? COMMAND_CENTER_ROLES.includes(role) : false
 
   return (
     <div className="space-y-4">
@@ -36,8 +46,14 @@ export function ComplianceView() {
         }
       />
 
-      <Tabs defaultValue="rules" className="space-y-3">
+      <Tabs defaultValue={showCommandCenter ? 'command' : 'rules'} className="space-y-3">
         <TabsList>
+          {showCommandCenter ? (
+            <TabsTrigger value="command">
+              <Gauge className="size-3.5" />
+              Command center
+            </TabsTrigger>
+          ) : null}
           <TabsTrigger value="rules">
             <ScrollText className="size-3.5" />
             Rules &amp; thresholds
@@ -51,6 +67,16 @@ export function ComplianceView() {
             Regulatory exports
           </TabsTrigger>
         </TabsList>
+
+        {showCommandCenter ? (
+          <TabsContent value="command">
+            {/* Manager oversight — approval/escalation queue + department risk rollup (Agent B). */}
+            <div className="grid gap-3 lg:grid-cols-2">
+              <ApprovalQueue />
+              <DeptRollup />
+            </div>
+          </TabsContent>
+        ) : null}
 
         <TabsContent value="rules">
           <RulesEditor />

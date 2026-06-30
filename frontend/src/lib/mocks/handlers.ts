@@ -9,13 +9,16 @@ import { env } from '../env'
 import type {
   Alert,
   AssignResponse,
+  AttestationDetail,
   AuditEvent,
   BlockRequestResponse,
   DispositionRequest,
   DispositionResponse,
   ExplanationResponse,
+  FusionBreakdown,
   GraphResponse,
   PeerComparisonResponse,
+  ScoreHistoryResponse,
   TimelineResponse,
   AlertStatus,
   CreateUserBody,
@@ -56,9 +59,62 @@ const TOKEN = {
 
 /* ── fallback builders ──────────────────────────────────────────────────── */
 
+/** Decision threshold on the 0–1 fusion scale — mirror of ScoreComposition's THRESHOLD const. */
+const FUSION_THRESHOLD = 0.16032509
+
+/**
+ * Synthesize a plausible L6 fusion breakdown for an alert. The fused probability tracks the alert's
+ * calibrated 0–100 risk_score (fused = risk/100). Per-layer probabilities are derived from which
+ * layers contributed: a graph layer present + GBDT *just below* threshold seeds the "rescued by
+ * graph fusion" insight on the worked example, while other alerts get a GBDT-led blend.
+ */
+function buildFusion(alert: Alert | undefined): FusionBreakdown {
+  const fused = alert ? Math.min(0.99, Math.max(0, alert.risk_score / 100)) : 0.5
+  const layers = new Set((alert?.contributing_layers ?? []).map(String))
+  const hasGraph = layers.has('L5_graph')
+  const hasUnsup = layers.has('L2_unsupervised')
+
+  // When graph is in play, model the GBDT as scoring just *under* the threshold so graph fusion is
+  // what carries the alert over — the canonical "rescued" story. Otherwise GBDT leads.
+  const gbdtProba = hasGraph
+    ? Math.max(0.04, FUSION_THRESHOLD * 0.85)
+    : Math.min(0.95, fused * 0.95)
+  const graphProba = hasGraph ? Math.min(0.97, Math.max(fused, 0.6)) : null
+  const unsupProba = hasUnsup ? Math.min(0.9, 0.3 + fused * 0.4) : null
+
+  return {
+    fused,
+    threshold: FUSION_THRESHOLD,
+    components: [
+      {
+        layer: 'L3_gbdt',
+        label: 'Gradient-boosted trees',
+        sublabel: 'L3 · supervised tabular',
+        proba: Number(gbdtProba.toFixed(4)),
+        weight: 0.5,
+      },
+      {
+        layer: 'L5_graph',
+        label: 'Graph / collusion',
+        sublabel: 'L5 · GNN',
+        proba: graphProba != null ? Number(graphProba.toFixed(4)) : null,
+        weight: 0.34,
+      },
+      {
+        layer: 'L2_unsupervised',
+        label: 'Anomaly',
+        sublabel: 'L2 · unsupervised',
+        proba: unsupProba != null ? Number(unsupProba.toFixed(4)) : null,
+        weight: 0.16,
+      },
+    ],
+  }
+}
+
 function buildExplanation(alertId: string): ExplanationResponse {
-  if (EXPLANATIONS[alertId]) return EXPLANATIONS[alertId]
   const a = findAlert(alertId)
+  const fusion = buildFusion(a)
+  if (EXPLANATIONS[alertId]) return { ...EXPLANATIONS[alertId], fusion }
   const reasons = a?.reason_codes ?? []
   return {
     alert_id: alertId,
@@ -80,6 +136,73 @@ function buildExplanation(alertId: string): ExplanationResponse {
           edges: [],
         }
       : undefined,
+    fusion,
+  }
+}
+
+/**
+ * Synthesize a 0–100 fused-risk-score history for an entity: a deterministic, gently-rising series
+ * that culminates at the entity's current risk_score, with a couple of labelled inflection points so
+ * the chart tells a story (baseline → off-hours burst → current). Pure function of the entity id so
+ * it is stable across renders / contract tests.
+ */
+function buildScoreHistory(entityId: string): ScoreHistoryResponse {
+  const e = ENTITIES[entityId]
+  const current = e?.risk_score ?? 50
+  // Walk back 8 weekly points from the current score, easing down toward a calm baseline.
+  const POINTS = 8
+  const baseline = Math.max(8, Math.round(current * 0.25))
+  const start = new Date('2026-06-30T00:00:00Z').getTime()
+  const weekMs = 7 * 86_400_000
+
+  const points = Array.from({ length: POINTS }).map((_, i) => {
+    const t = i / (POINTS - 1) // 0..1
+    // Ease-in so the climb steepens toward the alert; deterministic jitter keeps it organic.
+    const eased = t * t
+    const jitter = ((entityId.charCodeAt(entityId.length - 1) + i * 7) % 5) - 2
+    const score = Math.round(baseline + (current - baseline) * eased + (i === 0 ? 0 : jitter))
+    const ts = new Date(start - (POINTS - 1 - i) * weekMs).toISOString()
+    let note: string | undefined
+    if (i === 0) note = 'baseline within peer range'
+    else if (i === POINTS - 2) note = 'off-hours activity burst'
+    else if (i === POINTS - 1) note = 'current — alert raised'
+    return { ts, score: Math.min(100, Math.max(0, score)), note }
+  })
+
+  return {
+    entity_id: entityId,
+    points,
+    threshold_score: Math.round(FUSION_THRESHOLD * 100),
+  }
+}
+
+/**
+ * Synthesize per-request TEE attestation detail for a narrative. Mirrors the narrative fixture's
+ * attestation state: attested narratives return the full cryptographic trail; non-attested ones
+ * honestly report `tee_attested: false` with no signing material.
+ */
+function buildAttestation(alertId: string): AttestationDetail {
+  const memo = narrativeFor(alertId)
+  if (!memo.tee_attested) {
+    return {
+      alert_id: alertId,
+      tee_attested: false,
+      provider: memo.provider,
+      model: memo.model,
+    }
+  }
+  return {
+    alert_id: alertId,
+    tee_attested: true,
+    provider: memo.provider,
+    gateway: 'near-ai-confidential-1',
+    model: memo.model,
+    signing_address: '0x9b1c7f3a4d04e2a1c905f2c918f2a1b02d77e1a0',
+    signing_algo: 'secp256k1',
+    intel_quote_sha256: 'sha256:5f2c91a3d04e8f2a1b02d77e1a09b1c7f3a4d04e2a1c905f2c918f2a1b02',
+    attestation_id: memo.attestation_id ?? 'att_tdx_h200_5f2c91',
+    verified_ts: memo.ts,
+    extra: [{ label: 'Enclave', value: 'Intel TDX · H200' }],
   }
 }
 
@@ -438,6 +561,9 @@ export const handlers = [
   http.get(api('/entities/:id/peers'), ({ params }) =>
     HttpResponse.json(buildPeers(String(params.id))),
   ),
+  http.get(api('/entities/:id/score-history'), ({ params }) =>
+    HttpResponse.json(buildScoreHistory(String(params.id))),
+  ),
   http.post(api('/entities/:id/unmask'), async ({ params, request }) => {
     const id = String(params.id)
     const body = (await request.json().catch(() => ({}))) as { alert_id?: string }
@@ -458,6 +584,9 @@ export const handlers = [
   ),
   http.post(api('/narratives/:id'), ({ params }) =>
     HttpResponse.json(narrativeFor(String(params.id))),
+  ),
+  http.get(api('/narratives/:id/attestation'), ({ params }) =>
+    HttpResponse.json(buildAttestation(String(params.id))),
   ),
 
   // Feedback

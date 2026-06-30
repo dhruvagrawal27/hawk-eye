@@ -9,6 +9,7 @@ import { QueryBoundary } from '@/components/QueryBoundary'
 import { AlertHeader } from '@/components/AlertHeader'
 import { Entity360Timeline } from '@/components/Entity360Timeline'
 import { AlertHeatmap } from '@/components/AlertHeatmap'
+import { ScoreOverTime } from '@/components/ScoreOverTime'
 import { ExplanationPanel } from '@/components/ExplanationPanel'
 import { GraphView } from '@/components/GraphView'
 import { PeerComparison } from '@/components/PeerComparison'
@@ -106,6 +107,9 @@ function AlertDetailBody({ alert }: { alert: Alert }) {
           </TabsList>
 
           <TabsContent value="timeline" className="space-y-4">
+            <PanelCard>
+              <ScoreOverTime entityId={alert.entity_id} />
+            </PanelCard>
             <AlertHeatmap alerts={entityAlerts} />
             <PanelCard>
               <Entity360Timeline entityId={alert.entity_id} alertId={alert.alert_id} />

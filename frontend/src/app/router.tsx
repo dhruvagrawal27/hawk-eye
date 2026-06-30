@@ -42,6 +42,9 @@ const OrgChartView = lazy(() =>
 const GraphExplorer = lazy(() =>
   import('@/views/GraphExplorer').then((m) => ({ default: m.GraphExplorer })),
 )
+const ReplayStudio = lazy(() =>
+  import('@/views/ReplayStudio').then((m) => ({ default: m.ReplayStudio })),
+)
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -105,6 +108,12 @@ export const router = createBrowserRouter([
           {
             element: <RoleShell roles={ROUTE_ROLES.org} />,
             children: [{ path: 'org', element: <OrgChartView /> }],
+          },
+
+          // Replay studio — realtime stream control surface (managers + exec + admin)
+          {
+            element: <RoleShell roles={ROUTE_ROLES.replay} />,
+            children: [{ path: 'replay', element: <ReplayStudio /> }],
           },
 
           // Admin (screen 8)

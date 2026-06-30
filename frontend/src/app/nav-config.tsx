@@ -7,6 +7,7 @@ import {
   Boxes,
   BarChart3,
   Network,
+  Radio,
   Waypoints,
   ServerCog,
   type LucideIcon,
@@ -80,6 +81,18 @@ const ORG_VIEWERS: Role[] = [
   'chief_internal_auditor',
 ]
 
+/** Managers + executives + admin who can drive the realtime replay studio (Agent B). */
+const REPLAY_OPERATORS: Role[] = [
+  'branch_manager',
+  'cluster_head',
+  'agm_vigilance',
+  'dgm_compliance',
+  'cgm_risk',
+  'executive_director',
+  'managing_director',
+  'it_admin',
+]
+
 export const NAV_ITEMS: NavItem[] = [
   {
     to: '/',
@@ -142,6 +155,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { to: '/graph', label: 'Graph explorer', icon: Waypoints, roles: GRAPH_VIEWERS },
   { to: '/org', label: 'Org chart', icon: Network, roles: ORG_VIEWERS },
+  { to: '/replay', label: 'Replay studio', icon: Radio, roles: REPLAY_OPERATORS },
   { to: '/admin', label: 'Admin', icon: ServerCog, roles: ['it_admin'], screen: 8 },
 ]
 
@@ -161,6 +175,7 @@ export const ROUTE_ROLES = {
   reporting: REPORTING_VIEWERS,
   graph: GRAPH_VIEWERS,
   org: ORG_VIEWERS,
+  replay: REPLAY_OPERATORS,
   admin: ['it_admin'] as Role[],
 }
 
