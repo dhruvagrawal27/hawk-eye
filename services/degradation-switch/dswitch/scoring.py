@@ -16,6 +16,7 @@ triage. It never returns or triggers an action. status is always "open".
 
 from __future__ import annotations
 
+import datetime as _dt
 import hashlib
 from typing import Optional
 
@@ -35,9 +36,20 @@ def _alert_id(event_id: str) -> str:
     return "alr_" + hashlib.sha256(event_id.encode()).hexdigest()[:6]
 
 
+def _sla_due(created_ts: Optional[str]) -> Optional[str]:
+    """RBI <=30-day TAT cap (BACKEND.md §2): sla_due_ts = created_ts + 30 days, UTC ISO-8601 Z."""
+    if not created_ts:
+        return None
+    try:
+        base = _dt.datetime.fromisoformat(created_ts.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    due = base.astimezone(_dt.timezone.utc) + _dt.timedelta(days=30)
+    return due.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _severity(score: int) -> str:
-    if score >= 80:
-        return "critical"
+    # BACKEND.md §2 restricts severity to low|medium|high (no "critical").
     if score >= 65:
         return "high"
     if score >= 50:
@@ -108,6 +120,9 @@ def score_event(
         "confidence": confidence,
         "status": "open",  # ALERT-ONLY: human decides (PLATFORM-37 gate)
         "created_ts": ev.get("ts"),
+        "sla_due_ts": _sla_due(
+            ev.get("ts")
+        ),  # created + RBI <=30-day cap (BACKEND.md §2)
         "contributing_layers": contributing,
         "reason_codes": reason_codes,
         "exposure_inr": int(obj.get("amount") or 0),

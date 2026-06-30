@@ -19,6 +19,12 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 STORE = HERE / "tracker.json"
+REPORTS_DIR = HERE.parent / "reports"  # security/reports (PLATFORM-23 mock reports)
+REPORT_FILES = {
+    "vapt": "vapt.md",
+    "redteam": "redteam.md",
+    "model_risk": "model-risk.md",
+}
 
 # Patch SLAs in days by severity (Part 19.5: critical <= 7d).
 SLA_DAYS = {
@@ -108,6 +114,33 @@ def normalize_trivy(doc: dict) -> list[dict]:
     return out
 
 
+def load_security_reports() -> list[dict]:
+    """Read the seeded mock VAPT/red-team/model-risk reports (PLATFORM-23) and surface them
+    as programme records, so 'VAPT passed' reflects an actual signed report — not merely an
+    incidental zero-critical-CVE count."""
+    recs = []
+    for kind, fname in REPORT_FILES.items():
+        p = REPORTS_DIR / fname
+        if not p.exists():
+            continue
+        text = p.read_text(errors="ignore")
+        low = text.lower()
+        signed = any(k in low for k in ("sign-off", "signed off", "sign off", "retest"))
+        title = next(
+            (ln.lstrip("# ").strip() for ln in text.splitlines() if ln.strip()), fname
+        )
+        recs.append(
+            {
+                "type": kind,
+                "title": title,
+                "path": f"security/reports/{fname}",
+                "signed_off": signed,
+                "state": "passed" if signed else "in_review",
+            }
+        )
+    return recs
+
+
 def ingest(paths: list[str]) -> list[dict]:
     raw: list[dict] = []
     if not paths:
@@ -127,25 +160,49 @@ def ingest(paths: list[str]) -> list[dict]:
         findings.append(f)
     findings.sort(key=lambda x: (SEV_RANK.get(x["severity"], 9), x["id"] or ""))
     STORE.write_text(
-        json.dumps({"updated": discovered.isoformat(), "findings": findings}, indent=2)
+        json.dumps(
+            {
+                "updated": discovered.isoformat(),
+                "security_reports": load_security_reports(),
+                "findings": findings,
+            },
+            indent=2,
+        )
     )
     return findings
 
 
 def report() -> dict:
     if not STORE.exists():
-        return {"findings": [], "summary": {}, "vapt_state": "unknown"}
+        return {
+            "findings": [],
+            "summary": {},
+            "vapt_state": "unknown",
+            "security_reports": [],
+        }
     data = json.loads(STORE.read_text())
     findings = data["findings"]
     summary: dict[str, int] = {}
     for f in findings:
         summary[f["severity"]] = summary.get(f["severity"], 0) + 1
-    # Programme status reads the seeded mock VAPT report (PLATFORM-23) if present.
-    vapt = "passed" if summary.get("critical", 0) == 0 else "remediation_required"
+    # Programme status reads the seeded mock VAPT report (PLATFORM-23): "passed" requires BOTH
+    # a signed VAPT report AND no unremediated critical CVEs (Part 19.4/19.5).
+    reports = data.get("security_reports") or load_security_reports()
+    vapt_report = next((r for r in reports if r["type"] == "vapt"), None)
+    no_critical = summary.get("critical", 0) == 0
+    if vapt_report and vapt_report.get("signed_off") and no_critical:
+        vapt = "passed"
+    elif not no_critical:
+        vapt = "remediation_required"
+    elif vapt_report:
+        vapt = "report_unsigned"
+    else:
+        vapt = "report_missing"
     return {
         "updated": data["updated"],
         "summary": summary,
         "critical_open": summary.get("critical", 0),
+        "security_reports": reports,
         "vapt_state": vapt,
         "findings": findings,
     }

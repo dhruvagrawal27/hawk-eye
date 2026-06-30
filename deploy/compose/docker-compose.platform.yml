@@ -9,7 +9,7 @@ name: hawk-eye
 
 networks:
   hawkeye:
-    name: hawkeye
+    name: hawk-eye   # actual docker network name = hawk-eye (BACKEND attaches to it as external)
     driver: bridge
 
 services:
@@ -171,6 +171,36 @@ services:
       - "8889:8889"   # prometheus exporter (scraped)
     volumes:
       - ../../observability/otel/otel-collector-config.yaml:/etc/otel/config.yaml:ro
+
+  # --- API gateway runtime: Kong (DB-less) hosting BACKEND's gateway config ---
+  # Part 32.1 / BACKEND-28 seam. PLATFORM hosts the runtime; BACKEND owns the
+  # declarative config (backend/gateway_config/kong.yaml, mounted read-only).
+  # Proxy on host :8002 (avoids backend :8000), admin API on host :8095.
+  api-gateway:
+    image: ${KONG_IMAGE}
+    container_name: hawkeye-api-gateway
+    networks: [hawkeye]
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yaml
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+    ports:
+      - "8002:8000"   # proxy  (host 8002 -> avoids BACKEND :8000)
+      - "8095:8001"   # admin API
+    volumes:
+      # BACKEND owns this config; PLATFORM mounts it read-only and hosts the runtime.
+      - ../../backend/gateway_config/kong.yaml:/kong/kong.yaml:ro
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   # --- Alertmanager: severity-tiered on-call routing (PLATFORM-30) -----------
   alertmanager:

@@ -28,5 +28,15 @@ create hawkeye.feedback        3 7776000000  delete
 create hawkeye.rescore         6 604800000   delete
 create hawkeye.dlq             3 1209600000  delete
 
+# --- DATA-side topic aliases (topic-name convergence, CONTEXT.md log) --------
+# DATA's data/config.py publishes to events.raw / events.signals / alerts / audit.
+# Until DATA adopts the hawkeye.* namespace, PLATFORM also provisions DATA's names so
+# both producers/consumers work. (events.raw == hawkeye.events.l0; events.signals ==
+# enriched/recon signals.) Partitioned by employee_id like their hawkeye.* counterparts.
+create events.raw              6 604800000   delete
+create events.signals          6 604800000   delete
+create alerts                  3 2592000000  delete
+create audit                   3 -1          compact
+
 echo "[kafka-init] topics ready:"
 "$KT" --bootstrap-server "$BS" --list

@@ -24,10 +24,19 @@ vault kv put hawk-eye/llm \
 vault kv put hawk-eye/pii \
   PII_HMAC_KEY="${PII_HMAC_KEY:-dev-only-hmac-key-rotate-in-vault}"
 
-# Least-privilege policy: BACKEND tokenizer can READ only the pii path (Part 19.3 SoD).
+# Field-level PII encryption key (BACKEND field-encryption, Part 25.3) — by reference only.
+vault kv put hawk-eye/field \
+  FIELD_ENCRYPTION_KEY="${FIELD_ENCRYPTION_KEY:-dev-only-field-key-rotate-in-vault}"
+
+# Model-registry signing key (cosign/registry signing, Part 23) — by reference only.
+vault kv put hawk-eye/registry \
+  REGISTRY_SIGNING_KEY="${REGISTRY_SIGNING_KEY:-dev-only-registry-signing-key-rotate-in-vault}"
+
+# Least-privilege policy: BACKEND tokenizer can READ only the pii + field paths (Part 19.3 SoD).
 vault policy write backend-tokenizer - <<'POLICY' 2>/dev/null || true
-path "hawk-eye/data/pii" { capabilities = ["read"] }
+path "hawk-eye/data/pii"   { capabilities = ["read"] }
+path "hawk-eye/data/field" { capabilities = ["read"] }
 POLICY
 
-echo "[vault] secrets loaded under hawk-eye/ (llm, pii). Read by reference only:"
+echo "[vault] secrets loaded under hawk-eye/ (llm, pii, field, registry). Read by reference only:"
 echo "        vault kv get hawk-eye/pii   # BACKEND tokenizer uses this path, never a literal key"

@@ -24,8 +24,24 @@ if have semgrep; then semgrep --config auto --json -o "$OUT/semgrep.json" servic
 echo "==> gitleaks (secrets scan)"
 if have gitleaks; then gitleaks detect --no-banner --report-path "$OUT/gitleaks.json" || true; else echo "skip (gitleaks absent)"; fi
 
-echo "==> Conftest/tfsec (IaC policy)"
+echo "==> trufflehog (deep secrets scan)"
+if have trufflehog; then trufflehog filesystem . --no-update --json > "$OUT/trufflehog.json" 2>/dev/null || true; else echo "skip (trufflehog absent)"; fi
+
+echo "==> tfsec (Terraform IaC static analysis)"
 if have tfsec; then tfsec infra/terraform --format json --out "$OUT/tfsec.json" || true; else echo "skip (tfsec absent)"; fi
+
+echo "==> Conftest (OPA residency/zero-trust policy over rendered manifests)"
+if have conftest && have helm; then
+  helm template hawk-eye deploy/k8s/charts/hawk-eye --kube-version 1.31.4 2>/dev/null \
+    | conftest test - -p deploy/k8s/policy/residency.rego > "$OUT/conftest.txt" 2>&1 || true
+else echo "skip (conftest/helm absent)"; fi
+
+echo "==> OWASP ZAP (DAST — dynamic scan against a running target)"
+if have zap-baseline.py || have docker; then
+  echo "ZAP baseline runs against a live gateway/app target (staging). Example:"
+  echo "  docker run -t zaproxy/zap-stable:2.15.0 zap-baseline.py -t http://api-gateway:8000 -I"
+  echo "No app booted in this scan context -> report-only (PLATFORM-17 SCAFFOLD)."
+else echo "skip (no ZAP/docker available)"; fi
 
 echo "==> cosign (model-signature verify on load)"
 if have cosign; then

@@ -43,3 +43,27 @@ topics:
     replication: 1
     config: { retention.ms: 1209600000 }   # 14d
     note: "Dead-letter queue for poison messages (Part 32.2 reliability)."
+
+  # --- DATA-side aliases (topic-name convergence, CONTEXT.md log) -------------
+  # DATA's data/config.py publishes events.raw/events.signals/alerts/audit. Until DATA
+  # adopts the hawkeye.* namespace, PLATFORM also provisions these so both work.
+  - name: events.raw
+    partitions: 6
+    replication: 1
+    config: { retention.ms: 604800000, cleanup.policy: delete }
+    note: "DATA alias for hawkeye.events.l0 (data/config.py EVENTS_RAW)."
+  - name: events.signals
+    partitions: 6
+    replication: 1
+    config: { retention.ms: 604800000, cleanup.policy: delete }
+    note: "DATA alias for enriched/recon signals (data/config.py EVENTS_SIGNALS)."
+  - name: alerts
+    partitions: 3
+    replication: 1
+    config: { retention.ms: 2592000000 }
+    note: "DATA alias for hawkeye.alerts (data/config.py ALERTS)."
+  - name: audit
+    partitions: 3
+    replication: 1
+    config: { retention.ms: -1, cleanup.policy: compact }
+    note: "DATA alias for hawkeye.audit (data/config.py AUDIT)."

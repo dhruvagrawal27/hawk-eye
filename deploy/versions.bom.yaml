@@ -172,6 +172,9 @@ infra_extra:
   http_echo_stub:
     image: "hashicorp/http-echo:1.0"
     role: "placeholder/stub for not-yet-built services (§3 stub rule)"
+  kong:
+    image: "kong:3.8"
+    role: "API gateway runtime (Part 32.1); hosts BACKEND-owned backend/gateway_config/kong.yaml (DB-less declarative)"
 
 # --- Security / DevSecOps tooling (PLATFORM-17/20/21/22) — pin & CVE-track ----
 security_tools:

@@ -18,7 +18,7 @@ from govapi.main import app  # noqa: E402
 
 client = TestClient(app)
 
-# BACKEND.md §2 — required L6 alert fields.
+# BACKEND.md §2 — required L6 alert fields (full canonical set, incl. timestamps).
 ALERT_FIELDS = {
     "alert_id",
     "entity_id",
@@ -26,9 +26,11 @@ ALERT_FIELDS = {
     "severity",
     "confidence",
     "status",
+    "created_ts",
     "contributing_layers",
     "reason_codes",
     "exposure_inr",
+    "sla_due_ts",
     "pii_tokenized",
 }
 # BACKEND.md §7 — narrative/attestation audit-memo fields.
@@ -60,9 +62,13 @@ def test_alert_matches_backend_contract():
     a = scoring.score_event(FRAUD, "rules_only")
     assert ALERT_FIELDS.issubset(a.keys()), ALERT_FIELDS - a.keys()
     assert a["alert_id"].startswith("alr_")
-    assert a["severity"] in {"low", "medium", "high", "critical"}
+    # BACKEND.md §2: severity enum is exactly low|medium|high (no "critical").
+    assert a["severity"] in {"low", "medium", "high"}
     assert isinstance(a["risk_score"], int) and 0 <= a["risk_score"] <= 100
     assert a["pii_tokenized"] is True
+    # sla_due_ts = created_ts + RBI <=30-day cap, UTC ISO-8601 "...Z".
+    assert a["sla_due_ts"] and a["sla_due_ts"].endswith("Z")
+    assert a["sla_due_ts"] > a["created_ts"]
 
 
 def test_tee_audit_memo_matches_backend_contract():

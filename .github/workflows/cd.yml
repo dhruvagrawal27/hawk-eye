@@ -40,8 +40,10 @@ jobs:
       - name: Resolve env overlay (dev|staging-masked|prod share IaC)
         run: |
           ENV="${{ github.event.inputs.environment || 'dev' }}"
-          echo "Using overlay deploy/argocd/overlays/$ENV (parity via shared base, Part 31.2)"
-          test -f "deploy/argocd/overlays/$ENV/kustomization.yaml" && echo "overlay present"
+          echo "Using overlay deploy/argocd/overlays/$ENV (parity via shared Helm base, Part 31.2)"
+          # Overlays are ArgoCD/Helm valueFiles (deploy/argocd/application.yaml), not kustomize.
+          test -f "deploy/argocd/overlays/$ENV/values.yaml" || { echo "missing overlay values for $ENV"; exit 1; }
+          echo "overlay values present: deploy/argocd/overlays/$ENV/values.yaml"
 
       - name: Verify image + model signatures (cosign) on load
         run: echo "cosign verify hawkeye/*:${GITHUB_REF_NAME}  (PLATFORM-17 / Part 23 — no unsigned artifact deploys)"

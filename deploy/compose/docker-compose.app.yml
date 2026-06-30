@@ -8,7 +8,7 @@ name: hawk-eye
 
 networks:
   hawkeye:
-    name: hawkeye
+    name: hawk-eye   # actual docker network name = hawk-eye (BACKEND attaches to it as external)
     driver: bridge
 
 volumes:

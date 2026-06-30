@@ -50,6 +50,7 @@ MAPPING: dict[str, str] = {
     "infra_extra.spire_agent.image": "SPIRE_AGENT_IMAGE",
     "infra_extra.argocd.image": "ARGOCD_IMAGE",
     "infra_extra.http_echo_stub.image": "HTTP_ECHO_IMAGE",
+    "infra_extra.kong.image": "KONG_IMAGE",
 }
 
 
