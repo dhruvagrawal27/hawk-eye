@@ -1,0 +1,61 @@
+# Hawk-Eye API gateway front (BACKEND-28, blueprint Part 32.1).
+# Declarative (DB-less) Kong config fronting the control-plane APIs with auth, rate-limiting,
+# routing, and observability. PLATFORM hosts the Kong/APISIX runtime; BACKEND owns this config.
+# (APISIX equivalents: jwt-auth, limit-req, prometheus, request-id plugins.)
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: hawkeye-api
+    url: http://hawkeye-api:8000
+    routes:
+      - name: api-v1
+        paths: ["/api/v1"]
+        strip_path: false
+    plugins:
+      # JWT validation at the edge (defense-in-depth; the app also validates per-route).
+      - name: jwt
+        config:
+          claims_to_verify: ["exp"]
+      - name: rate-limiting
+        config:
+          minute: 600
+          policy: local
+      - name: prometheus           # /metrics exposition for PLATFORM Prometheus scrape
+      - name: correlation-id
+        config:
+          header_name: X-Request-Id
+          generator: uuid
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 8   # MB
+
+  # Public auth + ops routes (no JWT plugin — the app issues/validates tokens; /health is liveness).
+  - name: hawkeye-public
+    url: http://hawkeye-api:8000
+    routes:
+      - name: auth
+        paths: ["/api/v1/auth", "/health", "/metrics"]
+        strip_path: false
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 120
+          policy: local
+
+  # Internal model-serving (not exposed publicly; mesh/mTLS only).
+  - name: hawkeye-serving
+    url: http://hawkeye-serving:8001
+    routes:
+      - name: serving-internal
+        paths: ["/internal/serving"]
+        strip_path: true
+
+# Upstream health checks (reliability — Part 32.2).
+upstreams:
+  - name: hawkeye-api
+    healthchecks:
+      active:
+        http_path: /health
+        healthy: { interval: 5, successes: 1 }
+        unhealthy: { interval: 5, http_failures: 3 }

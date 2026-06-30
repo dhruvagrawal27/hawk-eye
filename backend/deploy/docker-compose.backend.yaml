@@ -1,0 +1,59 @@
+# Hawk-Eye BACKEND services (BACKEND-13). Fragment for the `backend/` tier only.
+# PLATFORM owns the root compose + the shared substrate (Kafka/Redis/Postgres/ClickHouse/Keycloak);
+# this fragment wires the BACKEND services and references the shared `hawk-eye` network the PLATFORM
+# compose creates. ALERT-ONLY: these services emit alerts; nothing here auto-blocks or auto-classifies.
+name: hawk-eye-backend
+
+services:
+  hawkeye-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    image: hawk-eye/api:0.1.0
+    environment:
+      HAWKEYE_ENV: staging
+      HAWKEYE_AUTH_MODE: keycloak
+      HAWKEYE_API_PORT: "8000"
+      HAWKEYE_SERVING_URL: http://hawkeye-serving:8001
+      HAWKEYE_KEYCLOAK_BASE_URL: http://keycloak:8080
+      HAWKEYE_REDIS_URL: redis://redis:6379/0
+      HAWKEYE_KAFKA_BOOTSTRAP: kafka:9092
+      HAWKEYE_CLICKHOUSE_URL: http://clickhouse:8123
+      HAWKEYE_POSTGRES_DSN: postgresql://hawkeye:hawkeye@postgres:5432/hawkeye
+      # Secrets (PII_HMAC_KEY, HAWKEYE_PII_FIELD_KEY, Keycloak client secret) come from Vault via
+      # PLATFORM — never baked into the image.
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [hawk-eye]
+
+  hawkeye-serving:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.serving
+    image: hawk-eye/serving:0.1.0
+    command: ["uvicorn", "serving.server:app", "--host", "0.0.0.0", "--port", "8001"]
+    ports: ["8001:8001"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/healthz').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [hawk-eye]
+
+  hawkeye-gateway:
+    build:
+      context: ../gateway
+      dockerfile: ../deploy/Dockerfile.gateway
+    image: hawk-eye/gateway:0.1.0
+    depends_on: [hawkeye-serving]
+    ports: ["8081:8081"]
+    networks: [hawk-eye]
+
+# The PLATFORM root compose creates this network; we attach as external.
+networks:
+  hawk-eye:
+    external: true

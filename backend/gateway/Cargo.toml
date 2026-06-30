@@ -1,0 +1,40 @@
+# Hawk-Eye Rust hot-path gateway (BACKEND-10/11/14/15, blueprint Part 8 / 18.1).
+# The latency-critical tier: ingest/enrichment → rules gateway (+ L1 short-circuit) → inline
+# inference → emit. ALERT-ONLY: it scores and requests; it never blocks money or classifies fraud.
+[package]
+name = "hawk-eye-gateway"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Hawk-Eye Rust hot-path gateway: ingestion/enrichment, rules/scoring, inline inference."
+license = "Proprietary"
+
+[lib]
+name = "hawk_eye_gateway"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gateway"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# HTTP surface for the ingestion gateway + serving calls (PLATFORM fronts with Kong/APISIX).
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+tracing = "0.1"
+
+# Inline ONNX inference (Part 24.3: ort bound to ONNX Runtime 1.20.x). Optional so the crate builds
+# and `cargo test` runs WITHOUT native ONNX Runtime libraries present; enable with `--features onnx`.
+[dependencies.ort]
+version = "2"
+optional = true
+
+[features]
+default = []
+onnx = ["dep:ort"]
+
+[profile.release]
+lto = true
+codegen-units = 1
