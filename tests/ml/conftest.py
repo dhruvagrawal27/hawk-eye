@@ -17,6 +17,15 @@ if REPO_ROOT not in sys.path:
 
 warnings.filterwarnings("ignore")
 
+# Training many tiny torch models back-to-back segfaults under the default OpenMP thread
+# pool on macOS; pin to a single thread for the whole ML suite (defensive, suite-wide).
+try:  # pragma: no cover
+    import torch
+
+    torch.set_num_threads(1)
+except Exception:
+    pass
+
 
 @pytest.fixture(scope="session")
 def synthetic_source():
