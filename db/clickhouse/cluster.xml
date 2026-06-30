@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<!--
+  Hawk-Eye ClickHouse — sharded + replicated cluster topology (DATABASE-3)
+  Blueprint: Part 9.2 (a small sharded+replicated cluster; hot-cold tiering, l.357).
+
+  Topology (demo-sized; scale by adding <shard> blocks): 2 shards x 2 replicas.
+  `internal_replication=true` → writes go to ReplicatedMergeTree which replicates;
+  the distributed table writes once per shard, the replica syncs via Keeper.
+
+  Coordination: ClickHouse Keeper (Raft) replaces ZooKeeper (self-hosted, on-prem).
+  Macros {shard}/{replica} are per-NODE (set in each node's config.d/macros.xml);
+  the values here are an example for node shard1-replica1.
+
+  Single-node DEV: apply_ddl.sh defaults to non-replicated ReplacingMergeTree, so
+  this cluster file is only needed when running the replicated topology
+  (CH_ENGINE_MODE=replicated). The DDL form for the cluster is in ddl/CLUSTER.md.
+
+  1:1 AWS swap: this maps to a self-managed CH cluster on EC2/EKS or ClickHouse
+  Cloud; residency stays in-India (Part 9.3). No table DDL changes.
+-->
+<clickhouse>
+    <remote_servers>
+        <hawkeye_cluster>
+            <shard>
+                <internal_replication>true</internal_replication>
+                <replica>
+                    <host>clickhouse-s1r1</host>
+                    <port>9000</port>
+                </replica>
+                <replica>
+                    <host>clickhouse-s1r2</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+            <shard>
+                <internal_replication>true</internal_replication>
+                <replica>
+                    <host>clickhouse-s2r1</host>
+                    <port>9000</port>
+                </replica>
+                <replica>
+                    <host>clickhouse-s2r2</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+        </hawkeye_cluster>
+    </remote_servers>
+
+    <!-- ClickHouse Keeper ensemble (replaces ZooKeeper; on-prem self-hosted). -->
+    <zookeeper>
+        <node>
+            <host>clickhouse-keeper-1</host>
+            <port>9181</port>
+        </node>
+        <node>
+            <host>clickhouse-keeper-2</host>
+            <port>9181</port>
+        </node>
+        <node>
+            <host>clickhouse-keeper-3</host>
+            <port>9181</port>
+        </node>
+    </zookeeper>
+
+    <!-- Per-node macros (example values for node shard1/replica1). Each physical
+         node ships its own config.d/macros.xml with its {shard}/{replica}. -->
+    <macros>
+        <shard>01</shard>
+        <replica>clickhouse-s1r1</replica>
+        <cluster>hawkeye_cluster</cluster>
+    </macros>
+
+    <!-- Default Replicated*MergeTree zk paths so DDL can omit explicit args:
+         ENGINE = ReplicatedReplacingMergeTree(ingested_at) is enough. -->
+    <default_replica_path>/clickhouse/tables/{cluster}/{shard}/{database}/{table}</default_replica_path>
+    <default_replica_name>{replica}</default_replica_name>
+</clickhouse>
