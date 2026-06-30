@@ -1,0 +1,110 @@
+{
+  "type": "record",
+  "name": "AuditEvent",
+  "namespace": "in.hawkeye.audit",
+  "doc": "Hawk-Eye append-only audit event (DATABASE-5). Mirrors services/audit/audit_schema.py field-for-field. BACKEND produces onto topic `hawkeye.audit`; the WORM writer (DATABASE-6) consumes, hash-chains, and seals to the MinIO `audit-archive` object-lock bucket. ALERT-ONLY: records human decisions + who-watched-whom, never an automatic action. Tokenized/synthetic only (pii_tokenized always true). Blueprint Part 8 (l.311), Part 19.2 (l.626), Part 19.3 (l.634).",
+  "fields": [
+    {
+      "name": "schema_version",
+      "type": "string",
+      "default": "1.0.0",
+      "doc": "Envelope schema version (SemVer). Must equal SCHEMA_VERSION in audit_schema.py."
+    },
+    {
+      "name": "audit_id",
+      "type": "string",
+      "doc": "`aud_*` id (CONTEXT.md §6 ID convention)."
+    },
+    {
+      "name": "ts",
+      "type": "string",
+      "doc": "UTC ISO-8601 `...Z` timestamp of the action."
+    },
+    {
+      "name": "actor",
+      "doc": "Who performed the action (the watched watcher).",
+      "type": {
+        "type": "record",
+        "name": "AuditActor",
+        "fields": [
+          {"name": "actor_id", "type": "string", "doc": "Tokenized actor id, e.g. EMP-7f3a or a service-account id."},
+          {"name": "role", "type": "string", "default": "", "doc": "RBAC role (BACKEND.md §4)."},
+          {"name": "session_id", "type": "string", "default": "", "doc": "Session correlation id."},
+          {"name": "src_ip", "type": "string", "default": "", "doc": "Source IP of the action."}
+        ]
+      }
+    },
+    {
+      "name": "action",
+      "doc": "Audited action class. Covers who-viewed-whom, alert assign/close/disposition, block-request (+approve), rule/threshold change, model-version register/promote/archive, registry read/load, feature-snapshot write, PII unmask, narrative memo, user admin, report export.",
+      "type": {
+        "type": "enum",
+        "name": "AuditAction",
+        "symbols": [
+          "view_entity",
+          "view_alert",
+          "alert_assign",
+          "alert_close",
+          "alert_disposition",
+          "block_request",
+          "block_request_approve",
+          "rule_change",
+          "threshold_change",
+          "model_version_register",
+          "model_version_promote",
+          "model_version_archive",
+          "registry_read",
+          "registry_load",
+          "feature_snapshot_write",
+          "pii_unmask",
+          "narrative_memo",
+          "user_admin",
+          "report_export"
+        ]
+      }
+    },
+    {
+      "name": "target",
+      "doc": "What the action points at (entity/alert/rule/model/feature/report/narrative/disposition/user).",
+      "type": {
+        "type": "record",
+        "name": "AuditTarget",
+        "fields": [
+          {
+            "name": "type",
+            "type": {
+              "type": "enum",
+              "name": "TargetType",
+              "symbols": ["entity", "alert", "case", "rule", "model", "feature", "report", "narrative", "disposition", "user"]
+            }
+          },
+          {"name": "id", "type": "string", "doc": "Target id (e.g. alr_3d7e22, EMP-7f3a, models/L3/lightgbm_gbdt/v1.4.2)."}
+        ]
+      }
+    },
+    {
+      "name": "details",
+      "doc": "Free-form context. For rule/threshold change: old_value/new_value/change_id. For PII unmask: justification. For narrative memo (BACKEND.md §7): provider, tee_attested, attestation_id, model, prompt_hash. For registry access: stage, signature_verified.",
+      "type": {"type": "map", "values": "string"},
+      "default": {}
+    },
+    {
+      "name": "pii_tokenized",
+      "type": "boolean",
+      "default": true,
+      "doc": "Always true (golden rule 2): raw PII never enters an audit record."
+    },
+    {
+      "name": "prev_hash",
+      "type": "string",
+      "default": "",
+      "doc": "Hash of the previous sealed record. Empty on produce; filled by the WORM writer (DATABASE-6)."
+    },
+    {
+      "name": "record_hash",
+      "type": "string",
+      "default": "",
+      "doc": "SHA-256( canonical_bytes(content) ‖ 0x00 ‖ prev_hash ). Empty on produce; filled by the WORM writer."
+    }
+  ]
+}

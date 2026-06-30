@@ -1,0 +1,64 @@
+# =============================================================================
+# Hawk-Eye — Append-only Kafka AUDIT topic config (DATABASE-5)
+# Blueprint: Part 8 (append-only Kafka audit topics + WORM, l.311);
+#            Part 19.3 (tamper-evident audit of ALL activity incl. investigators, l.634).
+# -----------------------------------------------------------------------------
+# SEAM: DATA/PLATFORM own the Kafka cluster itself (CONTEXT.md §7, bootstrap
+# kafka:9092 in-net / localhost:29092 host). DATABASE owns ONLY the *audit*
+# topic config + producer schema. BACKEND produces audit events; the WORM writer
+# (services/audit/worm_writer.py, DATABASE-6) consumes + seals them immutably.
+#
+# Naming: PLATFORM provisions `hawkeye.*` topics (CONTEXT.md INTEGRATION LOG,
+# infra/kafka/topics.yaml already declares `hawkeye.audit`). We bind to that name
+# and pin the *append-only* semantics the blueprint requires.
+# =============================================================================
+
+# Default cluster coordinates (overridable via env for create_topics.sh).
+bootstrap_servers: "${KAFKA_BOOTSTRAP:-localhost:29092}"
+
+topics:
+  - name: hawkeye.audit
+    # 3 partitions for parallel consume; consistent with DATA's 3-broker / RF3
+    # cluster (Part 9.2). Single-broker Redpanda fallback overrides RF to 1.
+    partitions: 3
+    replication_factor: "${AUDIT_TOPIC_RF:-3}"
+    configs:
+      # --- APPEND-ONLY (the core requirement) --------------------------------
+      # cleanup.policy=delete (NOT compact) + retention.ms=-1 (infinite) means
+      # nothing is ever compacted away or aged out: the topic is append-only.
+      cleanup.policy: "delete"
+      retention.ms: "-1"            # infinite retention (never expire)
+      retention.bytes: "-1"         # no size-based deletion
+      # Compaction OFF (a compacted topic would drop superseded keys → not WORM).
+      # (cleanup.policy=delete already disables compaction; restated for clarity.)
+      min.compaction.lag.ms: "0"
+      # Durability: never lose an audit record.
+      min.insync.replicas: "${AUDIT_MIN_ISR:-2}"
+      unclean.leader.election.enable: "false"
+      # Ordering: keep per-partition order strict (hash chain is order-sensitive).
+      message.timestamp.type: "CreateTime"
+      max.message.bytes: "1048576"
+
+  # Dead-letter for malformed audit envelopes (schema-validation failures). Also
+  # append-only: a rejected record is still evidence and must not be lost.
+  - name: hawkeye.audit.dlq
+    partitions: 1
+    replication_factor: "${AUDIT_TOPIC_RF:-3}"
+    configs:
+      cleanup.policy: "delete"
+      retention.ms: "-1"
+      retention.bytes: "-1"
+      min.insync.replicas: "${AUDIT_MIN_ISR:-2}"
+      unclean.leader.election.enable: "false"
+
+# Producer contract (BACKEND emits; DATABASE owns the schema):
+#   - key   = target.id (so all events about one alert/entity land on one
+#             partition and stay strictly ordered for the hash chain)
+#   - value = Avro per kafka/audit_event.avsc (Apicurio schema-registry :8085)
+#   - prev_hash / record_hash are LEFT EMPTY by the producer; the WORM writer
+#     fills them at seal time (single-writer guarantees a total order).
+schema:
+  subject: "hawkeye.audit-value"
+  format: "AVRO"
+  file: "audit_event.avsc"
+  compatibility: "BACKWARD"
