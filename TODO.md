@@ -9,13 +9,13 @@
 - [x] M4 Feature engineering catalogue (every 6.1–6.6 + slow-lane) + three-way baselines + DFS + online/offline parity
 - [~] M5 Governance/quality/lineage/MDM/retention (REAL); label store: gold=MOCK, EDD source-4 **[!] stubbed — awaits BACKEND `POST /alerts/{id}/disposition`**
 
-## 2. 🤖 ML (29 tasks — see prompts/02_ML.md) — **branch hawk-eye/ml; foundation + L2-L6 + narrative built & tested (.mlvenv py3.13, 100+ tests green)**
-- [x] M1 Foundations (ML-1/2): scaffold/seeds/interfaces, DATA adapters, honest eval (non-PA, temporal/entity splits, leakage guards) + L2 unsupervised (ML-3: IF/ECOD/COPOD/AE/OCSVM via PyOD+torch, ensemble)
-- [x] M2a L3 GBDT (ML-4: LightGBM/CatBoost/XGBoost + TreeSHAP + isotonic calibration + imbalance) + strategies (ML-8) + design (ML-9)
-- [x] M2b L4 sequence (ML-5: baselines first, then USAD/TranAD/AnomalyTransformer/DeepLog/LAXCAT, non-PA gate) — REAL torch
-- [~] M2c L5 graph (ML-6: XGB-Graph default/GraphSAGE/specialized GNNs/GNNExplainer/GADBench ablation) **finishing**; [x] L6 fusion (ML-7: stacked meta + calibration + reason-code assembler → BACKEND §2 alert)
-- [x] Narrative gateway (ML-10..13): NEAR AI→Groq→deterministic-template failover (SCAFFOLD providers/attestation), grounding guardrail, audit memo, POST /narratives
-- [ ] M3 Pipelines (ML-14..19), M4 MLOps/registry/drift/governance (ML-20..24), M5 fairness (ML-25/26) + robustness (ML-27) + CI suites (ML-28) + phasing/ops (ML-29) — **fanning out next**
+## 2. 🤖 ML (29 tasks — see prompts/02_ML.md) — **✅ COMPLETE on hawk-eye/ml. All 29 tasks; 250 tests pass / 0 fail (.mlvenv py3.13, `python -m ml.tests.run`). End-to-end demo runs (`python -m ml.demo`).**
+- [x] M1 Foundations (ML-1/2) + L2 unsupervised (ML-3: IF/ECOD/COPOD/AE/OCSVM via PyOD+torch, ensemble)
+- [x] M2 L3 GBDT (ML-4) + L4 sequence (ML-5, REAL torch) + L5 graph (ML-6, REAL PyG, GADBench lift) + L6 fusion (ML-7→BACKEND §2 alert) + strategies (ML-8) + design (ML-9) + narrative gateway (ML-10..13: failover/grounding/audit/attestation/POST·narratives)
+- [x] M3 Pipelines (ML-14..19): DAG, per-layer trainers, EDD feedback+active-learning, repro/ledger, sync/async/shadow/backfill inference, backtest
+- [x] M4 MLOps (ML-20..24): registry+inventory, champion/challenger+shadow+canary+signed-load+auto-rollback, PSI/KS+concept drift+threshold governance, model cards/MRM, SIMULATED validation sign-off (MOCK)
+- [x] M5 fairness (ML-25/26), robustness (ML-27), CI suites (ML-28, fairness-gated), phasing+ops metrics incl. RBI TAT (ML-29)
+- **SCAFFOLD** (need real keys/HW): live NEAR AI/Groq calls + TEE attestation. **MOCK**: independent human validator sign-off.
 
 ## 3. ⚙️ BACKEND (29 tasks — see prompts/03_BACKEND.md) — also owns BACKEND.md
 - [ ] M1 FastAPI app, auth/RBAC (Keycloak/JWT), health/metrics
