@@ -5,7 +5,7 @@ alert is human-pending (status=open), never an action; (3) rules-only marks even
 re-score so nothing is dropped; (4) benign activity is suppressed.
 """
 import pytest
-from app import rules, scoring
+from dswitch import rules, scoring
 
 FRAUD = {
     "event_id": "evt_t1", "ts": "2026-06-30T02:14:07Z",
