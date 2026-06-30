@@ -14,6 +14,16 @@ function readNumber(value: string | undefined, fallback: number): number {
   return Number.isFinite(n) ? n : fallback
 }
 
+/** Resolve a (possibly relative/http) realtime URL to an absolute ws(s):// URL. */
+function resolveWs(value: string | undefined): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+  const raw = value && value.length > 0 ? value : '/ws/alerts'
+  if (/^wss?:\/\//.test(raw)) return raw
+  if (/^https?:\/\//.test(raw)) return raw.replace(/^http/, 'ws')
+  // relative path → origin (http→ws) + path
+  return `${origin.replace(/^http/, 'ws')}${raw.startsWith('/') ? '' : '/'}${raw}`
+}
+
 export const env = {
   /** BACKEND REST base, includes `/api/v1` (BACKEND.md §3). */
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1',
@@ -31,10 +41,9 @@ export const env = {
   },
   /** Grafana 11.x ops dashboards, embedded in the Admin view (FRONTEND-13). */
   grafanaUrl: import.meta.env.VITE_GRAFANA_URL ?? 'http://localhost:3000',
-  /** Realtime stream endpoint (used by WsRealtimeSource once the backend exposes /ws). */
-  wsBaseUrl:
-    import.meta.env.VITE_WS_BASE_URL ??
-    `${window.location.origin.replace(/^http/, 'ws')}/ws/alerts`,
+  /** Realtime stream WebSocket URL (resolved to an absolute ws(s):// URL). VITE_WS_BASE_URL may be
+   *  absolute (ws[s]://… or http[s]://…) or a relative path (/ws/alerts); empty → origin + /ws/alerts. */
+  wsBaseUrl: resolveWs(import.meta.env.VITE_WS_BASE_URL),
   /** Idle auto-logout window (FRONTEND-2 session controls). */
   idleTimeoutMinutes: readNumber(import.meta.env.VITE_IDLE_TIMEOUT_MINUTES, 15),
   mode: import.meta.env.MODE,

@@ -66,6 +66,17 @@ class Settings(BaseSettings):
     # stub-era value that timed out the moment a live LLM was wired in.
     narrative_timeout_seconds: float = Field(15.0, alias="HAWKEYE_NARRATIVE_TIMEOUT")
 
+    # --- Realtime stream (BACKEND-13 online topology; powers /ws/alerts) ---
+    # off       = no stream (WS accepts but emits nothing)
+    # inprocess = an asyncio replay loop scores synthetic events via ONLINE and broadcasts (no brokers)
+    # kafka     = consume the events topic, score, publish to Redis, fan out to WS (production)
+    stream_mode: str = Field("inprocess", alias="HAWKEYE_STREAM_MODE")
+    stream_rate: float = Field(6.0, alias="HAWKEYE_STREAM_RATE")  # events/sec in inprocess mode
+    kafka_bootstrap: str = Field("localhost:29092", alias="HAWKEYE_KAFKA_BOOTSTRAP")
+    kafka_events_topic: str = Field("hawkeye.events.l0", alias="HAWKEYE_KAFKA_EVENTS_TOPIC")
+    redis_url: str = Field("redis://localhost:6379/0", alias="HAWKEYE_REDIS_URL")
+    redis_stream_channel: str = Field("hawkeye.stream", alias="HAWKEYE_REDIS_CHANNEL")
+
     # --- Downstream stores (DATABASE owns DDL) ---
     clickhouse_url: str = Field("http://localhost:8123", alias="HAWKEYE_CLICKHOUSE_URL")
     postgres_dsn: str = Field(
