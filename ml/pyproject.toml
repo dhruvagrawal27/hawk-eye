@@ -1,0 +1,56 @@
+[project]
+name = "hawkeye-ml"
+version = "0.1.0"
+description = "Hawk-Eye ML workstream: L2-L6 detection stack, honest eval, MLOps, fairness, robustness, TEE-LLM narrative gateway"
+# Repo targets 3.12.x; the reference machine only has 3.13/3.14 so the ML venv is 3.13.
+# (torch/PyG 2.5/2.6 have no 3.13 wheels -> newer pins; recorded in docs/laptops/02-ml.md.)
+requires-python = ">=3.11"
+# Core deps are light so the package imports + the eval harness run with no heavy infra.
+# Heavy detectors/MLOps deps are optional extras, import-guarded via ml/_optional.py.
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scikit-learn>=1.5",
+    "scipy>=1.11",
+]
+
+[project.optional-dependencies]
+l2 = ["pyod>=2.0"]
+l3 = ["lightgbm>=4.3", "xgboost>=2.0", "catboost>=1.2", "shap"]
+deep = ["torch>=2.5", "torch_geometric>=2.6"]               # L4 sequence / L5 graph
+explain = ["shap", "dice-ml"]
+mlops = ["mlflow>=2.16", "evidently"]
+fairness = ["fairlearn"]
+serving = ["onnxruntime", "onnx", "skl2onnx", "onnxmltools"]
+narrative = ["openai", "jinja2", "fastapi", "uvicorn", "httpx"]
+features = ["featuretools"]
+dev = ["pytest>=8.0", "pytest-cov", "ruff>=0.6", "black>=24.0", "mypy>=1.11"]
+all = [
+    "pyod>=2.0", "lightgbm>=4.3", "xgboost>=2.0", "catboost>=1.2", "shap",
+    "torch>=2.5", "torch_geometric>=2.6", "mlflow>=2.16", "evidently", "fairlearn",
+    "onnxruntime", "onnx", "skl2onnx", "onnxmltools", "openai", "jinja2", "fastapi", "featuretools",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# The ``ml`` package lives at the repo root (sibling of this file's dir), so point
+# setuptools' package root at the parent directory and list the ml subpackages.
+[tool.setuptools]
+package-dir = { "" = ".." }
+
+[tool.setuptools.packages.find]
+where = [".."]
+include = ["ml", "ml.*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.black]
+line-length = 110
+
+[tool.pytest.ini_options]
+testpaths = ["../tests/ml"]
+addopts = "-q"

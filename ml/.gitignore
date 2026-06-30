@@ -1,0 +1,10 @@
+# ML local run artifacts (do not commit models/labels/mlruns)
+_artifacts/
+mlruns/
+*.joblib
+*.onnx
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

@@ -1,0 +1,68 @@
+"""Honest evaluation harness (ML-2): metrics, splits, leakage guards. Never point-adjust."""
+from __future__ import annotations
+
+from ml.eval.leakage_guards import (
+    SyntheticOnlyGuard,
+    assert_no_future_feature,
+    assert_no_point_adjust,
+    detect_leaky_features,
+    remove_leaky_features,
+    synthetic_only_guard,
+)
+from ml.eval.metrics import (
+    MetricReport,
+    POINT_ADJUST_ENABLED,
+    affiliation_pr,
+    alert_to_true_ratio,
+    average_precision,
+    comparison_table,
+    evaluate,
+    pr_auc,
+    precision_at_k,
+    range_based_precision,
+    range_based_recall,
+    recall_at_k,
+    recall_on_known_cases,
+    time_to_detection,
+    vus_pr,
+)
+from ml.eval.splits import (
+    assert_not_random_split,
+    entity_disjoint_split,
+    is_entity_disjoint,
+    is_temporal_split,
+    label_aware_temporal_split,
+    temporal_split,
+    time_aware_cv,
+)
+
+__all__ = [
+    "MetricReport",
+    "POINT_ADJUST_ENABLED",
+    "average_precision",
+    "pr_auc",
+    "precision_at_k",
+    "recall_at_k",
+    "alert_to_true_ratio",
+    "recall_on_known_cases",
+    "time_to_detection",
+    "range_based_precision",
+    "range_based_recall",
+    "affiliation_pr",
+    "vus_pr",
+    "evaluate",
+    "comparison_table",
+    "temporal_split",
+    "is_temporal_split",
+    "assert_not_random_split",
+    "entity_disjoint_split",
+    "is_entity_disjoint",
+    "time_aware_cv",
+    "label_aware_temporal_split",
+    "detect_leaky_features",
+    "remove_leaky_features",
+    "assert_no_future_feature",
+    "assert_no_point_adjust",
+    "synthetic_only_guard",
+    "SyntheticOnlyGuard",
+]
