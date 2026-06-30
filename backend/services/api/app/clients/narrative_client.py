@@ -41,9 +41,11 @@ class NarrativeClient:
     def __init__(self, gateway_url: str | None = None):
         self.gateway_url = gateway_url or settings.narrative_url
 
-    def narrate(self, alert_ctx: dict, *, timeout: float = 2.0) -> dict:
+    def narrate(self, alert_ctx: dict, *, timeout: float | None = None) -> dict:
         """Return a narrative + audit-memo fields. Context MUST already be PII-tokenized."""
         assert_no_raw_pii(alert_ctx)  # hard guard: nothing raw leaves the perimeter
+        if timeout is None:
+            timeout = settings.narrative_timeout_seconds
         ph = prompt_hash(alert_ctx)
         if not settings.narrative_remote_enabled:
             return self._fallback(alert_ctx, ph)  # local/CI: deterministic template, no egress

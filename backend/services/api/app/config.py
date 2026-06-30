@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     # When False (local/CI), skip the HTTP call to ML's gateway and render the deterministic
     # template directly (the UI never breaks). Set True in prod where the ML gateway is reachable.
     narrative_remote_enabled: bool = Field(False, alias="HAWKEYE_NARRATIVE_REMOTE")
+    # HTTP timeout for the gateway call. The gateway runs a 2-LLM failover chain
+    # (NEAR AI primary -> Groq) so a real call can take several seconds; 2s was a
+    # stub-era value that timed out the moment a live LLM was wired in.
+    narrative_timeout_seconds: float = Field(15.0, alias="HAWKEYE_NARRATIVE_TIMEOUT")
 
     # --- Downstream stores (DATABASE owns DDL) ---
     clickhouse_url: str = Field("http://localhost:8123", alias="HAWKEYE_CLICKHOUSE_URL")

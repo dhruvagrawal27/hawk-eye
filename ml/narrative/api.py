@@ -51,8 +51,30 @@ def get_router():
 
 
 def create_app():
-    """Standalone FastAPI app (ML-owned, for local/contract testing until BACKEND mounts the router)."""
+    """Standalone FastAPI gateway service (ML owns it; BACKEND proxies to it over HTTP).
+
+    Exposes POST /narrate (the shape BACKEND's NarrativeClient posts: ``{"alert_ctx": {...}}``)
+    plus the /api/v1/narratives/{alert_id} router and a /health probe.
+    """
     fastapi = require("fastapi", reason="ML-13 narrative app")
+    Body = fastapi.Body
     app = fastapi.FastAPI(title="Hawk-Eye ML — Narrative Gateway")
     app.include_router(get_router())
+
+    @app.post("/narrate")
+    def narrate_endpoint(payload: dict = Body(default_factory=dict)) -> dict:  # noqa: ANN001
+        ctx = payload.get("alert_ctx", payload)
+        result = narrate(ctx, rate_limiter=_RATE_LIMITER)
+        return {
+            "narrative": result["narrative"],
+            "provider": result["provider"],
+            "tee_attested": result["tee_attested"],
+            "attestation_id": result["attestation_id"],
+            "model": result["model"],
+        }
+
+    @app.get("/health")
+    def health() -> dict:
+        return {"status": "ok", "service": "narrative-gateway"}
+
     return app

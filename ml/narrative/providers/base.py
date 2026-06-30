@@ -80,6 +80,12 @@ class LLMProvider:
                 )
             except Exception as exc:  # pragma: no cover - needs live API
                 last = exc
+                # Permanent client errors (bad request / auth / quota / not-found) will not
+                # recover on retry — fail over to the next provider immediately so the chain
+                # stays fast even when this key is mis-set or out of credit (402 spend cap).
+                status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+                if status in (400, 401, 402, 403, 404):
+                    break
                 if attempt < self.max_retries:
                     time.sleep(0.2 * (attempt + 1))
         raise RuntimeError(
