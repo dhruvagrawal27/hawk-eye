@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir \
         "fastapi>=0.115,<1.0" "uvicorn[standard]>=0.32,<1.0" "pydantic>=2.7,<3" \
         "pydantic-settings>=2.3,<3" "authlib>=1.3,<2" "cryptography>=42" \
         "jinja2>=3.1,<4" "pyyaml>=6,<7" "httpx>=0.27,<1" "requests>=2.32,<3" \
-        "websockets>=12" "aiokafka>=0.10" "redis>=5"   # realtime /ws + kafka-mode stream
+        "websockets>=12" "aiokafka>=0.10" "redis>=5" \
+        "psycopg[binary]>=3.1"   # realtime /ws + kafka-mode stream + Postgres persistence (HAWKEYE_DB_URL)
 
 # Copy the cross-cutting packages + the API app.
 COPY rules_engine ./rules_engine

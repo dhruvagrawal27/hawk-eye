@@ -7,8 +7,10 @@ requests, narrative audit memos, and the feedback queue (DATA label-source-4 sea
 
 from __future__ import annotations
 
+import json
+
 from app.schemas.alerts import Alert
-from app.schemas.common import AlertStatus
+from app.schemas.common import AlertStatus, iso_z, utcnow
 from app.schemas.narratives import NarrativeAuditMemo
 
 
@@ -110,4 +112,66 @@ class AlertStore:
         return list(self._feedback_queue)
 
 
-ALERTS = AlertStore()
+class PersistedAlertStore(AlertStore):
+    """AlertStore that mirrors writes to a durable backend and reloads on boot. The in-memory dict
+    stays the fast query cache; the backend gives restart-survival + cross-worker sharing."""
+
+    def __init__(self, backend) -> None:  # noqa: ANN001
+        super().__init__()
+        self._backend = backend
+        for payload in backend.load_all():
+            try:
+                alert = Alert.model_validate(payload)
+                self._alerts[alert.alert_id] = alert
+            except Exception:  # noqa: BLE001 - skip an unparseable row, never crash boot
+                continue
+
+    def _row(self, alert: Alert) -> dict:
+        return {
+            "alert_id": alert.alert_id,
+            "entity_id": alert.entity_id,
+            "risk_score": int(alert.risk_score),
+            "severity": str(alert.severity),
+            "status": str(alert.status),
+            "created_ts": str(alert.created_ts),
+            "payload": json.dumps(alert.model_dump(mode="json")),
+            "updated_at": iso_z(utcnow()),
+        }
+
+    def add(self, alert: Alert) -> Alert:
+        super().add(alert)
+        try:
+            self._backend.upsert(self._row(alert))
+        except Exception:  # noqa: BLE001 - a DB hiccup must never break the alert path
+            pass
+        return alert
+
+    def assign(self, alert_id: str, assignee: str) -> Alert | None:
+        alert = super().assign(alert_id, assignee)
+        if alert:
+            try:
+                self._backend.upsert_assignee(alert_id, assignee, str(alert.status))
+            except Exception:  # noqa: BLE001
+                pass
+        return alert
+
+    def set_status(self, alert_id: str, status: AlertStatus | str) -> Alert | None:
+        alert = super().set_status(alert_id, status)
+        if alert:
+            try:
+                self._backend.upsert_status(alert_id, str(alert.status))
+            except Exception:  # noqa: BLE001
+                pass
+        return alert
+
+
+def _build_alert_store() -> AlertStore:
+    """In-memory by default; durable (sqlite/postgres) when HAWKEYE_DB_URL is set."""
+    from app.config import settings
+    from app.store.persistence import make_backend
+
+    backend = make_backend(settings.db_url)
+    return PersistedAlertStore(backend) if backend is not None else AlertStore()
+
+
+ALERTS = _build_alert_store()
