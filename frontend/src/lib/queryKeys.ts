@@ -3,6 +3,7 @@ import type { AlertQuery, AuditQuery } from './types'
 
 export const queryKeys = {
   alerts: (query: AlertQuery = {}) => ['alerts', query] as const,
+  alertStats: () => ['alerts', 'stats'] as const,
   alert: (id: string) => ['alert', id] as const,
   entity: (id: string) => ['entity', id] as const,
   entityTimeline: (id: string) => ['entity', id, 'timeline'] as const,

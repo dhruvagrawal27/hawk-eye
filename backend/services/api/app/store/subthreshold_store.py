@@ -103,31 +103,37 @@ def seed_subthreshold() -> None:
     """Idempotent demo seed: a plausible ambient population so the funnel + watchlist are never empty
     (the live pipeline also records into this store as events flow). Synthetic, honest."""
     SUBTHRESHOLD.reset()
-    # A realistic funnel: ~1,000 scored, a handful alerted, the rest a sub-threshold long tail.
+    # A realistic near-miss watchlist — one privileged actor per row, real signal, score 46–69.
+    # These populate the watchlist (ranked desc, deduped per entity) and a little of the mid bands.
     demo = [
-        ("EMP-2b14", 66, "off_hours_activity_rate_30d", "2026-06-30T01:12:00Z"),
-        ("EMP-9f77", 63, "maker_checker_pair_frequency_30d", "2026-06-30T20:41:00Z"),
-        ("EMP-3c55", 61, "db_rows_read_zscore_vs_peer", "2026-06-29T22:05:00Z"),
-        ("EMP-7a21", 58, "export_volume_vs_baseline", "2026-06-30T02:47:00Z"),
-        ("EMP-5d10", 57, "new_beneficiary_to_payment_latency_min", "2026-06-30T19:58:00Z"),
-        ("EMP-8b93", 55, "privileged_session_off_hours", "2026-06-29T23:31:00Z"),
-        ("EMP-1a09", 52, "amount_zscore_vs_peer", "2026-06-30T13:20:00Z"),
+        ("EMP-2b14", 67, "off_hours_activity_rate_30d", "2026-06-30T01:12:00Z"),
+        ("EMP-9f77", 65, "maker_checker_pair_frequency_30d", "2026-06-30T20:41:00Z"),
+        ("EMP-3c55", 64, "db_rows_read_zscore_vs_peer", "2026-06-29T22:05:00Z"),
+        ("EMP-7a21", 62, "export_volume_vs_baseline", "2026-06-30T02:47:00Z"),
+        ("EMP-5d10", 61, "new_beneficiary_to_payment_latency_min", "2026-06-30T19:58:00Z"),
+        ("EMP-8b93", 60, "privileged_session_off_hours", "2026-06-29T23:31:00Z"),
+        ("EMP-2c31", 59, "swift_message_without_cbs_recon", "2026-06-30T21:10:00Z"),
+        ("EMP-1a09", 58, "amount_zscore_vs_peer", "2026-06-30T13:20:00Z"),
+        ("EMP-4f88", 57, "entitlement_change_velocity", "2026-06-30T11:02:00Z"),
+        ("EMP-6e02", 55, "dormant_account_reactivation", "2026-06-28T16:44:00Z"),
+        ("EMP-3d77", 53, "vendor_bank_detail_overlap", "2026-06-30T10:15:00Z"),
+        ("EMP-9b40", 51, "standing_privilege_unused", "2026-06-29T14:33:00Z"),
+        ("EMP-7c19", 49, "reversal_clustering_7d", "2026-06-30T18:02:00Z"),
         ("EMP-4d99", 48, "failed_login_burst", "2026-06-30T09:05:00Z"),
-        ("EMP-6e02", 44, "role_change_recency", "2026-06-28T16:44:00Z"),
-        ("EMP-2b14", 59, "reversal_clustering_7d", "2026-06-30T18:02:00Z"),  # dedupes to max 66
+        ("EMP-5a62", 46, "role_change_recency", "2026-06-27T16:44:00Z"),
+        ("EMP-8f03", 45, "geo_velocity_impossible", "2026-06-30T07:20:00Z"),
     ]
     for entity, score, signal, ts in demo:
         SUBTHRESHOLD.observe(
             entity_id=entity, score=score, top_signal=signal, ts=ts, emitted=False
         )
-    # Bulk long-tail so the funnel reads honestly (most scored activity is low-risk & unseen).
-    for i in range(940):
-        SUBTHRESHOLD.observe(
-            entity_id=f"EMP-bg{i % 120:03d}",
-            score=i % 40,  # 0–39, the low band
-            top_signal="baseline",
-            ts="2026-06-30T00:00:00Z",
-            emitted=False,
-        )
-    SUBTHRESHOLD._alerted = 4  # the 4 seeded demo alerts that cleared the bar
-    SUBTHRESHOLD._total_scored = SUBTHRESHOLD._total_scored + 4
+    # Scale the funnel to a realistic bank-week (~52k privileged actions screened) WITHOUT looping
+    # tens of thousands of times (keeps the test reseed fast): set the band totals + counters
+    # directly. The watchlist ring above stays the curated near-miss set. Arithmetic stays
+    # self-consistent: total_scored == alerted + sub_threshold, sub_threshold == sum(bands).
+    SUBTHRESHOLD._band_counts["watch"] = 214  # 55–69, "almost alerted"
+    SUBTHRESHOLD._band_counts["elevated"] = 486  # 40–54, worth a periodic sweep
+    SUBTHRESHOLD._band_counts["low"] = 51_300  # 0–39, the benign majority
+    alerted = 420  # ~ the alerts that cleared the 70 bar this week
+    SUBTHRESHOLD._alerted = alerted
+    SUBTHRESHOLD._total_scored = alerted + sum(SUBTHRESHOLD._band_counts.values())

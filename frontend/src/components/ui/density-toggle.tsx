@@ -14,8 +14,16 @@ export function DensityToggle() {
       variant="ghost"
       size="icon"
       className="size-8"
-      aria-label={compact ? 'Switch to comfortable density' : 'Switch to compact density'}
-      title={compact ? 'Comfortable rows' : 'Compact rows'}
+      aria-label={
+        compact
+          ? 'Row density: currently compact — switch to comfortable (taller rows)'
+          : 'Row density: currently comfortable — switch to compact (denser rows)'
+      }
+      title={
+        compact
+          ? 'Display density — compact. Click for taller, more comfortable rows.'
+          : 'Display density — comfortable. Click for denser, compact rows.'
+      }
       onClick={() => setDensity(compact ? 'comfortable' : 'compact')}
     >
       {compact ? <Rows3 className="size-4" /> : <Rows2 className="size-4" />}

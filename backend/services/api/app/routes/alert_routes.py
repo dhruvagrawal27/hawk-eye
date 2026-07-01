@@ -13,7 +13,7 @@ from app.audit.writer import AUDIT
 from app.auth.case_scope import _DEIDENTIFIED_ROLES, can_view_alert, filter_visible
 from app.auth.deps import require_capability
 from app.auth.principal import Principal
-from app.schemas.alerts import Alert, AlertPage
+from app.schemas.alerts import Alert, AlertPage, AlertStats
 from app.schemas.common import Capability
 from app.store.alert_store import ALERTS
 
@@ -58,6 +58,46 @@ def list_alerts(
     )
     next_offset = offset + limit if offset + limit < total else None
     return AlertPage(items=page, total=total, limit=limit, offset=offset, next_offset=next_offset)
+
+
+_ACTIVE_STATUSES = {"open", "assigned", "in_review", "block_requested"}
+
+
+@router.get("/alerts/stats", response_model=AlertStats)
+def alert_stats(
+    principal: Principal = Depends(require_capability(Capability.VIEW_ALERTS)),
+) -> AlertStats:
+    """Portfolio counts for the dashboard header — open / high / SLA-at-risk / confirmed, computed
+    server-side over ALL the caller's RBAC-visible alerts (deduped per entity) so the cards read at
+    true scale rather than a single page. (Defined before /alerts/{id} so 'stats' isn't an id.)"""
+    from datetime import datetime, timedelta, timezone
+
+    items, _ = ALERTS.query(status=None, risk_gte=None, assignee=None, limit=100_000, offset=0)
+    visible = filter_visible(
+        principal, items, id_of=lambda a: a.alert_id, assignee_of=lambda a: a.assignee
+    )
+    now = datetime.now(timezone.utc)
+    urgent_by = now + timedelta(days=3)
+
+    stats = AlertStats(total=len(visible))
+    for a in visible:
+        status = str(a.status)
+        if status == "confirmed_fraud":
+            stats.confirmed_fraud += 1
+        if status in _ACTIVE_STATUSES:
+            stats.open += 1
+            stats.open_exposure_inr += int(a.exposure_inr or 0)
+            if str(a.severity) == "high":
+                stats.high_critical += 1
+            if a.sla_due_ts:
+                try:
+                    due = datetime.fromisoformat(a.sla_due_ts.replace("Z", "+00:00"))
+                    if due <= urgent_by:
+                        stats.sla_at_risk += 1
+                except ValueError:
+                    pass
+    AUDIT.write(actor=principal.user_id, actor_role=principal.role, action="alert.stats", detail={})
+    return stats
 
 
 @router.get("/alerts/{alert_id}", response_model=Alert)

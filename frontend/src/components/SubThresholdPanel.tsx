@@ -11,7 +11,7 @@ import { Layers, Moon, TrendingDown } from 'lucide-react'
 import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { cn } from '@/lib/cn'
-import { formatISTTime, formatISTDate, humanize } from '@/lib/format'
+import { formatISTTime, formatISTDate, humanize, featureFriendlyLabel } from '@/lib/format'
 import { riskColor } from '@/lib/risk'
 import { Surface } from '@/components/ui/surface'
 import { Eyebrow } from '@/components/ui/eyebrow'
@@ -21,11 +21,11 @@ import type { SubThresholdResponse } from '@/lib/types'
 
 const nf = new Intl.NumberFormat('en-IN')
 
-/** Band presentation, keyed by the backend band label. */
+/** Band presentation, keyed by the backend band label — plain-English for stakeholders. */
 const BAND_META: Record<string, { label: string; color: string }> = {
-  watch: { label: 'Watch · 55–69', color: 'var(--severity-medium)' },
-  elevated: { label: 'Elevated · 40–54', color: 'var(--severity-low)' },
-  low: { label: 'Low · 0–39', color: 'var(--muted-foreground)' },
+  watch: { label: 'Almost alerted (55–69)', color: 'var(--severity-medium)' },
+  elevated: { label: 'Worth a review (40–54)', color: 'var(--severity-low)' },
+  low: { label: 'Looks normal (0–39)', color: 'var(--muted-foreground)' },
 }
 
 function FunnelStage({
@@ -63,45 +63,54 @@ function FunnelStage({
 
 function PanelBody({ data }: { data: SubThresholdResponse }) {
   const alertedPct = data.total_scored > 0 ? (data.alerted / data.total_scored) * 100 : 0
+  const pctLabel = alertedPct < 1 ? alertedPct.toFixed(1) : String(Math.round(alertedPct))
   return (
     <div className="space-y-4">
-      {/* Detection funnel */}
+      {/* Plain-language framing for a non-technical reader */}
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Every privileged action is screened. A few are alarming enough to raise an{' '}
+        <span className="text-foreground">alert</span>; most look normal. This is the small group
+        sitting <span className="text-foreground">just below the alert line</span> — people worth
+        keeping an eye on before anything escalates.
+      </p>
+
+      {/* From everything screened → down to what actually alerted */}
       <div className="space-y-2.5">
         <FunnelStage
-          label="Scored by the full stack"
+          label="Actions screened this week"
           count={data.total_scored}
           total={data.total_scored}
           color="var(--primary)"
         />
         <FunnelStage
-          label={`Sub-threshold (< ${data.emit_threshold}) — recorded, not alerted`}
+          label="Below the alert line — being watched"
           count={data.sub_threshold}
           total={data.total_scored}
           color="var(--severity-medium)"
           hint={`${Math.round((data.sub_threshold / Math.max(1, data.total_scored)) * 100)}%`}
         />
         <FunnelStage
-          label="Surfaced as alerts"
+          label="Raised as alerts"
           count={data.alerted}
           total={data.total_scored}
           color="var(--severity-high)"
-          hint={`${alertedPct.toFixed(alertedPct < 1 ? 2 : 0)}%`}
+          hint={`${pctLabel}%`}
         />
       </div>
 
       <div className="flex items-start gap-2 rounded-lg border border-severity-medium/30 bg-severity-medium/10 px-3 py-2 text-xs text-severity-medium">
         <TrendingDown className="mt-0.5 size-4 shrink-0" />
         <p className="leading-relaxed text-foreground/85">
-          Only <span className="font-mono tabular-nums">{alertedPct.toFixed(alertedPct < 1 ? 2 : 0)}%</span>{' '}
-          of scored activity clears the {data.emit_threshold} bar. The{' '}
-          <span className="font-medium">{nf.format(data.sub_threshold)}</span> below it are the
-          near-misses and slow-drift actors this watchlist keeps in view.
+          Just <span className="font-mono tabular-nums">{pctLabel}%</span> of activity was alarming
+          enough to alert. The <span className="font-medium">{nf.format(data.sub_threshold)}</span>{' '}
+          below the line are near-misses and slow-drift staff — the watch list catches them early,
+          before they’d ever trip an alert.
         </p>
       </div>
 
-      {/* Band breakdown */}
+      {/* How the watched activity splits */}
       <div className="space-y-1.5">
-        <Eyebrow>Sub-threshold bands</Eyebrow>
+        <Eyebrow>How the watched activity splits</Eyebrow>
         {data.bands.map((b) => {
           const meta = BAND_META[b.label] ?? { label: humanize(b.label), color: 'var(--muted-foreground)' }
           const pct = data.sub_threshold > 0 ? (b.count / data.sub_threshold) * 100 : 0
@@ -122,24 +131,25 @@ function PanelBody({ data }: { data: SubThresholdResponse }) {
         })}
       </div>
 
-      {/* Near-miss watchlist */}
+      {/* People to keep an eye on — highest scorers still below the alert line */}
       {data.watchlist.length > 0 ? (
         <div className="space-y-1.5">
-          <Eyebrow>Near-miss watchlist · elevated, not alerted</Eyebrow>
+          <Eyebrow>People to keep an eye on · highest below the line</Eyebrow>
           <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
             {data.watchlist.map((w) => (
               <li key={w.entity_id} className="flex items-center gap-3 px-3 py-1.5 text-xs">
                 <span
                   className="w-8 shrink-0 text-center font-mono font-semibold tabular-nums"
                   style={{ color: riskColor(w.score) }}
+                  title={`Risk score ${w.score} of 100 — below the 70 alert line`}
                 >
                   {w.score}
                 </span>
                 <span className="w-24 shrink-0 truncate font-mono text-foreground">
                   {w.entity_id}
                 </span>
-                <span className="flex-1 truncate text-muted-foreground">
-                  {humanize(w.top_signal)}
+                <span className="flex-1 truncate text-muted-foreground" title={featureFriendlyLabel(w.top_signal)}>
+                  {featureFriendlyLabel(w.top_signal)}
                 </span>
                 <span className="shrink-0 text-2xs tabular-nums text-muted-foreground">
                   {formatISTDate(w.ts)} {formatISTTime(w.ts)}
@@ -164,7 +174,7 @@ export function SubThresholdPanel({ className }: { className?: string }) {
       <div className="flex items-center justify-between">
         <Eyebrow className="flex items-center gap-1.5">
           <Layers className="size-3" />
-          Ambient activity · the hidden 95%
+          Watch list · activity just below the alert line
         </Eyebrow>
         <Moon className="size-3.5 text-muted-foreground" aria-hidden />
       </div>

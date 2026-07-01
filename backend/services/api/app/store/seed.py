@@ -7,6 +7,9 @@ explanation panels render immediately. Idempotent. No real PII.
 
 from __future__ import annotations
 
+import os
+from datetime import datetime, timedelta, timezone
+
 from app.schemas.alerts import Alert
 from app.schemas.common import AlertStatus, Severity
 from app.schemas.entities import (
@@ -257,6 +260,68 @@ def _seed_entity_360() -> None:
     )
 
 
+# Bulk demo alerts so the dashboard/queue read at real-bank scale (hundreds), not a handful. All
+# synthetic; NONE are confirmed_fraud (keeps FMR/CFR/CRILC counts driven only by the curated cases).
+_BULK_SIGNALS: tuple[tuple[str, str], ...] = (
+    ("NEW_BENEFICIARY_THEN_HIGHVALUE", "new payee paid a high value within the hour"),
+    ("OFF_HOURS_ACTIVITY", "privileged action outside business hours"),
+    ("DB_WRITE_WITHOUT_APP_TXN", "direct database write with no application transaction"),
+    ("ENTITLEMENT_SELF_GRANT", "actor granted themselves an entitlement"),
+    ("PRIVILEGED_SESSION_CORRELATION", "bulk export inside a privileged session"),
+    ("DORMANT_REACTIVATION_DRAIN", "dormant account reactivated then drained"),
+    ("SWIFT_CBS_MISMATCH", "SWIFT instrument with no reconciling CBS transaction"),
+    ("LEAVER_WINDOW_EXFIL", "bulk data export during the leaver's notice window"),
+)
+# Active workflow states (count as "open"); a minority resolve as FP/closed/inconclusive.
+_BULK_ACTIVE = (
+    AlertStatus.OPEN,
+    AlertStatus.OPEN,
+    AlertStatus.OPEN,
+    AlertStatus.ASSIGNED,
+    AlertStatus.ASSIGNED,
+    AlertStatus.IN_REVIEW,
+)
+_BULK_RESOLVED = (AlertStatus.FALSE_POSITIVE, AlertStatus.CLOSED, AlertStatus.INCONCLUSIVE)
+
+
+def _seed_bulk_alerts(count: int = 450) -> None:
+    """Seed `count` synthetic alerts across `count` distinct entities (so per-entity dedupe keeps
+    them all), with varied severity / status / SLA / exposure. Deterministic; exposures stay under
+    ₹3 crore and no alert is confirmed_fraud, so regulatory (FMR/CFR/CRILC) figures are unaffected."""
+    now = datetime.now(timezone.utc)
+    for i in range(count):
+        risk = 45 + (i * 7 + 13) % 52  # 45–96, spread across medium/high
+        severity = Severity.HIGH if risk >= 70 else Severity.MEDIUM
+        status = _BULK_RESOLVED[i % len(_BULK_RESOLVED)] if i % 7 == 0 else _BULK_ACTIVE[i % len(_BULK_ACTIVE)]
+        days_ago = i % 40  # SLA spread: ~30% land within 3 days of / past the 30-day RBI deadline
+        created = (now - timedelta(days=days_ago)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        code, detail = _BULK_SIGNALS[i % len(_BULK_SIGNALS)]
+        layers = ["L1_rules", "L2_unsupervised", "L3_gbdt"]
+        if i % 3 == 0:
+            layers.append("L5_graph")
+        if i % 4 == 0:
+            layers.append("L4_sequence")
+        alert = Alert(
+            alert_id=f"alr_bulk{i:04d}",
+            entity_id=f"EMP-x{i:04d}",
+            risk_score=risk,
+            severity=severity,
+            confidence=round(0.5 + (i % 45) / 100.0, 2),
+            status=status,
+            created_ts=created,
+            contributing_layers=layers,
+            reason_codes=[
+                {"source": "rule", "code": code, "detail": detail},
+                {"source": "shap", "feature": "amount_zscore", "contribution": round(0.1 + (i % 7) / 20.0, 2)},
+            ],
+            exposure_inr=200_000 + (i % 45) * 100_000,  # ₹2L–₹46L (< ₹3 crore)
+            sla_due_ts=None,
+            pii_tokenized=True,
+        )
+        apply_sla(alert)
+        ALERTS.add(alert)
+
+
 def seed_demo() -> None:
     """Idempotent: populate demo alerts + entity-360 if not already present."""
     # Always (re)seed the re-id vault first — it is separate from the alert store, so it must be
@@ -276,6 +341,10 @@ def seed_demo() -> None:
         if alert.sla_due_ts is None:
             apply_sla(alert)
         ALERTS.add(alert)
+    # Bulk synthetic alerts so the console reads at real-bank scale (hundreds). Default ON; the test
+    # harness sets HAWKEYE_SEED_BULK=0 for fast, deterministic reseeds.
+    if os.getenv("HAWKEYE_SEED_BULK", "1") != "0":
+        _seed_bulk_alerts()
     _seed_entity_360()
     # Relationship Manager case scope: assign the demo alerts to the seeded RM (need-to-know).
     # EMP-an01 is the legacy analyst→relationship_manager login alias (docs/BANK_ROLES.md).

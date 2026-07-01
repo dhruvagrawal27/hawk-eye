@@ -128,3 +128,15 @@ class AlertPage(BaseModel):
     limit: int
     offset: int
     next_offset: int | None = None
+
+
+class AlertStats(BaseModel):
+    """Portfolio counts for the dashboard header (GET /alerts/stats) — computed server-side over the
+    caller's RBAC-visible alerts so the cards read at true scale, not a single page."""
+
+    total: int = 0  # all visible alerts (deduped per entity)
+    open: int = 0  # active workflow states (open/assigned/in_review/block_requested)
+    high_critical: int = 0  # open alerts at HIGH severity
+    sla_at_risk: int = 0  # open alerts within 3 days of / past the RBI SLA
+    confirmed_fraud: int = 0  # human-confirmed
+    open_exposure_inr: int = 0  # total exposure across open alerts

@@ -147,6 +147,16 @@ export interface AlertQuery {
   page_size?: number
 }
 
+/** Portfolio counts for the dashboard header (GET /alerts/stats) — computed server-side. */
+export interface AlertStats {
+  total: number
+  open: number
+  high_critical: number
+  sla_at_risk: number
+  confirmed_fraud: number
+  open_exposure_inr: number
+}
+
 /* ───────────────────────────── Entity-360 [BACKEND.md §3 routes] ──────────────────────────── */
 /** [FE-proposed] GET /entities/{id} */
 export interface EntityProfile {

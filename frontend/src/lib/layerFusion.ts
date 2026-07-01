@@ -10,7 +10,9 @@
  */
 import type { Alert, ContributingLayer, FusionBreakdown } from '@/lib/types'
 
-export const FUSION_THRESHOLD_PCT = 16 // 0.16032509 on the 0–1 scale → ~16 on 0–100
+// Decision threshold on the 0–100 scale — must match the backend EMIT/HIGH threshold (70). The
+// backend supplies the real per-alert threshold in the fusion breakdown; this is only the fallback.
+export const FUSION_THRESHOLD_PCT = 70
 
 /** The five detection layers that feed the L6 fusion, in event-flow order. */
 export const DETECTION_LAYERS: ContributingLayer[] = [

@@ -7,10 +7,15 @@ four-eyes rule-change test persisted, restoring the engine to its committed stat
 
 from __future__ import annotations
 
+import os
 import pathlib
 
 import pytest
 from fastapi.testclient import TestClient
+
+# Keep the reseed between tests small + deterministic — the hundreds of bulk demo alerts are for the
+# running console/deploy, not the unit suite. Tests that need bulk set this themselves and reseed.
+os.environ.setdefault("HAWKEYE_SEED_BULK", "0")
 
 # Seeded synthetic users (one per role) — password is the synthetic dev secret. The friendly keys
 # are test labels, not role enum values; they resolve to the FROZEN bank-org-chart personas /
