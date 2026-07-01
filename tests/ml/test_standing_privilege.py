@@ -11,15 +11,29 @@ def test_flags_unexercised_grant_only():
     df = pd.DataFrame(
         [
             # granted approve_payment ~100d before ref, NEVER exercised → standing + never
-            {"actor.employee_id": "EMP-x", "action.verb": "grant_entitlement",
-             "object.entitlement_id": "approve_payment", "context.ts": "2026-03-01T10:00:00Z"},
+            {
+                "actor.employee_id": "EMP-x",
+                "action.verb": "grant_entitlement",
+                "object.entitlement_id": "approve_payment",
+                "context.ts": "2026-03-01T10:00:00Z",
+            },
             # granted export, and exercised recently → NOT standing
-            {"actor.employee_id": "EMP-x", "action.verb": "grant_entitlement",
-             "object.entitlement_id": "export", "context.ts": "2026-03-01T10:00:00Z"},
-            {"actor.employee_id": "EMP-x", "action.verb": "export",
-             "context.ts": "2026-06-08T10:00:00Z"},
-            {"actor.employee_id": "EMP-x", "action.verb": "login",
-             "context.ts": "2026-06-09T10:00:00Z"},
+            {
+                "actor.employee_id": "EMP-x",
+                "action.verb": "grant_entitlement",
+                "object.entitlement_id": "export",
+                "context.ts": "2026-03-01T10:00:00Z",
+            },
+            {
+                "actor.employee_id": "EMP-x",
+                "action.verb": "export",
+                "context.ts": "2026-06-08T10:00:00Z",
+            },
+            {
+                "actor.employee_id": "EMP-x",
+                "action.verb": "login",
+                "context.ts": "2026-06-09T10:00:00Z",
+            },
         ]
     )
     res = ia.standing_privilege(df, window_days=90, min_grant_age_days=14)
@@ -31,10 +45,17 @@ def test_flags_unexercised_grant_only():
 def test_recent_grant_below_min_age_not_standing():
     df = pd.DataFrame(
         [
-            {"actor.employee_id": "EMP-z", "action.verb": "grant_entitlement",
-             "object.entitlement_id": "approve_payment", "context.ts": "2026-06-08T10:00:00Z"},
-            {"actor.employee_id": "EMP-z", "action.verb": "login",
-             "context.ts": "2026-06-09T10:00:00Z"},
+            {
+                "actor.employee_id": "EMP-z",
+                "action.verb": "grant_entitlement",
+                "object.entitlement_id": "approve_payment",
+                "context.ts": "2026-06-08T10:00:00Z",
+            },
+            {
+                "actor.employee_id": "EMP-z",
+                "action.verb": "login",
+                "context.ts": "2026-06-09T10:00:00Z",
+            },
         ]
     )
     res = ia.standing_privilege(df, min_grant_age_days=14)
@@ -44,12 +65,23 @@ def test_recent_grant_below_min_age_not_standing():
 def test_revoke_clears_standing_privilege():
     df = pd.DataFrame(
         [
-            {"actor.employee_id": "EMP-y", "action.verb": "grant_entitlement",
-             "object.entitlement_id": "approve_payment", "context.ts": "2026-03-01T10:00:00Z"},
-            {"actor.employee_id": "EMP-y", "action.verb": "revoke_entitlement",
-             "object.entitlement_id": "approve_payment", "context.ts": "2026-04-01T10:00:00Z"},
-            {"actor.employee_id": "EMP-y", "action.verb": "login",
-             "context.ts": "2026-06-09T10:00:00Z"},
+            {
+                "actor.employee_id": "EMP-y",
+                "action.verb": "grant_entitlement",
+                "object.entitlement_id": "approve_payment",
+                "context.ts": "2026-03-01T10:00:00Z",
+            },
+            {
+                "actor.employee_id": "EMP-y",
+                "action.verb": "revoke_entitlement",
+                "object.entitlement_id": "approve_payment",
+                "context.ts": "2026-04-01T10:00:00Z",
+            },
+            {
+                "actor.employee_id": "EMP-y",
+                "action.verb": "login",
+                "context.ts": "2026-06-09T10:00:00Z",
+            },
         ]
     )
     res = ia.standing_privilege(df)

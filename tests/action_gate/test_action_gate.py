@@ -38,11 +38,17 @@ def test_routine_verb_allows():
 
 
 def test_sod_over_threshold_forces_hold():
-    assert ActionGate().evaluate("db_write", sod_score=0.95).decision == Decision.HOLD_FOR_REVIEW
+    assert (
+        ActionGate().evaluate("db_write", sod_score=0.95).decision
+        == Decision.HOLD_FOR_REVIEW
+    )
 
 
 def test_opa_deny_forces_hold():
-    assert ActionGate().evaluate("db_write", opa_deny=True).decision == Decision.HOLD_FOR_REVIEW
+    assert (
+        ActionGate().evaluate("db_write", opa_deny=True).decision
+        == Decision.HOLD_FOR_REVIEW
+    )
 
 
 def test_maker_checker_same_actor_holds_any_verb():
@@ -73,7 +79,9 @@ def _event(verb, request_id, actor="EMP-x", priv=True, **kw):
 
 
 def test_hold_then_four_eyes_no_self_review():
-    r = client.post("/api/v1/actions/evaluate", json=_event("self_grant", "req-1")).json()
+    r = client.post(
+        "/api/v1/actions/evaluate", json=_event("self_grant", "req-1")
+    ).json()
     assert r["decision"] == "HOLD_FOR_REVIEW" and r["hold_id"]
     hid = r["hold_id"]
     # subject cannot resolve their own hold (four-eyes)
@@ -84,20 +92,35 @@ def test_hold_then_four_eyes_no_self_review():
     assert self_rev.status_code == 403
     ok = client.post(
         f"/api/v1/holds/{hid}/decision",
-        json={"decider": "EMP-boss", "approve": True, "justification": "reviewed & permitted"},
+        json={
+            "decider": "EMP-boss",
+            "approve": True,
+            "justification": "reviewed & permitted",
+        },
     )
     assert ok.status_code == 200
     body = ok.json()
     assert body["status"] == "approved_via_four_eyes"
-    assert body["outcome"] == "permitted_for_human_initiated_execution"  # NOT auto-executed
+    assert (
+        body["outcome"] == "permitted_for_human_initiated_execution"
+    )  # NOT auto-executed
 
 
 def test_step_up_then_retry_allows():
-    r = client.post("/api/v1/actions/evaluate", json=_event("swift_send", "req-2")).json()
+    r = client.post(
+        "/api/v1/actions/evaluate", json=_event("swift_send", "req-2")
+    ).json()
     assert r["decision"] == "STEP_UP" and r["challenge_id"]
     cid = r["challenge_id"]
-    assert client.post(f"/api/v1/step-ups/{cid}/challenge", json={"method": "mfa"}).status_code == 200
-    retry = client.post("/api/v1/actions/evaluate", json=_event("swift_send", "req-2")).json()
+    assert (
+        client.post(
+            f"/api/v1/step-ups/{cid}/challenge", json={"method": "mfa"}
+        ).status_code
+        == 200
+    )
+    retry = client.post(
+        "/api/v1/actions/evaluate", json=_event("swift_send", "req-2")
+    ).json()
     assert retry["decision"] == "ALLOW"
 
 
@@ -117,7 +140,9 @@ def test_alert_only_amount_never_gated():
 
 
 def test_manager_approval_requires_distinct_approver():
-    r = client.post("/api/v1/actions/evaluate", json=_event("swift_send", "req-5")).json()
+    r = client.post(
+        "/api/v1/actions/evaluate", json=_event("swift_send", "req-5")
+    ).json()
     cid = r["challenge_id"]
     bad = client.post(
         f"/api/v1/step-ups/{cid}/challenge",

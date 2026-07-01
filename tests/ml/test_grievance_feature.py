@@ -11,12 +11,21 @@ from ml.adapters.featurize import entity_level_features
 def _frame() -> pd.DataFrame:
     return pd.DataFrame(
         [
-            {"actor.employee_id": "EMP-a", "action.verb": "file_grievance",
-             "context.ts": "2026-06-01T10:00:00Z"},
-            {"actor.employee_id": "EMP-a", "action.verb": "file_grievance",
-             "context.ts": "2026-06-20T10:00:00Z"},
-            {"actor.employee_id": "EMP-b", "action.verb": "login",
-             "context.ts": "2026-06-25T10:00:00Z"},
+            {
+                "actor.employee_id": "EMP-a",
+                "action.verb": "file_grievance",
+                "context.ts": "2026-06-01T10:00:00Z",
+            },
+            {
+                "actor.employee_id": "EMP-a",
+                "action.verb": "file_grievance",
+                "context.ts": "2026-06-20T10:00:00Z",
+            },
+            {
+                "actor.employee_id": "EMP-b",
+                "action.verb": "login",
+                "context.ts": "2026-06-25T10:00:00Z",
+            },
         ]
     )
 
@@ -36,8 +45,14 @@ def test_grievance_recency_days():
 
 def test_grievance_count_falls_back_to_hr_attribute():
     df = pd.DataFrame(
-        [{"actor.employee_id": "EMP-c", "action.verb": "login",
-          "context.ts": "2026-06-25T10:00:00Z", "actor.grievance_count": 3}]
+        [
+            {
+                "actor.employee_id": "EMP-c",
+                "action.verb": "login",
+                "context.ts": "2026-06-25T10:00:00Z",
+                "actor.grievance_count": 3,
+            }
+        ]
     )
     assert int(ch.grievance_count(df).get("EMP-c", 0)) == 3
 

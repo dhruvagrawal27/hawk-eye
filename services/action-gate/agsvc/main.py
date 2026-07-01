@@ -40,7 +40,11 @@ app = FastAPI(title="hawk-eye action-gate (L6.5)", version="1.0.0")
 # so it needs the same allow-list as the main backend. Without it the browser blocks the response
 # (and the auth'd request's OPTIONS preflight 405s). Reads HAWKEYE_CORS_ORIGINS (same var the
 # control plane uses); no-op when unset (same-origin deploys).
-_cors_origins = [o.strip() for o in os.environ.get("HAWKEYE_CORS_ORIGINS", "").split(",") if o.strip()]
+_cors_origins = [
+    o.strip()
+    for o in os.environ.get("HAWKEYE_CORS_ORIGINS", "").split(",")
+    if o.strip()
+]
 if _cors_origins:
     app.add_middleware(
         CORSMiddleware,
@@ -51,13 +55,15 @@ if _cors_origins:
     )
 
 # In-memory stores (governance-DB persistence is SCAFFOLD).
-DECISIONS: dict[str, dict] = {}   # request_id -> decision dict (idempotency)
-STEP_UPS: dict[str, dict] = {}    # challenge_id -> step-up record
-HOLDS: dict[str, dict] = {}       # hold_id -> hold record
-AUDIT: list[dict] = []            # append-only decision/audit log
+DECISIONS: dict[str, dict] = {}  # request_id -> decision dict (idempotency)
+STEP_UPS: dict[str, dict] = {}  # challenge_id -> step-up record
+HOLDS: dict[str, dict] = {}  # hold_id -> hold record
+AUDIT: list[dict] = []  # append-only decision/audit log
 
 DECISION_CTR = Counter("action_gate_decisions_total", "L6.5 decisions", ["decision"])
-CHALLENGE_CTR = Counter("action_gate_challenges_total", "step-up challenges", ["result"])
+CHALLENGE_CTR = Counter(
+    "action_gate_challenges_total", "step-up challenges", ["result"]
+)
 HOLD_CTR = Counter("action_gate_holds_total", "holds", ["result"])
 DEGRADED_CTR = Counter("action_gate_degraded_total", "degraded evaluations")
 
@@ -68,8 +74,15 @@ def _now() -> str:
 
 def _audit(action: str, target: str, detail: dict) -> str:
     audit_id = "aud_" + uuid.uuid4().hex[:12]
-    AUDIT.append({"audit_id": audit_id, "ts": _now(), "action": action, "target": target,
-                  "detail": detail})
+    AUDIT.append(
+        {
+            "audit_id": audit_id,
+            "ts": _now(),
+            "action": action,
+            "target": target,
+            "detail": detail,
+        }
+    )
     return audit_id
 
 
@@ -105,8 +118,12 @@ def _decision_payload(event: ActionEvent) -> dict:
     verb = str(event.action.get("verb", "")).lower()
     privileged = bool(event.actor.get("privileged_flag"))
     result = GATE.evaluate(
-        verb, event.features, sod_score=event.sod_score, opa_deny=event.opa_deny,
-        governance_available=event.governance_available, privileged=privileged,
+        verb,
+        event.features,
+        sod_score=event.sod_score,
+        opa_deny=event.opa_deny,
+        governance_available=event.governance_available,
+        privileged=privileged,
     )
     action_id = "act_" + uuid.uuid4().hex[:12]
     payload = {
@@ -129,24 +146,46 @@ def _decision_payload(event: ActionEvent) -> dict:
 
     if result.decision == Decision.STEP_UP:
         cid = "chg_" + uuid.uuid4().hex[:10]
-        STEP_UPS[cid] = {"challenge_id": cid, "request_id": event.request_id, "actor_id": actor_id,
-                         "status": "pending", "method": None, "approver": None, "ts": _now()}
+        STEP_UPS[cid] = {
+            "challenge_id": cid,
+            "request_id": event.request_id,
+            "actor_id": actor_id,
+            "status": "pending",
+            "method": None,
+            "approver": None,
+            "ts": _now(),
+        }
         payload["challenge_id"] = cid
     elif result.decision == Decision.HOLD_FOR_REVIEW:
         hid = "hold_" + uuid.uuid4().hex[:10]
         HOLDS[hid] = {
-            "hold_id": hid, "request_id": event.request_id, "subject": actor_id, "verb": verb,
-            "status": "pending_review", "reason_codes": result.reason_codes, "severity": result.severity,
+            "hold_id": hid,
+            "request_id": event.request_id,
+            "subject": actor_id,
+            "verb": verb,
+            "status": "pending_review",
+            "reason_codes": result.reason_codes,
+            "severity": result.severity,
             # natural-justice binding (verbatim hitl-gate semantics)
             "proportionality": "reversible staff action held pending second-approver review",
-            "explanation": "; ".join(rc["detail"] for rc in result.reason_codes) or "policy hold",
-            "dpia_binding": True, "decider": None, "justification": None, "ts": _now(),
+            "explanation": "; ".join(rc["detail"] for rc in result.reason_codes)
+            or "policy hold",
+            "dpia_binding": True,
+            "decider": None,
+            "justification": None,
+            "ts": _now(),
         }
         payload["hold_id"] = hid
 
-    payload["audit_id"] = _audit("action.evaluate", actor_id,
-                                 {"request_id": event.request_id, "decision": result.decision.value,
-                                  "verb": verb})
+    payload["audit_id"] = _audit(
+        "action.evaluate",
+        actor_id,
+        {
+            "request_id": event.request_id,
+            "decision": result.decision.value,
+            "verb": verb,
+        },
+    )
     DECISION_CTR.labels(decision=result.decision.value).inc()
     return payload
 
@@ -159,10 +198,19 @@ def evaluate(event: ActionEvent) -> dict:
     if prior is not None:
         cid = prior.get("challenge_id")
         if cid and STEP_UPS.get(cid, {}).get("status") == "approved":
-            allow = {**prior, "decision": Decision.ALLOW.value, "challenge_id": None,
-                     "reason_codes": [{"source": "gate", "code": "STEP_UP_CLEARED",
-                                       "detail": "step-up challenge approved; action permitted"}],
-                     "evaluated_at": _now()}
+            allow = {
+                **prior,
+                "decision": Decision.ALLOW.value,
+                "challenge_id": None,
+                "reason_codes": [
+                    {
+                        "source": "gate",
+                        "code": "STEP_UP_CLEARED",
+                        "detail": "step-up challenge approved; action permitted",
+                    }
+                ],
+                "evaluated_at": _now(),
+            }
             DECISIONS[event.request_id] = allow
             DECISION_CTR.labels(decision=Decision.ALLOW.value).inc()
             return allow
@@ -178,10 +226,20 @@ def challenge(challenge_id: str, body: StepUpBody) -> dict:
     if su is None:
         raise HTTPException(status_code=404, detail="unknown challenge")
     # A manager_approval must name a DIFFERENT approver than the acting staffer (four-eyes).
-    if body.method == "manager_approval" and (not body.approver or body.approver == su["actor_id"]):
-        raise HTTPException(status_code=403, detail="manager approval requires a distinct approver")
-    su.update(status="approved", method=body.method, approver=body.approver, decided_ts=_now())
-    _audit("action.step_up", su["actor_id"], {"challenge_id": challenge_id, "method": body.method})
+    if body.method == "manager_approval" and (
+        not body.approver or body.approver == su["actor_id"]
+    ):
+        raise HTTPException(
+            status_code=403, detail="manager approval requires a distinct approver"
+        )
+    su.update(
+        status="approved", method=body.method, approver=body.approver, decided_ts=_now()
+    )
+    _audit(
+        "action.step_up",
+        su["actor_id"],
+        {"challenge_id": challenge_id, "method": body.method},
+    )
     CHALLENGE_CTR.labels(result="approved").inc()
     return su
 
@@ -214,15 +272,25 @@ def decide_hold(hold_id: str, body: HoldDecisionBody) -> dict:
         raise HTTPException(status_code=404, detail="unknown hold")
     # Four-eyes / SoD: the reviewer may not be the subject of the held action (no self-review).
     if body.decider == h["subject"]:
-        raise HTTPException(status_code=403, detail="four-eyes: the subject cannot resolve their own hold")
+        raise HTTPException(
+            status_code=403,
+            detail="four-eyes: the subject cannot resolve their own hold",
+        )
     if h["status"] != "pending_review":
         raise HTTPException(status_code=409, detail="hold already resolved")
     # Approval only PERMITS human-initiated execution — the gate never auto-executes anything.
     h["status"] = "approved_via_four_eyes" if body.approve else "rejected"
-    h["outcome"] = "permitted_for_human_initiated_execution" if body.approve else "denied_by_reviewer"
+    h["outcome"] = (
+        "permitted_for_human_initiated_execution"
+        if body.approve
+        else "denied_by_reviewer"
+    )
     h.update(decider=body.decider, justification=body.justification, decided_ts=_now())
-    _audit("action.hold_decision", h["subject"],
-           {"hold_id": hold_id, "approve": body.approve, "decider": body.decider})
+    _audit(
+        "action.hold_decision",
+        h["subject"],
+        {"hold_id": hold_id, "approve": body.approve, "decider": body.decider},
+    )
     HOLD_CTR.labels(result=h["status"]).inc()
     return h
 
@@ -245,8 +313,13 @@ def list_policies() -> list[dict]:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "service": "action-gate", "policy_version": GATE.fingerprint,
-            "alert_only": True, "gates_money": False}
+    return {
+        "status": "ok",
+        "service": "action-gate",
+        "policy_version": GATE.fingerprint,
+        "alert_only": True,
+        "gates_money": False,
+    }
 
 
 @app.get("/metrics")
@@ -256,16 +329,33 @@ def metrics() -> PlainTextResponse:
 
 def _seed_holds() -> None:
     """Seed a few pending HOLDs so the console's review queue is populated on a fresh pilot box.
-    Real holds are created live by POST /actions/evaluate (HOLD_FOR_REVIEW). Idempotent."""
+    Real holds are created live by POST /actions/evaluate (HOLD_FOR_REVIEW). Idempotent.
+    """
     if HOLDS:
         return
     samples = [
-        ("EMP-4d99", "grant_entitlement", "high", "SELF_GRANT_HOLD", "Entitlement self-grant"),
-        ("EMP-2b14", "bulk_export", "high", "BULK_EXPORT_HOLD",
-         "Bulk export from a privileged session (mass volume)"),
+        (
+            "EMP-4d99",
+            "grant_entitlement",
+            "high",
+            "SELF_GRANT_HOLD",
+            "Entitlement self-grant",
+        ),
+        (
+            "EMP-2b14",
+            "bulk_export",
+            "high",
+            "BULK_EXPORT_HOLD",
+            "Bulk export from a privileged session (mass volume)",
+        ),
         ("EMP-3c55", "db_write", "medium", "DB_WRITE_STEP_UP", "Direct DB write"),
-        ("EMP-7f3a", "role_assign", "high", "MAKER_CHECKER_SAME_ACTOR_HOLD",
-         "Maker+checker by the same actor"),
+        (
+            "EMP-7f3a",
+            "role_assign",
+            "high",
+            "MAKER_CHECKER_SAME_ACTOR_HOLD",
+            "Maker+checker by the same actor",
+        ),
     ]
     for i, (subject, verb, severity, code, name) in enumerate(samples, 1):
         hid = f"hold_seed{i}"

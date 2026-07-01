@@ -55,19 +55,50 @@ class Policy:
 
 # Default policy set (the editable store is policies/policies.yaml; these are the shipped defaults).
 DEFAULT_POLICIES: tuple[Policy, ...] = (
-    Policy("SELF_GRANT_HOLD", "Entitlement self-grant",
-           {"grant_entitlement", "self_grant", "add_entitlement", "role_assign"}, "hard", "high"),
-    Policy("MAKER_CHECKER_SAME_ACTOR_HOLD", "Maker+checker by the same actor",
-           set(), "hard", "high", require_features=("maker_checker_same_actor",)),
-    Policy("BULK_EXPORT_HOLD", "Bulk export from a privileged session",
-           {"export", "bulk_export", "download"}, "hard", "high",
-           require_features=("bulk_export_high_volume",)),
-    Policy("SWIFT_SEND_STEP_UP", "SWIFT / SO message send",
-           {"swift_send", "so_send", "lou_issue"}, "soft", "high"),
-    Policy("DB_WRITE_STEP_UP", "Direct DB write",
-           {"db_write", "direct_write", "update_record", "delete_record"}, "soft", "medium"),
-    Policy("BULK_EXPORT_STEP_UP", "Bulk export (below mass threshold)",
-           {"export", "bulk_export", "download"}, "soft", "medium"),
+    Policy(
+        "SELF_GRANT_HOLD",
+        "Entitlement self-grant",
+        {"grant_entitlement", "self_grant", "add_entitlement", "role_assign"},
+        "hard",
+        "high",
+    ),
+    Policy(
+        "MAKER_CHECKER_SAME_ACTOR_HOLD",
+        "Maker+checker by the same actor",
+        set(),
+        "hard",
+        "high",
+        require_features=("maker_checker_same_actor",),
+    ),
+    Policy(
+        "BULK_EXPORT_HOLD",
+        "Bulk export from a privileged session",
+        {"export", "bulk_export", "download"},
+        "hard",
+        "high",
+        require_features=("bulk_export_high_volume",),
+    ),
+    Policy(
+        "SWIFT_SEND_STEP_UP",
+        "SWIFT / SO message send",
+        {"swift_send", "so_send", "lou_issue"},
+        "soft",
+        "high",
+    ),
+    Policy(
+        "DB_WRITE_STEP_UP",
+        "Direct DB write",
+        {"db_write", "direct_write", "update_record", "delete_record"},
+        "soft",
+        "medium",
+    ),
+    Policy(
+        "BULK_EXPORT_STEP_UP",
+        "Bulk export (below mass threshold)",
+        {"export", "bulk_export", "download"},
+        "soft",
+        "medium",
+    ),
 )
 
 
@@ -97,12 +128,17 @@ class ActionGate:
         data = yaml.safe_load(_POLICIES_YAML.read_text(encoding="utf-8")) or {}
         out: list[Policy] = []
         for p in data.get("policies", []):
-            out.append(Policy(
-                code=p["code"], name=p.get("name", p["code"]),
-                verbs=set(p.get("verbs", [])), gate=p.get("gate", "soft"),
-                severity=p.get("severity", "medium"), enabled=bool(p.get("enabled", True)),
-                require_features=tuple(p.get("require_features", [])),
-            ))
+            out.append(
+                Policy(
+                    code=p["code"],
+                    name=p.get("name", p["code"]),
+                    verbs=set(p.get("verbs", [])),
+                    gate=p.get("gate", "soft"),
+                    severity=p.get("severity", "medium"),
+                    enabled=bool(p.get("enabled", True)),
+                    require_features=tuple(p.get("require_features", [])),
+                )
+            )
         return tuple(out) or None
 
     @property
@@ -135,13 +171,24 @@ class ActionGate:
         if not governance_available:
             if privileged or verb in _PRIVILEGED_VERBS:
                 return PolicyDecision(
-                    Decision.HOLD_FOR_REVIEW, "high",
-                    [{"source": "gate", "code": "GOVERNANCE_UNAVAILABLE",
-                      "detail": "governance store unavailable — privileged action held pending review"}],
-                    degraded=True, degraded_reason="governance_unavailable",
+                    Decision.HOLD_FOR_REVIEW,
+                    "high",
+                    [
+                        {
+                            "source": "gate",
+                            "code": "GOVERNANCE_UNAVAILABLE",
+                            "detail": "governance store unavailable — privileged action held pending review",
+                        }
+                    ],
+                    degraded=True,
+                    degraded_reason="governance_unavailable",
                 )
-            return PolicyDecision(Decision.ALLOW, "low", degraded=True,
-                                  degraded_reason="governance_unavailable")
+            return PolicyDecision(
+                Decision.ALLOW,
+                "low",
+                degraded=True,
+                degraded_reason="governance_unavailable",
+            )
 
         matched_hard: list[Policy] = []
         matched_soft: list[Policy] = []
@@ -149,19 +196,36 @@ class ActionGate:
         for p in self._policies:
             if p.matches(verb, features):
                 (matched_hard if p.gate == "hard" else matched_soft).append(p)
-                reason_codes.append({
-                    "source": "policy", "code": p.code,
-                    "detail": f"{p.name} ({'hard-gate' if p.gate == 'hard' else 'step-up'})",
-                })
+                reason_codes.append(
+                    {
+                        "source": "policy",
+                        "code": p.code,
+                        "detail": f"{p.name} ({'hard-gate' if p.gate == 'hard' else 'step-up'})",
+                    }
+                )
 
         if sod_score >= _HARD_SOD_THRESHOLD:
-            matched_hard.append(Policy("SOD_TOXIC", "SoD toxic combination", set(), "hard", "high"))
-            reason_codes.append({"source": "sod", "code": "SOD_TOXIC",
-                                 "detail": f"SoD score {sod_score:.2f} ≥ {_HARD_SOD_THRESHOLD}"})
+            matched_hard.append(
+                Policy("SOD_TOXIC", "SoD toxic combination", set(), "hard", "high")
+            )
+            reason_codes.append(
+                {
+                    "source": "sod",
+                    "code": "SOD_TOXIC",
+                    "detail": f"SoD score {sod_score:.2f} ≥ {_HARD_SOD_THRESHOLD}",
+                }
+            )
         if opa_deny:
-            matched_hard.append(Policy("OPA_DENY", "OPA entitlement deny", set(), "hard", "high"))
-            reason_codes.append({"source": "opa", "code": "OPA_DENY",
-                                 "detail": "OPA entitlement policy denied the action"})
+            matched_hard.append(
+                Policy("OPA_DENY", "OPA entitlement deny", set(), "hard", "high")
+            )
+            reason_codes.append(
+                {
+                    "source": "opa",
+                    "code": "OPA_DENY",
+                    "detail": "OPA entitlement policy denied the action",
+                }
+            )
 
         if matched_hard:
             decision = Decision.HOLD_FOR_REVIEW
@@ -173,15 +237,26 @@ class ActionGate:
             decision = Decision.ALLOW
             sev = "low"
         return PolicyDecision(
-            decision=decision, severity=sev, reason_codes=reason_codes,
+            decision=decision,
+            severity=sev,
+            reason_codes=reason_codes,
             matched=[p.code for p in (matched_hard + matched_soft)],
         )
 
 
 _PRIVILEGED_VERBS = {
-    "grant_entitlement", "self_grant", "add_entitlement", "role_assign",
-    "swift_send", "so_send", "lou_issue", "db_write", "direct_write",
-    "delete_record", "export", "bulk_export",
+    "grant_entitlement",
+    "self_grant",
+    "add_entitlement",
+    "role_assign",
+    "swift_send",
+    "so_send",
+    "lou_issue",
+    "db_write",
+    "direct_write",
+    "delete_record",
+    "export",
+    "bulk_export",
 }
 
 

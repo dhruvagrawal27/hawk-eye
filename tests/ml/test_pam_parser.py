@@ -46,11 +46,11 @@ def test_empty_command_safe():
 
 def test_analyzer_aggregates_session():
     cmds = [
-        "SELECT * FROM customer_pii",       # mass export
-        "DROP TABLE audit_log",             # ddl 1
-        "ALTER TABLE accounts ADD c int",   # ddl 2
-        "GRANT ALL ON accounts TO bob",     # ddl 3 + config
-        "login",                            # noise
+        "SELECT * FROM customer_pii",  # mass export
+        "DROP TABLE audit_log",  # ddl 1
+        "ALTER TABLE accounts ADD c int",  # ddl 2
+        "GRANT ALL ON accounts TO bob",  # ddl 3 + config
+        "login",  # noise
     ]
     f = SessionCommandAnalyzer().analyze("sess-1", cmds)
     assert f.command_velocity == 5
