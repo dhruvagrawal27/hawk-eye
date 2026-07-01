@@ -27,6 +27,7 @@ import type {
   NarrativeMemo,
   PeerComparisonResponse,
   ReportExport,
+  Role,
   Rule,
   SubThresholdResponse,
   TimelineResponse,
@@ -1279,7 +1280,10 @@ export const MODEL_QUALITY: ModelQualityResponse = {
 }
 
 /* ───────────────────────────── Audit (who-viewed-whom) ─────────────────────────────────────── */
-export const AUDIT: AuditEvent[] = [
+// Hand-crafted recent events (the worked-burst narrative) — kept at the top of the trail. The bulk
+// synthetic history below back-fills thousands of realistic older events so the Auditor screen reads
+// at real-bank scale (see AUDIT export).
+const AUDIT_CURATED: AuditEvent[] = [
   {
     audit_id: 'aud_99f0c1',
     ts: '2026-06-30T03:10:00Z',
@@ -1406,6 +1410,119 @@ export const AUDIT: AuditEvent[] = [
     src_ip: '10.20.0.5',
   },
 ]
+
+/* ─── Bulk synthetic audit history ────────────────────────────────────────────────────────────
+ * The curated events above are the demo narrative; on their own the trail is ~a dozen rows. A real
+ * bank console logs *everything* (who-viewed-whom, dispositions, unmasks) across every role, so we
+ * back-fill a deterministic ~12k-event history spanning ~90 days before the curated window. Mirrors
+ * the backend `_seed_bulk_audit` seed so mock-mode and the live API read the same at-scale. */
+function _mulberry32(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+const _AUDIT_ACTORS: [string, Role][] = [
+  ['rmehra.rm', 'relationship_manager'],
+  ['adesai.rm', 'relationship_manager'],
+  ['kbhat.rm', 'relationship_manager'],
+  ['nsingh.br', 'branch_manager'],
+  ['pverma.br', 'branch_manager'],
+  ['rchopra.cl', 'cluster_head'],
+  ['svig.agm', 'agm_vigilance'],
+  ['dcomp.dgm', 'dgm_compliance'],
+  ['dsci.lead', 'data_science_lead'],
+  ['crisk.cgm', 'cgm_risk'],
+  ['caudit.cia', 'chief_internal_auditor'],
+  ['edir.board', 'executive_director'],
+  ['mdir.board', 'managing_director'],
+  ['itops.admin', 'it_admin'],
+]
+// [action, weight, targetKind] — views dominate a real trail; mutations are rarer.
+const _AUDIT_ACTIONS: [string, number, 'emp' | 'alert' | 'rule' | 'model' | 'user' | 'none'][] = [
+  ['entity.view', 30, 'emp'],
+  ['alert.view', 26, 'alert'],
+  ['explanation.view', 10, 'alert'],
+  ['alert.assign', 8, 'alert'],
+  ['alert.disposition', 7, 'alert'],
+  ['narrative.generate', 5, 'alert'],
+  ['pii.unmask', 4, 'emp'],
+  ['audit.view', 3, 'none'],
+  ['alert.block_request', 2, 'alert'],
+  ['alert.block_approved', 1, 'alert'],
+  ['feedback.submit', 1, 'alert'],
+  ['report.crilc', 1, 'none'],
+  ['report.fmr', 1, 'none'],
+  ['rule.change_proposed', 1, 'rule'],
+  ['model.promote', 1, 'model'],
+  ['admin.user_create', 1, 'user'],
+]
+const _AUDIT_RULES = ['HIGH_VALUE_PAYMENT', 'NEW_BEN_THEN_HIGHVALUE', 'OFF_HOURS_PRIVILEGED', 'MAKER_CHECKER_PAIR']
+const _AUDIT_MODELS = ['l3-catboost', 'l4-tabtransformer', 'l5-graphsage']
+const _AUDIT_OUTCOMES = ['confirmed_fraud', 'false_positive', 'inconclusive']
+
+function generateAuditHistory(count: number): AuditEvent[] {
+  const rand = _mulberry32(0x0a0d17)
+  const entities = [
+    ...Array.from({ length: 450 }, (_, i) => `EMP-x${String(i).padStart(4, '0')}`),
+    'EMP-7f3a', 'EMP-1a09', 'EMP-2b14', 'EMP-3c55', 'EMP-4d99', 'EMP-9f02',
+  ]
+  const alerts = [
+    ...Array.from({ length: 450 }, (_, i) => `alr_bulk${String(i).padStart(4, '0')}`),
+    'alr_demo01', 'alr_demo02', 'alr_demo03',
+  ]
+  const cum: number[] = []
+  let acc = 0
+  for (const [, w] of _AUDIT_ACTIONS) cum.push((acc += w))
+  const totalW = acc
+  const pickAction = () => {
+    const r = rand() * totalW
+    for (let i = 0; i < cum.length; i++) if (r < cum[i]) return _AUDIT_ACTIONS[i]
+    return _AUDIT_ACTIONS[0]
+  }
+  const pick = <T,>(arr: T[]): T => arr[Math.floor(rand() * arr.length)]
+
+  // Span the ~90 days ending just before the curated window (2026-06-27T23:00Z), newest first.
+  const endMs = Date.parse('2026-06-27T23:00:00Z')
+  const spanMs = 90 * 24 * 60 * 60 * 1000
+  const out: AuditEvent[] = []
+  for (let i = 0; i < count; i++) {
+    // i=0 is the most recent historical event; step back in time as i grows.
+    const ts = new Date(endMs - (spanMs * i) / count - rand() * (spanMs / count)).toISOString()
+    const [actor, role] = pick(_AUDIT_ACTORS)
+    const [action, , kind] = pickAction()
+    const ev: AuditEvent = {
+      audit_id: `aud_h${(count - i).toString(16).padStart(5, '0')}`,
+      ts,
+      actor,
+      actor_role: role,
+      action,
+      src_ip: `10.20.${1 + Math.floor(rand() * 12)}.${2 + Math.floor(rand() * 248)}`,
+    }
+    if (kind === 'emp') {
+      ev.entity_id = pick(entities)
+      if (action === 'pii.unmask') ev.detail = { reason: 'case_review', subject: ev.entity_id }
+    } else if (kind === 'alert') {
+      ev.alert_id = pick(alerts)
+      if (action === 'alert.disposition') ev.outcome = pick(_AUDIT_OUTCOMES)
+    } else if (kind === 'rule') {
+      ev.target = pick(_AUDIT_RULES)
+    } else if (kind === 'model') {
+      ev.target = pick(_AUDIT_MODELS)
+    } else if (kind === 'user') {
+      ev.target = `user_${1000 + Math.floor(rand() * 9000)}`
+    }
+    out.push(ev)
+  }
+  return out
+}
+
+/** Full trail: curated recent narrative + deterministic bulk history (newest first). */
+export const AUDIT: AuditEvent[] = [...AUDIT_CURATED, ...generateAuditHistory(11988)]
 
 /* ───────────────────────────── Admin users (one per bank org-chart role) ───────────────────── */
 export const USERS: AdminUser[] = [

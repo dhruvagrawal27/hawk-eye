@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Eye, FileSearch, Gavel, Lock, ScrollText, ShieldCheck } from 'lucide-react'
 import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
-import { formatIST } from '@/lib/format'
+import { formatIST, formatNumber } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { AuditTable } from '@/components/AuditTable'
@@ -66,6 +66,11 @@ interface DraftFilters {
 
 const EMPTY: DraftFilters = { actor: '', entity: '', action: 'all', from: '', to: '' }
 
+// The WORM trail runs to thousands of rows. Pull a wide window (backend caps at 1000) so the KPI
+// roll-ups are representative, but only paint the most recent slice for a snappy table.
+const AUDIT_WINDOW = 1000
+const ROW_CAP = 250
+
 /** A `datetime-local` value (no zone) → an ISO UTC instant the API understands. */
 function toIso(local: string): string | undefined {
   if (!local) return undefined
@@ -89,11 +94,13 @@ export function AuditorView() {
 
   const auditQuery = useQuery({
     queryKey: queryKeys.audit(applied),
-    queryFn: () => apiClient.getAudit(applied),
+    queryFn: () => apiClient.getAudit({ ...applied, limit: AUDIT_WINDOW }),
   })
 
   const events = useMemo(() => auditQuery.data?.items ?? [], [auditQuery.data])
   const total = auditQuery.data?.total ?? events.length
+  // Only render the most recent slice — the KPI counters still aggregate the whole fetched window.
+  const visibleEvents = useMemo(() => events.slice(0, ROW_CAP), [events])
 
   const counts = useMemo(() => {
     let views = 0
@@ -244,25 +251,25 @@ export function AuditorView() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Counter
             icon={<ScrollText className="size-4" />}
-            label="Events shown"
-            value={String(total)}
+            label="Total events"
+            value={formatNumber(total)}
           />
           <Counter
             icon={<Eye className="size-4" />}
             label="Employee views"
-            value={String(counts.views)}
+            value={formatNumber(counts.views)}
             tone="info"
           />
           <Counter
             icon={<Lock className="size-4" />}
             label="PII unmasks"
-            value={String(counts.unmasks)}
+            value={formatNumber(counts.unmasks)}
             tone={counts.unmasks > 0 ? 'warn' : undefined}
           />
           <Counter
             icon={<Gavel className="size-4" />}
             label="Case decisions"
-            value={String(counts.decisions)}
+            value={formatNumber(counts.decisions)}
           />
         </div>
       ) : null}
@@ -276,12 +283,15 @@ export function AuditorView() {
             onRetry={() => void auditQuery.refetch()}
             skeleton={<AuditSkeleton />}
           >
-            <AuditTable events={events} />
+            <AuditTable events={visibleEvents} />
           </QueryBoundary>
         </CardContent>
       </Card>
 
       <p className="text-[0.7rem] text-muted-foreground">
+        {!auditQuery.isLoading && !auditQuery.isError && total > visibleEvents.length
+          ? `Showing the ${formatNumber(visibleEvents.length)} most recent of ${formatNumber(total)} events. `
+          : null}
         {auditQuery.dataUpdatedAt
           ? `Snapshot taken ${formatIST(new Date(auditQuery.dataUpdatedAt))}.`
           : null}{' '}

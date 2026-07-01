@@ -46,10 +46,14 @@ class AuditWriter:
         action: str,
         target: str | None = None,
         detail: dict | None = None,
+        ts: str | None = None,
     ) -> AuditEvent:
+        # ``ts`` is normally the write instant; it is exposed only so the demo seeder can lay down a
+        # back-dated history (events spread over the past weeks) while still building a valid
+        # forward hash-chain. Live call-sites never pass it.
         role_str = actor_role.value if isinstance(actor_role, Role) else str(actor_role)
         audit_id = new_audit_id()
-        ts = iso_z(utcnow())
+        ts = ts or iso_z(utcnow())
         det = detail or {}
         prev_hash = self._events[-1].entry_hash if self._events else GENESIS
         entry_hash = _content_digest(

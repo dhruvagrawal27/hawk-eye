@@ -881,6 +881,9 @@ export interface AuditQuery {
   from?: string
   to?: string
   action?: string
+  // Backend WORM trail pagination (limit/offset). page/page_size kept for older callers.
+  limit?: number
+  offset?: number
   page?: number
   page_size?: number
 }
