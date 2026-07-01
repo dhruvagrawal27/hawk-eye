@@ -29,15 +29,26 @@ export function Dashboard() {
     enabled: canTriage,
   })
 
-  const open = (alerts.data?.items ?? []).filter((a) =>
+  // Portfolio counts come from the server (computed over ALL visible alerts), so the cards read at
+  // true scale — the alert *list* is only a page, so counting its items would undercount.
+  const stats = useQuery({
+    queryKey: queryKeys.alertStats(),
+    queryFn: () => apiClient.getAlertStats(),
+    enabled: canTriage,
+  })
+
+  const pageOpen = (alerts.data?.items ?? []).filter((a) =>
     ['open', 'assigned', 'in_progress', 'escalated'].includes(a.status),
   )
-  const highSeverity = open.filter((a) => severityRank[a.severity] >= 3).length
-  const slaAtRisk = open.filter((a) =>
-    ['urgent', 'breached'].includes(slaInfo(a.sla_due_ts).state),
-  ).length
+  // Prefer the server-side totals; fall back to page-derived counts until stats load.
+  const openCount = stats.data?.open ?? pageOpen.length
+  const highCount =
+    stats.data?.high_critical ?? pageOpen.filter((a) => severityRank[a.severity] >= 3).length
+  const slaCount =
+    stats.data?.sla_at_risk ??
+    pageOpen.filter((a) => ['urgent', 'breached'].includes(slaInfo(a.sla_due_ts).state)).length
   // highest-risk open alert → the fusion-flow spotlight (shows our 6-layer fusion at a glance)
-  const topAlert = [...open].sort((a, b) => b.risk_score - a.risk_score)[0]
+  const topAlert = [...pageOpen].sort((a, b) => b.risk_score - a.risk_score)[0]
 
   return (
     <div className="space-y-6">
@@ -51,19 +62,19 @@ export function Dashboard() {
           <StatCard
             icon={<ShieldAlert className="size-4 text-severity-high" />}
             label="Open alerts"
-            value={open.length}
+            value={openCount}
             to="/triage"
           />
           <StatCard
             icon={<TrendingUp className="size-4 text-severity-critical" />}
             label="High / critical"
-            value={highSeverity}
+            value={highCount}
             to="/triage"
           />
           <StatCard
             icon={<Timer className="size-4 text-sla-urgent" />}
             label="SLA at risk"
-            value={slaAtRisk}
+            value={slaCount}
             to="/triage"
           />
         </div>

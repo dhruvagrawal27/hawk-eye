@@ -159,6 +159,48 @@ export function humanize(value: string): string {
     .trim()
 }
 
+/**
+ * Plain-English names for the technical model/rule signal tokens, so investigators and stakeholders
+ * read "Fast payment to a new payee" instead of "New Beneficiary To Payment Latency Min". Unknown
+ * tokens fall back to humanize() so new signals still render legibly.
+ */
+export const featureFriendlyNames: Record<string, string> = {
+  off_hours_activity_rate_30d: 'Off-hours activity (vs usual)',
+  off_hours_activity_rate: 'Off-hours activity (vs usual)',
+  off_hours_flag: 'Outside business hours',
+  privileged_session_off_hours: 'Privileged session, off-hours',
+  maker_checker_pair_frequency_30d: 'Recurring maker–checker pair',
+  new_beneficiary_to_payment_latency_min: 'Fast payment to a new payee',
+  db_rows_read_zscore_vs_peer: 'Reading unusually many records vs peers',
+  rows_read_zscore_vs_peer: 'Reading unusually many records vs peers',
+  export_volume_vs_baseline: 'Bulk data export vs baseline',
+  amount_zscore_vs_peer: 'Transaction amount vs peers',
+  amount_zscore: 'Transaction amount vs peers',
+  failed_login_burst: 'Burst of failed logins',
+  role_change_recency: 'Recently changed role',
+  reversal_clustering_7d: 'Clustered transaction reversals',
+  swift_message_without_cbs_recon: 'SWIFT message with no core-banking match',
+  swift_without_cbs: 'SWIFT message with no core-banking match',
+  entitlement_change_velocity: 'Rapid access-entitlement changes',
+  dormant_account_reactivation: 'Dormant account reactivated',
+  standing_privilege_unused: 'Standing privilege never used',
+  vendor_bank_detail_overlap: "Vendor shares an employee's bank details",
+  geo_velocity_impossible: 'Impossible travel between logins',
+  beneficiary_age_days: 'Age of the payee account',
+  actor_tenure_days: 'Employee tenure',
+  booking_latency_min: 'Trade booked-to-settled delay',
+  borrower_file_completeness: 'Loan file completeness',
+  days_since_last_activity: 'Days since last activity',
+  velocity_1h: 'Actions in the last hour',
+  new_beneficiary: 'New payee just created',
+  db_write_no_app_txn: 'Direct DB write, no app transaction',
+}
+
+export function featureFriendlyLabel(name: string | null | undefined): string {
+  if (!name) return '—'
+  return featureFriendlyNames[name.toLowerCase()] ?? humanize(name)
+}
+
 export const layerLabels: Record<string, string> = {
   L1_rules: 'L1 · Rules',
   L2_unsupervised: 'L2 · Anomaly',

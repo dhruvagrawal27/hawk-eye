@@ -145,7 +145,7 @@ class MockReplaySource implements RealtimeSource {
   private burst = 0 // remaining front-loaded hot events
   private lastByEmp = new Map<string, number>() // throttle non-alert chatter per employee
 
-  constructor(rate = 9) {
+  constructor(rate = 50) {
     this.rate = rate
   }
 
@@ -157,8 +157,9 @@ class MockReplaySource implements RealtimeSource {
     const hot = this.burst > 0
     if (hot) this.burst--
     const t = makeTick(hot)
-    // throttle low-risk chatter to ~1/sec per employee (mirrors backend _emit_tick)
-    if (!t.is_alert) {
+    // At low rates, throttle low-risk chatter to ~1/sec per employee (mirrors backend _emit_tick).
+    // At high rates (>=20/s) we want the full firehose, so the tape reads the real ~50 eps.
+    if (!t.is_alert && this.rate < 20) {
       const last = this.lastByEmp.get(t.employee_id) ?? 0
       if (t.receivedAt - last < 1000) return
       this.lastByEmp.set(t.employee_id, t.receivedAt)
@@ -183,7 +184,7 @@ class MockReplaySource implements RealtimeSource {
     this.mode = mode
     if (mode === 'mule_burst' || this.events === 0) this.burst = 12 // front-load hot events
     if (this.timer) return
-    this.timer = setInterval(this.fire, Math.max(60, Math.round(1000 / this.rate)))
+    this.timer = setInterval(this.fire, Math.max(20, Math.round(1000 / this.rate)))
   }
   stop() {
     if (this.timer) clearInterval(this.timer)

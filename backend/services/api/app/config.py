@@ -114,7 +114,7 @@ class Settings(BaseSettings):
     # inprocess = an asyncio replay loop scores synthetic events via ONLINE and broadcasts (no brokers)
     # kafka     = consume the events topic, score, publish to Redis, fan out to WS (production)
     stream_mode: str = Field("inprocess", alias="HAWKEYE_STREAM_MODE")
-    stream_rate: float = Field(6.0, alias="HAWKEYE_STREAM_RATE")  # events/sec in inprocess mode
+    stream_rate: float = Field(50.0, alias="HAWKEYE_STREAM_RATE")  # events/sec in inprocess mode
     kafka_events_topic: str = Field("hawkeye.events.l0", alias="HAWKEYE_KAFKA_EVENTS_TOPIC")
     redis_stream_channel: str = Field("hawkeye.stream", alias="HAWKEYE_REDIS_CHANNEL")
     # kafka_bootstrap / redis_url live in the Downstream-stores block below (shared).

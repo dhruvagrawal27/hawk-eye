@@ -7,16 +7,16 @@ import { renderWithProviders, waitFor } from '@/test/utils'
 import { SubThresholdPanel } from '@/components/SubThresholdPanel'
 
 describe('SubThresholdPanel', () => {
-  it('renders the detection funnel and the near-miss watchlist', async () => {
+  it('renders the detection funnel and the watch list in plain English', async () => {
     const { getByText, findByText } = renderWithProviders(<SubThresholdPanel />)
-    await findByText(/Ambient activity/i)
-    // funnel stages appear once the query resolves
-    await waitFor(() => getByText('Scored by the full stack'))
-    expect(getByText(/Sub-threshold .* recorded, not alerted/i)).toBeTruthy()
-    expect(getByText('Surfaced as alerts')).toBeTruthy()
-    // the "only N% clears the bar" callout is the headline insight
-    expect(getByText(/clears the 70 bar/i)).toBeTruthy()
-    // a watchlist near-miss entity (elevated, not alerted)
+    await findByText(/Watch list · activity just below the alert line/i)
+    // funnel stages appear once the query resolves — stakeholder-friendly labels
+    await waitFor(() => getByText('Actions screened this week'))
+    expect(getByText(/Below the alert line — being watched/i)).toBeTruthy()
+    expect(getByText('Raised as alerts')).toBeTruthy()
+    // the headline callout is plain-language
+    expect(getByText(/was alarming enough to alert/i)).toBeTruthy()
+    // a watch-list entity still renders
     expect(getByText('EMP-2b14')).toBeTruthy()
   })
 })

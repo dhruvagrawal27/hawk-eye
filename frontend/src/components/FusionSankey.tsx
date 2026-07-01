@@ -13,6 +13,7 @@ import { Eyebrow } from '@/components/ui/eyebrow'
 interface SankeyNodeDatum {
   name: string
   color: string
+  fired?: boolean
 }
 interface NodeProps {
   x: number
@@ -26,15 +27,24 @@ interface NodeProps {
 
 function FusionNode({ x, y, width, height, payload, containerWidth }: NodeProps) {
   const isOut = x + width + 6 > containerWidth
+  const idle = payload.fired === false
   return (
     <Layer>
-      <Rectangle x={x} y={y} width={width} height={height} fill={payload.color} fillOpacity={0.9} radius={2} />
+      <Rectangle
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={payload.color}
+        fillOpacity={idle ? 0.28 : 0.9}
+        radius={2}
+      />
       <text
         x={isOut ? x - 6 : x + width + 6}
         y={y + height / 2}
         textAnchor={isOut ? 'end' : 'start'}
         dominantBaseline="middle"
-        className="fill-foreground font-mono"
+        className={idle ? 'fill-muted-foreground font-mono' : 'fill-foreground font-mono'}
         fontSize={11}
       >
         {payload.name}
@@ -81,31 +91,34 @@ export function FusionSankey({
   className?: string
 }) {
   const b = deriveLayerBreakdown(alert, fusion)
-  const fired = b.layers.filter((l) => l.fired && l.contribution > 0)
+  // Show ALL five detection layers (L1–L5) flowing into L6 — fired layers as solid ribbons (width ∝
+  // contribution), layers that didn't fire for this alert as a thin, dimmed "idle" ribbon. Hiding
+  // the non-fired ones made it look like a 4-layer system; this shows the full 6-layer stack.
+  const layers = b.layers
+  const firedCount = layers.filter((l) => l.fired).length
 
-  // nodes: each fired layer, then the fused node (last)
   const nodes: SankeyNodeDatum[] = [
-    ...fired.map((l) => ({ name: l.label, color: `hsl(${l.accentVar})` })),
-    { name: `Fused L6 · ${b.fused}`, color: `hsl(${LAYER_INFO.L6_fusion.accentVar})` },
+    ...layers.map((l) => ({
+      name: l.fired ? l.label : `${l.label} · idle`,
+      color: l.fired ? `hsl(${l.accentVar})` : 'hsl(var(--muted-foreground))',
+      fired: l.fired,
+    })),
+    { name: `Fused L6 · ${b.fused}`, color: `hsl(${LAYER_INFO.L6_fusion.accentVar})`, fired: true },
   ]
   const fusedIndex = nodes.length - 1
-  const links = fired.map((l, i) => ({ source: i, target: fusedIndex, value: Math.max(0.5, l.contribution) }))
-
-  if (fired.length === 0) {
-    return (
-      <Surface tone="operational" pad="md" className={className}>
-        <Eyebrow>Fusion flow</Eyebrow>
-        <p className="mt-2 text-xs text-muted-foreground">
-          No detection layers fired for this alert.
-        </p>
-      </Surface>
-    )
-  }
+  const links = layers.map((l, i) => ({
+    source: i,
+    target: fusedIndex,
+    // fired layers carry width ∝ their contribution; idle layers get a thin ghost ribbon.
+    value: l.fired ? Math.max(0.8, l.contribution) : 0.35,
+  }))
 
   return (
     <Surface tone="operational" pad="md" className={cn('space-y-2', className)}>
       <div className="flex items-baseline justify-between">
-        <Eyebrow>Fusion flow · {fired.length} layers → L6</Eyebrow>
+        <Eyebrow>
+          6-layer fusion · L1–L5 → L6 ({firedCount}/5 fired)
+        </Eyebrow>
         <span className="font-mono text-2xs text-muted-foreground">width ∝ contribution</span>
       </div>
       <div style={{ width: '100%', height }}>
@@ -129,6 +142,10 @@ export function FusionSankey({
           </Sankey>
         </ResponsiveContainer>
       </div>
+      <p className="text-3xs text-muted-foreground">
+        All six layers are shown: bright ribbons are the layers that fired for this alert; dim “idle”
+        ribbons are layers that did not contribute. The fused L6 score is the calibrated blend.
+      </p>
     </Surface>
   )
 }

@@ -87,7 +87,8 @@ class StreamEngine:
             await self.manager.broadcast({"type": "alert.new", "alert": alert_json(alert)})
 
     async def _inprocess_loop(self) -> None:
-        delay = max(0.05, 1.0 / max(0.5, settings.stream_rate))
+        # Floor 0.005s ⇒ up to ~200 eps; default rate is 50 eps (HAWKEYE_STREAM_RATE).
+        delay = max(0.005, 1.0 / max(0.5, settings.stream_rate))
         try:
             while self.manager.count > 0:
                 hot = self._burst > 0

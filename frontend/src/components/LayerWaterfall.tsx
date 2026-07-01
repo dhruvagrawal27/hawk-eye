@@ -21,7 +21,9 @@ export function LayerWaterfall({
   className?: string
 }) {
   const b = deriveLayerBreakdown(alert, fusion)
-  const scale = Math.max(b.fused, b.threshold, 1)
+  // Fixed 0–100 domain so the fused bar (e.g. 58%) and the decision-threshold tick (70%) always
+  // read on the same scale across alerts — not a per-alert scale that mispositions the tick.
+  const scale = 100
 
   // running cumulative so each fired layer's bar starts where the previous ended (a true waterfall)
   let cum = 0
@@ -30,10 +32,17 @@ export function LayerWaterfall({
     <Surface tone="operational" pad="md" className={cn('space-y-3', className)}>
       <div className="flex items-baseline justify-between">
         <Eyebrow>Detection layers · how this score was built</Eyebrow>
-        <span className="font-mono text-2xs text-muted-foreground">
-          threshold {b.threshold}
+        <span
+          className="font-mono text-2xs text-muted-foreground"
+          title="Decision threshold on the 0–100 risk scale — the fused score must reach this to auto-surface (a hard L1 rule can also force an alert below it)."
+        >
+          alert threshold {b.threshold}
         </span>
       </div>
+      <p className="text-3xs leading-relaxed text-muted-foreground">
+        Each layer adds its weighted contribution to the fused L6 risk (0–100). The tick on the bar is
+        the decision threshold ({b.threshold}); a layer showing “—” did not contribute to this alert.
+      </p>
 
       {/* fused headline */}
       <div className="flex items-end gap-2">
@@ -95,7 +104,14 @@ export function LayerWaterfall({
                 }}
               />
             </div>
-            <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums">
+            <span
+              className="w-12 shrink-0 text-right font-mono text-xs tabular-nums"
+              title={
+                l.fired
+                  ? `${l.label} added +${l.contribution} to the fused score`
+                  : `${l.label} did not contribute to this alert (layer did not fire or scored below its contribution threshold)`
+              }
+            >
               {l.fired ? `+${l.contribution}` : '—'}
             </span>
           </div>

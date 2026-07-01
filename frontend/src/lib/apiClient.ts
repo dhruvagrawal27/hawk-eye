@@ -11,6 +11,7 @@ import { request } from './http'
 import type {
   AdminUser,
   Alert,
+  AlertStats,
   LayerScoresResponse,
   SubThresholdResponse,
   TypologyAnalyticsResponse,
@@ -189,6 +190,10 @@ export const apiClient = {
   getAlert(id: string): Promise<Alert> {
     return request(`/alerts/${encodeURIComponent(id)}`)
   },
+  /** Portfolio counts for the dashboard header (open / high / SLA-at-risk), computed server-side. */
+  getAlertStats(): Promise<AlertStats> {
+    return request('/alerts/stats')
+  },
   assignAlert(id: string, body: AssignBody): Promise<AssignResponse> {
     return request(`/alerts/${encodeURIComponent(id)}/assign`, { method: 'POST', body })
   },
@@ -265,8 +270,21 @@ export const apiClient = {
   },
 
   /* ── Explanation + narrative ───────────────────────────────────────────── */
-  getExplanation(alertId: string): Promise<ExplanationResponse> {
-    return request(`/explanations/${encodeURIComponent(alertId)}`)
+  async getExplanation(alertId: string): Promise<ExplanationResponse> {
+    // The LIVE backend returns `rule_provenance`/`sequence_attention`; the render shape (+ MSW mock)
+    // uses `rules`/`attention`. Normalize both so the panels populate in live AND mock mode.
+    const raw = await request<Record<string, unknown>>(
+      `/explanations/${encodeURIComponent(alertId)}`,
+    )
+    return {
+      alert_id: raw.alert_id as string,
+      shap: (raw.shap as ExplanationResponse['shap']) ?? [],
+      rules: (raw.rules ?? raw.rule_provenance ?? []) as ExplanationResponse['rules'],
+      attention: (raw.attention ?? raw.sequence_attention ?? []) as ExplanationResponse['attention'],
+      graph: raw.graph as ExplanationResponse['graph'],
+      fusion: raw.fusion as ExplanationResponse['fusion'],
+      model_lineage: raw.model_lineage as ExplanationResponse['model_lineage'],
+    }
   },
   /** POST per BACKEND.md §3/§7 — gateway runs at call time; deterministic template fallback guarantees a body. */
   getNarrative(alertId: string): Promise<NarrativeMemo> {

@@ -3,8 +3,8 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Activity, ArrowDownRight, ArrowUpRight, Moon, Pause, Play } from 'lucide-react'
 import { useRealtimeSubscription } from '@/hooks/useRealtime'
 import type { RealtimeTick } from '@/lib/realtime'
-import { riskColor, RISK_TEXT, riskLevel } from '@/lib/risk'
-import { formatINRCompact, formatISTTime } from '@/lib/format'
+import { riskColor, RISK_TEXT, riskLevel, RISK_VAR } from '@/lib/risk'
+import { formatINRCompact, formatISTTime, featureFriendlyLabel } from '@/lib/format'
 import { Surface } from '@/components/ui/surface'
 import { Eyebrow } from '@/components/ui/eyebrow'
 import { Button } from '@/components/ui/button'
@@ -21,8 +21,16 @@ import { cn } from '@/lib/cn'
  * per-row timers. The list is virtualized with @tanstack/react-virtual.
  */
 
-const CAP = 120
+const CAP = 220
 const ROW_H = 30 // px — fixed row height for the virtualizer estimate
+
+/** Risk-score colour bands shown in the legend (worst → best), so the dot/score colours are legible. */
+const RISK_LEGEND: { level: 'critical' | 'high' | 'medium' | 'low'; label: string }[] = [
+  { level: 'critical', label: 'Critical ≥85' },
+  { level: 'high', label: 'High 70–84' },
+  { level: 'medium', label: 'Medium 40–69' },
+  { level: 'low', label: 'Low <40' },
+]
 
 export interface LiveEventTapeProps {
   /** Scroll-viewport height in px (default 420). */
@@ -50,12 +58,32 @@ export function LiveEventTape({ height = 420 }: LiveEventTapeProps): React.JSX.E
   const pausedRef = React.useRef(paused)
   pausedRef.current = paused
 
+  // Batch high-rate ticks (~50/s) into ~8 flushes/sec so the virtualized tape stays smooth: the
+  // subscription only touches refs; a single interval commits accumulated rows + the total delta.
+  const bufferRef = React.useRef<RealtimeTick[]>([])
+  const totalDeltaRef = React.useRef(0)
   useRealtimeSubscription((m) => {
     if (m.type !== 'event.scored') return
-    setTotal((n) => n + 1) // total counts the stream even while the tape is frozen
+    totalDeltaRef.current += 1 // total counts the stream even while the tape is frozen
     if (pausedRef.current) return
-    setRows((prev) => [m, ...prev].slice(0, CAP))
+    bufferRef.current.push(m)
   })
+  React.useEffect(() => {
+    const id = setInterval(() => {
+      const delta = totalDeltaRef.current
+      if (delta) {
+        totalDeltaRef.current = 0
+        setTotal((n) => n + delta)
+      }
+      const buf = bufferRef.current
+      if (buf.length) {
+        bufferRef.current = []
+        buf.reverse() // oldest→newest becomes newest-first for prepend
+        setRows((prev) => [...buf, ...prev].slice(0, CAP))
+      }
+    }, 125)
+    return () => clearInterval(id)
+  }, [])
 
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
@@ -93,14 +121,40 @@ export function LiveEventTape({ height = 420 }: LiveEventTapeProps): React.JSX.E
             size="sm"
             className="h-6 gap-1 px-2 font-mono text-2xs uppercase tracking-wide"
             aria-pressed={paused}
-            aria-label={paused ? 'Resume tape' : 'Pause tape'}
+            aria-label={
+              paused
+                ? 'Resume the scrolling display (detection never stopped)'
+                : 'Freeze the scrolling display only — detection keeps running in the background'
+            }
+            title={
+              paused
+                ? 'Resume scrolling. Detection never stopped — this only freezes the on-screen tape.'
+                : 'Freeze the on-screen tape so you can read a row. Detection keeps running in the background; the total keeps counting.'
+            }
             onClick={() => setPaused((p) => !p)}
           >
             {paused ? <Play className="size-3" /> : <Pause className="size-3" />}
-            {paused ? 'Play' : 'Pause'}
+            {paused ? 'Play' : 'Freeze'}
           </Button>
         </div>
       </header>
+
+      {/* Legend — what the colours mean (the dot + score colour = the event's 0–100 risk band). */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/60 px-3 py-1.5">
+        <span className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+          Risk score
+        </span>
+        {RISK_LEGEND.map(({ level, label }) => (
+          <span key={level} className="inline-flex items-center gap-1 text-3xs text-muted-foreground">
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: `hsl(${RISK_VAR[level]})` }}
+              aria-hidden
+            />
+            {label}
+          </span>
+        ))}
+      </div>
 
       {rows.length === 0 ? (
         <div
@@ -155,10 +209,11 @@ const TapeRow = React.memo(function TapeRow({ tick, top, index, measureRef }: Ta
       style={{ top, height: ROW_H }}
     >
       <div className="flex h-full items-center gap-2 border-b border-border/40 px-3 font-mono text-xs tabular-nums">
-        {/* risk dot */}
+        {/* risk dot — colour = the event's 0–100 risk band (see legend) */}
         <span
           className="size-2 shrink-0 rounded-full"
           style={{ backgroundColor: riskColor(tick.score) }}
+          title={`Risk ${Math.round(tick.score)} — ${level}`}
           aria-hidden
         />
 
@@ -177,9 +232,9 @@ const TapeRow = React.memo(function TapeRow({ tick, top, index, measureRef }: Ta
           {tick.top_signal ? (
             <span
               className="inline-block max-w-full truncate rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 text-3xs uppercase tracking-wide text-muted-foreground"
-              title={tick.top_signal}
+              title={featureFriendlyLabel(tick.top_signal)}
             >
-              {tick.top_signal.replace(/_/g, ' ')}
+              {featureFriendlyLabel(tick.top_signal)}
             </span>
           ) : (
             <span className="text-3xs text-muted-foreground/40">—</span>

@@ -682,6 +682,17 @@ export const handlers = [
     if (type) items = items.filter((a) => a.alert_type === type)
     return HttpResponse.json({ items, total: items.length })
   }),
+  // Portfolio counts (must precede /alerts/:id). Demo values at real-bank scale (hundreds).
+  http.get(api('/alerts/stats'), () =>
+    HttpResponse.json({
+      total: 454,
+      open: 388,
+      high_critical: 200,
+      sla_at_risk: 122,
+      confirmed_fraud: 1,
+      open_exposure_inr: 742_000_000,
+    }),
+  ),
   http.get(api('/alerts/:id'), ({ params }) => {
     const a = findAlert(String(params.id))
     return a ? HttpResponse.json(a) : new HttpResponse('alert not found', { status: 404 })
