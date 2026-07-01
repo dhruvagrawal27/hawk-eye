@@ -19,6 +19,9 @@ import {
   GitBranch,
   Crosshair,
   Download,
+  BadgeCheck,
+  Fingerprint,
+  ShieldAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { apiClient } from '@/lib/apiClient'
@@ -37,7 +40,7 @@ import { AttentionView } from '@/components/AttentionView'
 import { AiNarrative } from '@/components/AiNarrative'
 import { ScoreComposition } from '@/components/ScoreComposition'
 import { ProvenanceBadge } from '@/components/ProvenanceBadge'
-import type { GraphEvidence } from '@/lib/types'
+import type { GraphEvidence, ModelLineageEntry } from '@/lib/types'
 
 /* ── Section chrome ─────────────────────────────────────────────────────── */
 function Section({
@@ -135,6 +138,53 @@ function GraphEvidenceSummary({ graph }: { graph: GraphEvidence }) {
           </ul>
         </div>
       ) : null}
+    </div>
+  )
+}
+
+/* ── Model lineage (section 4.5) — which model produced each layer + governance posture ─────── */
+function ModelLineageSection({ lineage }: { lineage: ModelLineageEntry[] }) {
+  const signed = lineage.filter((l) => l.signed).length
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Fingerprint className="size-3.5" />
+        Which model produced each layer&apos;s score — and its governance posture (stage · MRMF risk
+        tier · signature · sign-off).
+      </div>
+      <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
+        {lineage.map((l) => (
+          <li key={`${l.layer}-${l.model_id}`} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
+            <span className="w-24 shrink-0 truncate font-mono text-foreground" title={l.layer}>
+              {l.layer}
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              <span className="font-medium text-foreground">{l.model_id}</span>{' '}
+              <span className="font-mono text-2xs text-muted-foreground">{l.version}</span>
+            </span>
+            <span className="hidden shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[0.6rem] text-muted-foreground sm:inline">
+              {l.stage}
+            </span>
+            {l.risk_tier ? (
+              <span className="hidden shrink-0 text-[0.6rem] text-muted-foreground md:inline">
+                {l.risk_tier}
+              </span>
+            ) : null}
+            {l.signed ? (
+              <BadgeCheck className="size-3.5 shrink-0 text-severity-high" aria-label="signature verified" />
+            ) : (
+              <ShieldAlert className="size-3.5 shrink-0 text-severity-medium" aria-label="unsigned" />
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="text-[0.7rem] text-muted-foreground">
+        <span className="font-mono tabular-nums text-foreground">
+          {signed}/{lineage.length}
+        </span>{' '}
+        artifacts signature-verified · reproducible: this alert can be re-scored on the exact model
+        versions above.
+      </p>
     </div>
   )
 }
@@ -320,6 +370,22 @@ export function ExplanationPanel({ alertId }: { alertId: string }) {
                 />
               )}
             </Section>
+
+            {/* 4.5 · Model lineage — per-layer model provenance + governance posture (Part 23/34) */}
+            {data.model_lineage && data.model_lineage.length > 0 ? (
+              <Section
+                icon={Fingerprint}
+                title="Model lineage & provenance"
+                description="Which model version produced each layer's score, and whether it is signed and signed-off — the reproducibility trail for audit."
+                meta={
+                  <Badge variant="muted" className="text-[0.7rem]">
+                    {data.model_lineage.filter((l) => l.signed).length}/{data.model_lineage.length} signed
+                  </Badge>
+                }
+              >
+                <ModelLineageSection lineage={data.model_lineage} />
+              </Section>
+            ) : null}
 
             {/* 5 · AI narrative — clearly labelled, never authoritative */}
             <Card className={cn('border-ai/30')}>

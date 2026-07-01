@@ -42,6 +42,7 @@ import {
   RULES,
   SUB_THRESHOLD,
   TIMELINES,
+  TYPOLOGY_ANALYTICS,
   USERS,
   findAlert,
   findCase,
@@ -189,6 +190,38 @@ function enrichShap(shap: ExplanationResponse['shap']): ExplanationResponse['sha
   }))
 }
 
+/** Per-layer model lineage — mirror of the backend registry (which model fired each layer + posture). */
+const LINEAGE_REGISTRY: Record<
+  string,
+  { model_id: string; version: string; risk_tier: string; metrics: Record<string, number> }
+> = {
+  L1_rule: { model_id: 'rules_engine', version: '1.x', risk_tier: 'deterministic', metrics: {} },
+  L2_unsupervised: { model_id: 'l2_isoforest', version: 'stub-2026.06.30', risk_tier: 'tier-2-high', metrics: { pr_auc: 0.71 } },
+  L3_gbdt: { model_id: 'l3_lightgbm', version: 'stub-2026.06.30', risk_tier: 'tier-1-critical', metrics: { pr_auc: 0.86, precision_at_k: 0.62 } },
+  L4_sequence: { model_id: 'l4_usad', version: 'stub-2026.06.30', risk_tier: 'tier-3-moderate', metrics: { vus_pr: 0.64 } },
+  L6_fusion: { model_id: 'l6_meta', version: 'l6_meta@stub-2026.06.30', risk_tier: 'tier-1-critical', metrics: { calibration_error: 0.03 } },
+}
+
+function buildLineage(alert: Alert | undefined): ExplanationResponse['model_lineage'] {
+  const fired = new Set((alert?.contributing_layers ?? []).map((l) => (String(l) === 'L1_rules' ? 'L1_rule' : String(l))))
+  const layers = ['L1_rule', 'L2_unsupervised', 'L3_gbdt', 'L4_sequence', 'L6_fusion'].filter(
+    (l) => l === 'L6_fusion' || fired.has(l),
+  )
+  return layers.map((layer) => {
+    const r = LINEAGE_REGISTRY[layer]
+    return {
+      layer,
+      model_id: r.model_id,
+      version: r.version,
+      stage: 'Production',
+      risk_tier: r.risk_tier,
+      signed: true,
+      approving_reviewer: layer === 'L1_rule' ? 'dgm_compliance' : 'EMP-me01',
+      metrics: r.metrics,
+    }
+  })
+}
+
 function buildExplanation(alertId: string): ExplanationResponse {
   const a = findAlert(alertId)
   const fusion = buildFusion(a)
@@ -199,6 +232,7 @@ function buildExplanation(alertId: string): ExplanationResponse {
       shap: enrichShap(base.shap),
       attention: enrichAttention(base.attention),
       fusion,
+      model_lineage: base.model_lineage ?? buildLineage(a),
     }
   }
   const reasons = a?.reason_codes ?? []
@@ -227,6 +261,7 @@ function buildExplanation(alertId: string): ExplanationResponse {
         }
       : undefined,
     fusion,
+    model_lineage: buildLineage(a),
   }
 }
 
@@ -842,6 +877,9 @@ export const handlers = [
 
   // Ambient / sub-threshold activity (the 'hidden 95%')
   http.get(api('/activity/sub-threshold'), () => HttpResponse.json(SUB_THRESHOLD)),
+
+  // Management analytics — fraud-typology prevalence + confirmed-rate
+  http.get(api('/analytics/typologies'), () => HttpResponse.json(TYPOLOGY_ANALYTICS)),
 
   // Health / metrics
   http.get(api('/health'), () => HttpResponse.json(HEALTH)),

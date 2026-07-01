@@ -1,0 +1,47 @@
+# L6.5 action-gate policy store (hot-reloadable; edited only via the four-eyes change-controlled
+# flow, mirroring backend/rules_engine/rules/rules.yaml). gate: hard -> HOLD_FOR_REVIEW ; soft ->
+# STEP_UP. Governs only REVERSIBLE staff actions — never money (object.amount is never gated).
+policies:
+  - code: SELF_GRANT_HOLD
+    name: Entitlement self-grant
+    verbs: [grant_entitlement, self_grant, add_entitlement, role_assign]
+    gate: hard
+    severity: high
+    enabled: true
+
+  - code: MAKER_CHECKER_SAME_ACTOR_HOLD
+    name: Maker+checker by the same actor
+    verbs: []
+    gate: hard
+    severity: high
+    enabled: true
+    require_features: [maker_checker_same_actor]
+
+  - code: BULK_EXPORT_HOLD
+    name: Bulk export from a privileged session (mass volume)
+    verbs: [export, bulk_export, download]
+    gate: hard
+    severity: high
+    enabled: true
+    require_features: [bulk_export_high_volume]
+
+  - code: SWIFT_SEND_STEP_UP
+    name: SWIFT / SO message send
+    verbs: [swift_send, so_send, lou_issue]
+    gate: soft
+    severity: high
+    enabled: true
+
+  - code: DB_WRITE_STEP_UP
+    name: Direct DB write
+    verbs: [db_write, direct_write, update_record, delete_record]
+    gate: soft
+    severity: medium
+    enabled: true
+
+  - code: BULK_EXPORT_STEP_UP
+    name: Bulk export (below mass threshold)
+    verbs: [export, bulk_export, download]
+    gate: soft
+    severity: medium
+    enabled: true

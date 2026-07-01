@@ -66,6 +66,19 @@ class FusionBreakdown(BaseModel):
     meta_version: str = ""
 
 
+class ModelLineageEntry(BaseModel):
+    """Which model produced a layer's score, and its governance posture (MRMF / FREE-AI)."""
+
+    layer: str  # L1_rule | L2_unsupervised | L3_gbdt | L4_sequence | L5_graph | L6_fusion
+    model_id: str
+    version: str
+    stage: str = "Production"  # Production | Staging | Challenger | Archived
+    risk_tier: str | None = None  # tier-1-critical … tier-4-low
+    signed: bool = False  # signature verifies (cosign/sigstore in prod)
+    approving_reviewer: str | None = None  # SoD sign-off
+    metrics: dict = Field(default_factory=dict)
+
+
 class Explanation(BaseModel):
     alert_id: str
     entity_id: str
@@ -76,3 +89,4 @@ class Explanation(BaseModel):
     graph_evidence: list[str] = Field(default_factory=list)
     reason_codes: list[ReasonCode] = Field(default_factory=list)
     fusion: FusionBreakdown | None = None
+    model_lineage: list[ModelLineageEntry] = Field(default_factory=list)

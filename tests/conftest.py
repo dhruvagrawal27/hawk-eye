@@ -21,6 +21,7 @@ for p in (
     ROOT / "services" / "pam-shim",
     ROOT / "services" / "governance-api",
     ROOT / "services" / "hitl-gate",
+    ROOT / "services" / "action-gate",
     ROOT / "governance" / "db",
     ROOT / "governance" / "go-live",
     ROOT / "governance" / "rbac",

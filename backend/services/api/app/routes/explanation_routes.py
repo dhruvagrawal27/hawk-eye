@@ -19,6 +19,7 @@ from app.schemas.explanations import (
     AttentionVariable,
     Explanation,
     FusionBreakdown,
+    ModelLineageEntry,
     RuleProvenance,
     ShapFeature,
 )
@@ -26,6 +27,7 @@ from app.store.alert_store import ALERTS
 from app.store.entity_store import ENTITIES
 from fusion.service import build_breakdown
 from rules_engine.engine import DEFAULT_ENGINE
+from serving.registry import REGISTRY
 
 router = APIRouter(tags=["explanations"])
 
@@ -58,6 +60,54 @@ def _attention_variables(verb: str, weight: float, has_amount: bool) -> list[Att
         AttentionVariable(name="off_hours", weight=clamp(0.5 + weight * 0.45 if has_amount else 0.1)),
         AttentionVariable(name="velocity_1h", weight=clamp(0.2 + weight * 0.55)),
     ]
+
+
+def _model_lineage(alert) -> list[ModelLineageEntry]:
+    """Per-layer model provenance for this alert: which model version produced each contributing
+    layer's score, and its governance posture (stage / MRMF risk tier / signature / SoD sign-off).
+    Answers 'which model fired this, and who signed it off?' — the regulator-facing reproducibility
+    line. L1 is the deterministic rules engine (not ML); L2–L6 come from the model registry.
+    """
+    contributing = {str(c) for c in alert.contributing_layers}
+    entries: list[ModelLineageEntry] = []
+
+    # L1 rules — deterministic, four-eyes change-controlled (not an ML artifact).
+    if "L1_rules" in contributing:
+        entries.append(
+            ModelLineageEntry(
+                layer="L1_rule",
+                model_id="rules_engine",
+                version=getattr(DEFAULT_ENGINE, "version", "1.x"),
+                stage="Production",
+                risk_tier="deterministic",
+                signed=True,  # four-eyes change control
+                approving_reviewer="dgm_compliance",
+                metrics={"rules": len(getattr(DEFAULT_ENGINE, "rules", []) or [])},
+            )
+        )
+
+    # L2–L5 detectors + L6 fusion, from the registry (Production artifact per layer).
+    versions = alert.model_versions or {}
+    for layer in ("L2_unsupervised", "L3_gbdt", "L4_sequence", "L5_graph", "L6_fusion"):
+        label = "L1_rules" if layer == "L1_rule" else layer
+        if label not in contributing and layer != "L6_fusion":
+            continue
+        art = REGISTRY.production_for(layer)
+        if art is None:
+            continue
+        entries.append(
+            ModelLineageEntry(
+                layer=layer,
+                model_id=art.model_id,
+                version=versions.get(layer, art.version),
+                stage=art.stage,
+                risk_tier=art.risk_tier,
+                signed=art.signed_valid,
+                approving_reviewer=art.approving_reviewer,
+                metrics=dict(art.metrics or {}),
+            )
+        )
+    return entries
 
 
 def _fusion_for(alert) -> FusionBreakdown:
@@ -165,6 +215,7 @@ def get_explanation(
         graph_evidence=graph_evidence,
         reason_codes=alert.reason_codes,
         fusion=_fusion_for(alert),
+        model_lineage=_model_lineage(alert),
     )
 
 

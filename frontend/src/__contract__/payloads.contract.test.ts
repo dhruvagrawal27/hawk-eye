@@ -69,6 +69,20 @@ describe('explanations + narrative (Part 11 / Part 25)', () => {
     expect(exp.graph?.explainer_model).toBe('GNNExplainer')
   })
 
+  it('exposes fraud-typology prevalence + confirmed-rate (Phase 5)', async () => {
+    const a = await apiClient.getTypologyAnalytics()
+    expect(a.typologies.length).toBeGreaterThanOrEqual(10)
+    const counts = a.typologies.map((t) => t.alerts)
+    expect(counts).toEqual([...counts].sort((x, y) => y - x)) // ranked by prevalence
+    expect(a.totals.alerts).toBe(a.typologies.reduce((s, t) => s + t.alerts, 0))
+    for (const t of a.typologies) {
+      expect(t.open).toBe(t.alerts - t.confirmed - t.false_positive)
+      expect(t.confirmed_rate).toBeGreaterThanOrEqual(0)
+      expect(t.confirmed_rate).toBeLessThanOrEqual(1)
+      expect(t.layers.length).toBeGreaterThan(0)
+    }
+  })
+
   it('exposes the sub-threshold detection funnel + near-miss watchlist (Phase 4)', async () => {
     const st = await apiClient.getSubThreshold()
     expect(st.emit_threshold).toBe(70)

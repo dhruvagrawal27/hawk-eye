@@ -278,6 +278,17 @@ export interface FusionBreakdown {
   /** the L6 meta-model version that produced this blend. */
   meta_version?: string
 }
+/** Which model produced a layer's score + its governance posture (MRMF / FREE-AI). */
+export interface ModelLineageEntry {
+  layer: string // L1_rule | L2_unsupervised | L3_gbdt | L4_sequence | L5_graph | L6_fusion
+  model_id: string
+  version: string
+  stage: string // Production | Staging | Challenger | Archived
+  risk_tier?: string | null
+  signed: boolean
+  approving_reviewer?: string | null
+  metrics?: Record<string, number>
+}
 export interface ExplanationResponse {
   alert_id: AlertId
   shap: ShapContribution[]
@@ -286,6 +297,8 @@ export interface ExplanationResponse {
   graph?: GraphEvidence
   /** [FE-proposed] L6 fusion decomposition driving ScoreComposition (the top "why this fired"). */
   fusion?: FusionBreakdown
+  /** per-layer model provenance + governance posture (which model fired this, who signed it). */
+  model_lineage?: ModelLineageEntry[]
 }
 
 /* ───────────────────────────── Management analytics [GET /analytics/typologies] ──────────────── */
