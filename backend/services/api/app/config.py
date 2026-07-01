@@ -108,6 +108,18 @@ class Settings(BaseSettings):
     # (NEAR AI primary -> Groq) so a real call can take several seconds; 2s was a
     # stub-era value that timed out the moment a live LLM was wired in.
     narrative_timeout_seconds: float = Field(15.0, alias="HAWKEYE_NARRATIVE_TIMEOUT")
+    # --- LLM providers (direct, in-process; NEAR AI primary → Groq → deterministic template) ---
+    # Loaded from the repo .env (gitignored). When a provider + key are configured, narrate() calls
+    # the provider directly over the OpenAI-compatible SDK (no separate ML gateway needed) and, on any
+    # error, fails over Groq → template so the route never breaks. NEAR AI serves the model inside an
+    # Intel TDX TEE (Part 25.4); the TEE proof is fetched separately via the attestation endpoint.
+    llm_provider: str = Field("template", alias="LLM_PROVIDER")  # nearai | groq | template
+    near_ai_api_key: str = Field("", alias="NEAR_AI_API_KEY")
+    near_ai_base_url: str = Field("https://cloud-api.near.ai/v1", alias="NEAR_AI_BASE_URL")
+    near_ai_model: str = Field("openai/gpt-oss-120b", alias="NEAR_AI_MODEL")
+    groq_api_key: str = Field("", alias="GROQ_API_KEY")
+    groq_base_url: str = Field("https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
+    groq_model: str = Field("openai/gpt-oss-120b", alias="GROQ_MODEL")
 
     # --- Realtime stream (BACKEND-13 online topology; powers /ws/alerts) ---
     # off       = no stream (WS accepts but emits nothing)
