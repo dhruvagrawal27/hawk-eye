@@ -302,6 +302,8 @@ export interface ModelLineageEntry {
 export interface ExplanationResponse {
   alert_id: AlertId
   shap: ShapContribution[]
+  /** true = `shap` is an illustrative attribution synthesized from fired signals (no fitted-GBDT SHAP). */
+  shap_synthesized?: boolean
   rules: RuleProvenanceItem[]
   attention: AttentionSession[]
   graph?: GraphEvidence

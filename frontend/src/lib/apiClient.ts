@@ -279,6 +279,7 @@ export const apiClient = {
     return {
       alert_id: raw.alert_id as string,
       shap: (raw.shap as ExplanationResponse['shap']) ?? [],
+      shap_synthesized: raw.shap_synthesized as boolean | undefined,
       rules: (raw.rules ?? raw.rule_provenance ?? []) as ExplanationResponse['rules'],
       attention: (raw.attention ?? raw.sequence_attention ?? []) as ExplanationResponse['attention'],
       graph: raw.graph as ExplanationResponse['graph'],

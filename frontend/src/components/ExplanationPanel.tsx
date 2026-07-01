@@ -313,7 +313,7 @@ export function ExplanationPanel({ alertId }: { alertId: string }) {
                 ) : null
               }
             >
-              <ShapChart features={data.shap} />
+              <ShapChart features={data.shap} synthesized={data.shap_synthesized} />
             </Section>
 
             {/* 2 · Rule provenance */}
