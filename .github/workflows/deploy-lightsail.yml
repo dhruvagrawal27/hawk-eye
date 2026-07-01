@@ -1,0 +1,55 @@
+# =============================================================================
+# Hawk-Eye — auto-deploy the Lightsail pilot on every push to main.
+# SSHes into the box, hard-resets the checkout to origin/main, and rebuilds the
+# two-subdomain stack (deploy/lightsail/docker-compose.domains.yml). The box's
+# gitignored .env (secrets + VITE_* build flags) is preserved across deploys, so
+# build mode (mocks/auth/URLs) is controlled on the box, not in CI.
+#
+# One-time setup — add these repo secrets
+# (Settings -> Secrets and variables -> Actions -> New repository secret):
+#   LIGHTSAIL_HOST     box public IP / host        e.g. 13.205.181.169
+#   LIGHTSAIL_SSH_KEY  PRIVATE ed25519 deploy key whose public half is in the
+#                      box's ~ubuntu/.ssh/authorized_keys (paste the whole key,
+#                      including the BEGIN/END lines)
+# =============================================================================
+name: deploy-lightsail
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Serialize deploys so two quick pushes don't rebuild on the box at the same time.
+concurrency:
+  group: lightsail-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH (reset to origin/main + rebuild on the box)
+        env:
+          SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          HOST: ${{ secrets.LIGHTSAIL_HOST }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SSH_KEY:-}" ] || [ -z "${HOST:-}" ]; then
+            echo "::error::Missing secrets. Set LIGHTSAIL_HOST and LIGHTSAIL_SSH_KEY in repo settings."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new ubuntu@"$HOST" '
+            set -euo pipefail
+            cd ~/hawk-eye
+            echo "==> before: $(git rev-parse --short HEAD)"
+            git fetch --quiet origin
+            git reset --hard origin/main
+            echo "==> after:  $(git rev-parse --short HEAD)"
+            C="--env-file .env -f deploy/lightsail/docker-compose.domains.yml"
+            docker compose $C up -d --build
+            docker compose $C ps
+          '
+          echo "Deploy finished."
