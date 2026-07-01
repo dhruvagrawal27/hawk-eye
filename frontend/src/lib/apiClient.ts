@@ -46,6 +46,7 @@ import type {
   RawModelQuality,
   RawPromoteResult,
   ServiceHealth,
+  ServiceStatusResponse,
   Paginated,
   AttestationDetail,
   PeerComparisonResponse,
@@ -250,6 +251,15 @@ export const apiClient = {
    */
   getAttestation(alertId: string): Promise<AttestationDetail> {
     return request(`/narratives/${encodeURIComponent(alertId)}/attestation`)
+  },
+
+  /** Service map — every platform service, what it's for, where it's used, and live status. */
+  getServiceStatus(): Promise<ServiceStatusResponse> {
+    return request('/services/status')
+  },
+  /** Downloadable, audit-grade explainability report for one alert (SAR/FMR evidence pack). */
+  getExplanationReport(alertId: string): Promise<Record<string, unknown>> {
+    return request(`/explanations/${encodeURIComponent(alertId)}/report`)
   },
 
   /* ── Active-learning feedback (Part 10 relabel loop) ───────────────────── */

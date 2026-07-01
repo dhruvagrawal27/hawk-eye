@@ -18,7 +18,9 @@ import {
   Sparkles,
   GitBranch,
   Crosshair,
+  Download,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { cn } from '@/lib/cn'
@@ -173,6 +175,24 @@ function PanelSkeleton() {
   )
 }
 
+/** Fetch the audit-grade explainability report and save it as a JSON file (SAR/FMR evidence pack). */
+async function downloadExplanationReport(alertId: string): Promise<void> {
+  try {
+    const report = await apiClient.getExplanationReport(alertId)
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `explainability-${alertId}.json`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch {
+    /* the button is best-effort; failures are silent (the panel still shows the evidence) */
+  }
+}
+
 export function ExplanationPanel({ alertId }: { alertId: string }) {
   const query = useQuery({
     queryKey: queryKeys.explanation(alertId),
@@ -191,6 +211,15 @@ export function ExplanationPanel({ alertId }: { alertId: string }) {
         <Badge variant="outline" className="text-[0.7rem] text-muted-foreground">
           SAR / FMR-defensible evidence
         </Badge>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto h-7 gap-1.5"
+          onClick={() => void downloadExplanationReport(alertId)}
+        >
+          <Download className="size-3.5" />
+          Report
+        </Button>
       </div>
 
       <QueryBoundary

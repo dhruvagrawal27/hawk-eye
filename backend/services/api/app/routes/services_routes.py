@@ -144,5 +144,7 @@ def services_status(
              "" if settings.auth_mode == "keycloak" else "Optional: local dev-JWT auth is the pilot default.",
              "up" if _http_up(settings.keycloak_base_url, "/realms/master") else optstat(False)),
     ]
+    from app.schemas.common import iso_z, utcnow
+
     up = sum(1 for s in services if s["status"] in ("up", "in_process"))
-    return {"services": services, "up": up, "total": len(services)}
+    return {"generated_ts": iso_z(utcnow()), "services": services, "up": up, "total": len(services)}

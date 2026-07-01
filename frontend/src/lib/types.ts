@@ -779,11 +779,44 @@ export interface ServiceHealth {
   latency_ms?: number
   detail?: string
 }
+
 export interface HealthResponse {
   status: 'ok' | 'degraded' | 'down'
   version?: string
   services: ServiceHealth[]
   checked_ts: IsoTimestamp
+}
+
+/* ───────────────────────────── Service map [BACKEND: GET /services/status] ─────────────────── */
+/**
+ * Live platform service-catalogue row surfaced by `GET /services/status` (Agent B's shape). Powers
+ * the Admin Service Map: what each service is, WHERE in the app it's used, and its live status.
+ *
+ * `status` is honest about the deployment reality:
+ *  - `up`         — a real client is configured and the service answered its probe.
+ *  - `in_process` — the capability is served by an in-process runtime / fallback (no external dep).
+ *  - `optional`   — not wired for this deployment; the app runs without it (in-memory / default mode).
+ *  - `down`       — a real client is configured but the service failed its probe (honest degradation).
+ *  - `unknown`    — status could not be determined (probe not run / shape surprise).
+ */
+export type ServiceStatusState = 'up' | 'in_process' | 'optional' | 'down' | 'unknown'
+export interface ServiceStatus {
+  key: string
+  name: string
+  purpose: string
+  /** Where in Hawk-Eye this service is used (feature / module), for the "used by" line. */
+  used_by: string
+  required: boolean
+  /** Rationale surfaced as a tooltip when the service is optional (why it's safe to run without). */
+  why?: string
+  status: ServiceStatusState
+  /** Optional probe detail (e.g. resolved endpoint, latency, fallback note). */
+  detail?: string
+  latency_ms?: number
+}
+export interface ServiceStatusResponse {
+  generated_ts: IsoTimestamp
+  services: ServiceStatus[]
 }
 /**
  * Raw live `GET /health` — served at the server ROOT (not under `/api/v1`) as a flat status dict.

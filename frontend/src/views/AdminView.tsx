@@ -34,6 +34,7 @@ import type { Role } from '@/auth/capabilities'
 import { PageHeader } from '@/components/PageHeader'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { GrafanaEmbed } from '@/components/GrafanaEmbed'
+import { ServiceMap } from '@/components/ServiceMap'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -222,6 +223,9 @@ export function AdminView() {
           </QueryBoundary>
         </CardContent>
       </Card>
+
+      {/* Service map — every platform service, where it's used, and live status */}
+      <ServiceMap />
 
       {/* Grafana ops dashboard */}
       <GrafanaEmbed title="Operations dashboard (Grafana)" />
