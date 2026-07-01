@@ -48,6 +48,25 @@ Authoritative contract in [`BACKEND.md`](BACKEND.md) §3; index in [`docs/openap
 - **Interdiction (L6.5):** `/api/v1/action-gate/*` → ALLOW / STEP_UP / HOLD (four-eyes, audited).
 - **Rules / models / reports:** four-eyes rule changes · signed model promotion + kill-switch · CRILC / FMR / CFR draft exports.
 
+## What Hawk-Eye detects (problem-statement coverage)
+
+Hawk-Eye is an **AI-powered Early-Warning System** that **continuously monitors the behaviour of internal and privileged users** across banking systems — **core banking, treasury, loan origination, and customer databases** — and **flags anomalous or potentially fraudulent activity in real time**. It uses machine-learning models to **establish a behavioural baseline for each user** (peer-relative) and to **detect deviations** such as **unusual transaction patterns, off-hours access, bulk data downloads, unauthorized account modifications, and privilege-escalation attempts**. Every alert carries a **calibrated risk score** and **contextual explanations**, and lands in a **dashboard for the fraud-investigation team to triage and act on cases efficiently**. Each clause of the problem statement maps to a detection layer:
+
+| Problem-statement signal | How Hawk-Eye catches it | Layer(s) |
+|---|---|---|
+| ML behavioural baseline per user | peer-relative UEBA (unsupervised, no labels) | L2 |
+| Unusual transaction patterns | hard rules + supervised GBDT (LightGBM) | L1 + L3 |
+| Off-hours access | time-of-day vs baseline + 7×24 heatmap | L1 + L2 |
+| Bulk data downloads | download volume vs baseline + leaver-window + export-to-personal-channel | L1 + L2 + L4 |
+| Unauthorized account modifications | DB write with no app transaction · out-of-scope access | L1 + L2 |
+| Privilege-escalation attempts | entitlement self-grant · temp-admin timed to transactions | L1 |
+| Real-time flagging | fast lane: event → feature → score → alert in seconds | L0–L6 |
+| Risk scores | one calibrated 0–100 score (severity × confidence) | L6 |
+| Alerts with contextual explanations | SHAP + structured reason codes + AI narrative | L3 / L6 / LLM |
+| Dashboard to triage & act | investigator console: ranked queue · entity-360 · EDD verdict | L7 |
+
+The full mapping of **16 insider fraud vectors** to layers/signals is in [`docs/detection-coverage-map.md`](docs/detection-coverage-map.md); the honest scope limits are in [`docs/honest-limits.md`](docs/honest-limits.md). A panel-facing pitch deck (iDEA 2.0 template, mapped to the evaluation rubric) lives at [`docs/deliverables/HAWKEYE_iDEA2_DECK.pptx`](docs/deliverables/HAWKEYE_iDEA2_DECK.pptx).
+
 ## Golden rules (every laptop, every task)
 1. **Alert-only.** The system scores and explains; a human decides. **It never auto-blocks money.**
 2. **On-prem + synthetic.** No real bank systems, no cloud creds, no real PII. Everything runs locally on the synthetic simulator + public datasets. Real feeds/creds/hardware are **SCAFFOLD**; human/legal/hardware acts are **MOCK**.
