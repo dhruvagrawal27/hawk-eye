@@ -1,0 +1,2 @@
+# CI/CD deploy smoke-test marker. Bumped to verify the deploy-lightsail workflow.
+last_trigger: manual test push
