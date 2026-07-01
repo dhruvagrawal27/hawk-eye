@@ -79,3 +79,54 @@ def get_explanation(
         graph_evidence=graph_evidence,
         reason_codes=alert.reason_codes,
     )
+
+
+@router.get("/explanations/{alert_id}/report")
+def get_explanation_report(
+    alert_id: str,
+    principal: Principal = Depends(require_capability(Capability.VIEW_ALERTS)),
+) -> dict:
+    """Downloadable, audit-grade explainability report — the full 'why this fired' assembled into one
+    structured artifact: score + severity, per-layer contributions (L1→L6), SHAP, rule provenance,
+    sequence attention, graph evidence, and the narrative provenance (provider / TEE attestation).
+    Alert-only: advisory, a human decides. Suitable for a SAR/FMR evidence pack."""
+    from app.schemas.common import iso_z, utcnow
+
+    explanation = get_explanation(alert_id, principal)  # reuses assembly + logs explanation.view
+    alert = ALERTS.get(alert_id)
+    assert alert is not None  # get_explanation already 404s otherwise
+    memos = ALERTS.narrative_memos(alert_id)
+    memo = memos[-1] if memos else None
+
+    return {
+        "report_type": "alert_explainability_report",
+        "schema_version": "1.0",
+        "generated_ts": iso_z(utcnow()),
+        "alert": {
+            "alert_id": alert.alert_id,
+            "entity_id": alert.entity_id,
+            "risk_score": alert.risk_score,
+            "severity": str(alert.severity),
+            "confidence": alert.confidence,
+            "status": str(alert.status),
+            "exposure_inr": alert.exposure_inr,
+            "created_ts": alert.created_ts,
+            "contributing_layers": alert.contributing_layers,
+        },
+        "explanation": explanation.model_dump(),
+        "narrative_provenance": (
+            {
+                "provider": memo.provider,
+                "model": memo.model,
+                "tee_attested": memo.tee_attested,
+                "attestation_id": memo.attestation_id,
+                "prompt_hash": memo.prompt_hash,
+            }
+            if memo
+            else None
+        ),
+        "disclaimer": (
+            "ALERT-ONLY: an advisory risk explanation, not a determination of fraud. A human "
+            "investigator reviews and decides; no action is taken automatically. All PII is tokenized."
+        ),
+    }

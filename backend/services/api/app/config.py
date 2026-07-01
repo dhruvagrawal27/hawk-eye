@@ -56,6 +56,35 @@ class Settings(BaseSettings):
     serving_require_signature: bool = Field(True, alias="HAWKEYE_SERVING_REQUIRE_SIGNATURE")
     model_registry_url: str = Field("http://localhost:5000", alias="HAWKEYE_MODEL_REGISTRY_URL")
 
+    # --- MLflow model registry / experiment tracking (guarded; ML owns) ---
+    # When set + mlflow_enabled + the mlflow package importable + the tracking server reachable,
+    # the registry client also mirrors register/list into MLflow. In-process registry stays the
+    # source of truth; MLflow being down never breaks /models. Default disabled → tests unchanged.
+    mlflow_uri: str = Field("http://localhost:5000", alias="HAWKEYE_MLFLOW_URI")
+    mlflow_enabled: bool = Field(False, alias="HAWKEYE_MLFLOW_ENABLED")
+
+    # --- MinIO / S3 artifact store (guarded; boto3) ---
+    # Object store for model artifacts / audit archives. When configured + minio_enabled + boto3
+    # importable + reachable, artifact put/get/list hit MinIO; otherwise a no-op fallback. Guarded.
+    minio_endpoint: str = Field("http://localhost:9000", alias="HAWKEYE_MINIO_ENDPOINT")
+    minio_access_key: str = Field("minioadmin", alias="HAWKEYE_MINIO_ACCESS_KEY")
+    minio_secret_key: str = Field("minioadmin", alias="HAWKEYE_MINIO_SECRET_KEY")
+    minio_bucket: str = Field("hawkeye-artifacts", alias="HAWKEYE_MINIO_BUCKET")
+    minio_enabled: bool = Field(False, alias="HAWKEYE_MINIO_ENABLED")
+
+    # --- Neo4j graph DB (guarded; L5 entity graph) ---
+    # The in-process entity graph stays the default; when neo4j_enabled + the driver importable +
+    # bolt reachable, graph_db exposes a live ping/query seam. Never required for scoring.
+    neo4j_uri: str = Field("bolt://localhost:7687", alias="HAWKEYE_NEO4J_URI")
+    neo4j_user: str = Field("neo4j", alias="HAWKEYE_NEO4J_USER")
+    neo4j_password: str = Field("neo4j", alias="HAWKEYE_NEO4J_PASSWORD")
+    neo4j_enabled: bool = Field(False, alias="HAWKEYE_NEO4J_ENABLED")
+
+    # --- Feast online store over Redis (guarded; L1/L3 feature assembly) ---
+    # When feast_redis_enabled + redis_url set + the redis package importable + reachable, the
+    # feature reader augments the deterministic shim with online features read from Redis. Guarded.
+    feast_redis_enabled: bool = Field(False, alias="HAWKEYE_FEAST_REDIS_ENABLED")
+
     # --- Narrative gateway (BACKEND-20; ML owns narrate()) ---
     narrative_url: str = Field("http://localhost:8002/narrate", alias="HAWKEYE_NARRATIVE_URL")
     # When False (local/CI), skip the HTTP call to ML's gateway and render the deterministic

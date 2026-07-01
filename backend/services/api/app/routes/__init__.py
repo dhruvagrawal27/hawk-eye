@@ -20,6 +20,7 @@ from app.routes import (
     narrative_routes,
     report_routes,
     rules_routes,
+    services_routes,
 )
 
 # Order is cosmetic (OpenAPI grouping). All mounted under the same /api/v1 prefix.
@@ -42,6 +43,7 @@ for module in (
     compliance_routes,
     events_routes,
     history_routes,
+    services_routes,
 ):
     api_router.include_router(module.router)
 
