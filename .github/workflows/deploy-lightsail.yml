@@ -50,6 +50,10 @@ jobs:
             echo "==> after:  $(git rev-parse --short HEAD)"
             C="--env-file .env -f deploy/lightsail/docker-compose.domains.yml"
             docker compose $C up -d --build
+            # The Caddyfile is a single-file bind mount; git reset rewrites its inode, so a plain
+            # "up" leaves the running caddy on stale config. Force-recreate it so routing/TLS edits
+            # always take effect (certs persist in the caddy_data volume, so no re-issuance).
+            docker compose $C up -d --force-recreate caddy
             docker compose $C ps
           '
           echo "Deploy finished."
