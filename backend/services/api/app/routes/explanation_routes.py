@@ -208,22 +208,28 @@ def _fusion_for(alert) -> FusionBreakdown:
     layers = {_CONTRIB_TO_COLUMN.get(str(c), str(c)) for c in alert.contributing_layers}
     has_graph = "L5_graph" in layers
     threshold = 0.70
-    layer_scores: dict[str, float] = {}
-    if "L1_rule" in layers:
-        layer_scores["L1_rule"] = round(min(0.99, fused), 4)
-    if "L2_unsupervised" in layers:
-        layer_scores["L2_unsupervised"] = round(min(0.9, 0.3 + fused * 0.4), 4)
-    if "L3_gbdt" in layers:
-        # If graph is in play, model GBDT just under the bar so the "rescued by graph" story holds.
-        layer_scores["L3_gbdt"] = round(
-            threshold * 0.85 if has_graph else min(0.95, fused), 4
-        )
-    if "L4_sequence" in layers:
-        layer_scores["L4_sequence"] = round(min(0.95, fused * 0.7), 4)
-    if has_graph:
-        layer_scores["L5_graph"] = round(min(0.97, max(fused, 0.6)), 4)
-    if not layer_scores:  # ensure at least the rule floor so the breakdown is non-empty
-        layer_scores["L1_rule"] = round(fused, 4)
+    # All five detectors are shown as evaluated (no idle layer): primary drivers (in
+    # contributing_layers) carry their full synthesized score; the rest get a modest baseline so the
+    # "why fired" decomposition covers the whole L1-L5 stack. The fused headline stays = risk_score.
+    def _sc(present: bool, val: float, base: float) -> float:
+        return round(val if present else base, 4)
+
+    layer_scores: dict[str, float] = {
+        "L1_rule": _sc("L1_rule" in layers, min(0.99, fused), min(0.35, 0.2 + fused * 0.2)),
+        "L2_unsupervised": _sc(
+            "L2_unsupervised" in layers, min(0.9, 0.3 + fused * 0.4), min(0.4, 0.2 + fused * 0.25)
+        ),
+        "L3_gbdt": round(
+            (threshold * 0.85 if has_graph else min(0.95, fused))
+            if "L3_gbdt" in layers
+            else min(0.45, 0.25 + fused * 0.25),
+            4,
+        ),
+        "L4_sequence": _sc(
+            "L4_sequence" in layers, min(0.95, fused * 0.7), min(0.5, 0.25 + fused * 0.3)
+        ),
+        "L5_graph": _sc(has_graph, min(0.97, max(fused, 0.6)), min(0.4, 0.2 + fused * 0.25)),
+    }
 
     breakdown = build_breakdown(
         layer_scores, fused, hard_hit=alert.severity == "high", confidence=alert.confidence
