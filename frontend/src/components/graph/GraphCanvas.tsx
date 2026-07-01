@@ -84,7 +84,10 @@ function colourResolver() {
   // grey. Normalise to a form it accepts: a bare "H S% L%" triplet (or space-`hsl(...)`) becomes comma
   // syntax `hsl(H, S%, L%)`; hex/rgb/already-comma values pass through untouched.
   const toCss = (value: string): string => {
-    const inner = value.trim().replace(/^hsl\(|\)$/gi, '').trim()
+    const inner = value
+      .trim()
+      .replace(/^hsl\(|\)$/gi, '')
+      .trim()
     if (/^[\d.]+\s+[\d.]+%\s+[\d.]+%/.test(inner)) {
       return `hsl(${inner.split('/')[0].trim().split(/\s+/).join(', ')})`
     }
@@ -113,7 +116,10 @@ function overviewNodeSize(type: GraphNode['type'], risk?: number): number {
 }
 
 /* ── Build cytoscape elements + stylesheet from the API response ─────────────────────────────── */
-export function buildElements(graph: GraphResponse, opts: { overview?: boolean } = {}): ElementDefinition[] {
+export function buildElements(
+  graph: GraphResponse,
+  opts: { overview?: boolean } = {},
+): ElementDefinition[] {
   const ringOf = new Map<string, string>()
   for (const ring of graph.rings ?? []) {
     for (const id of ring.member_ids) ringOf.set(id, ring.ring_id)

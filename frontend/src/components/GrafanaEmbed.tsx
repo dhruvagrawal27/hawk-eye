@@ -112,9 +112,9 @@ export function GrafanaEmbed({
               <>
                 <p className="text-sm font-medium">Operations dashboard isn’t running here</p>
                 <p className="max-w-md text-xs text-muted-foreground">
-                  Grafana (ops metrics) isn’t part of the pilot stack, so there’s nothing to
-                  embed yet. The rest of Hawk-Eye — alerts, narratives, cases, audit — works
-                  without it. Start the full monitoring stack to enable this panel, then reload.
+                  Grafana (ops metrics) isn’t part of the pilot stack, so there’s nothing to embed
+                  yet. The rest of Hawk-Eye — alerts, narratives, cases, audit — works without it.
+                  Start the full monitoring stack to enable this panel, then reload.
                 </p>
                 <div className="flex items-center gap-2 pt-1">
                   <Button variant="outline" size="sm" onClick={() => setNonce((n) => n + 1)}>

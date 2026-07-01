@@ -171,9 +171,10 @@ export function DeptRollup() {
         <Info className="mt-0.5 size-3.5 shrink-0" />
         <p>
           <span className="font-medium text-foreground">Open X/Y</span> = X unresolved of Y total ·{' '}
-          <span className="font-medium text-foreground">Peak risk</span> = highest 0–100 score in the
-          branch · <span className="font-medium text-foreground">Exposure</span> = ₹ at risk across
-          open alerts. Sort by Peak risk for the hottest branch, or Exposure for the largest ₹.
+          <span className="font-medium text-foreground">Peak risk</span> = highest 0–100 score in
+          the branch · <span className="font-medium text-foreground">Exposure</span> = ₹ at risk
+          across open alerts. Sort by Peak risk for the hottest branch, or Exposure for the largest
+          ₹.
         </p>
       </div>
 
@@ -285,7 +286,11 @@ export function DeptRollup() {
                                       {a.risk_score}
                                     </span>
                                     <span className="w-24 shrink-0 truncate">
-                                      <MaskedPII value={a.entity_id} entityId={a.entity_id} alertId={a.alert_id} />
+                                      <MaskedPII
+                                        value={a.entity_id}
+                                        entityId={a.entity_id}
+                                        alertId={a.alert_id}
+                                      />
                                     </span>
                                     <span className="min-w-0 flex-1 truncate text-muted-foreground">
                                       {a.title ?? 'Alert'}
@@ -293,7 +298,10 @@ export function DeptRollup() {
                                     <span className="shrink-0 tabular-nums text-muted-foreground">
                                       {formatINRCompact(a.exposure_inr)}
                                     </span>
-                                    <span className="shrink-0 tabular-nums text-muted-foreground/70" title={a.created_ts}>
+                                    <span
+                                      className="shrink-0 tabular-nums text-muted-foreground/70"
+                                      title={a.created_ts}
+                                    >
                                       {formatRelative(a.created_ts)}
                                     </span>
                                   </Link>

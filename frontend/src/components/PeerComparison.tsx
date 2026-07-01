@@ -276,7 +276,8 @@ function PlainReadout({ dim }: { dim: PeerDimension }) {
         : `below the peer median of ${median}`
 
   const risky = stats.beyondRiskyTail || (stats.zScore != null && Math.abs(stats.zScore) >= 2)
-  const watch = !risky && (stats.outsideIqr || (stats.zScore != null && Math.abs(stats.zScore) >= 1))
+  const watch =
+    !risky && (stats.outsideIqr || (stats.zScore != null && Math.abs(stats.zScore) >= 1))
 
   const label = (dim.label || dim.key).toLowerCase()
   let sentence: string

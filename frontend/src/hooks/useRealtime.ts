@@ -50,7 +50,10 @@ export function useEventRate(windowSec = 60): EventRate {
     const id = setInterval(() => {
       const now = Math.floor(Date.now() / 1000) * 1000
       setBuckets((prev) => {
-        const next = [...prev, { t: now, events: pending.current.events, alerts: pending.current.alerts }]
+        const next = [
+          ...prev,
+          { t: now, events: pending.current.events, alerts: pending.current.alerts },
+        ]
         pending.current.events = 0
         pending.current.alerts = 0
         return next.slice(-windowSec)

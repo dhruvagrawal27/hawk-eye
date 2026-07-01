@@ -68,7 +68,7 @@ describe('explanations + narrative (Part 11 / Part 25)', () => {
     expect(exp.graph?.ring_id).toBe('RNG-12')
     expect(exp.graph?.explainer_model).toBe('GNNExplainer')
     // structured subgraph is drawable (inline mini-graph): >=2 nodes and edges reference them
-    expect((exp.graph?.nodes.length ?? 0)).toBeGreaterThanOrEqual(2)
+    expect(exp.graph?.nodes.length ?? 0).toBeGreaterThanOrEqual(2)
     const ids = new Set(exp.graph?.nodes.map((n) => n.id))
     for (const e of exp.graph?.edges ?? []) {
       expect(ids.has(e.source) && ids.has(e.target)).toBe(true)

@@ -8,13 +8,7 @@
  * so it stays trivially testable and reusable from a keyboard shortcut or a button.
  */
 import * as React from 'react'
-import {
-  Compass,
-  Search,
-  Rows3,
-  Network,
-  type LucideIcon,
-} from 'lucide-react'
+import { Compass, Search, Rows3, Network, type LucideIcon } from 'lucide-react'
 import { NAV_ITEMS } from '@/app/nav-config'
 import { toggleDensity } from '@/lib/density'
 

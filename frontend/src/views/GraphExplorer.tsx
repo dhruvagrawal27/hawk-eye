@@ -45,7 +45,11 @@ import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { EmptyState } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/toaster'
-import { GraphCanvas, RISK_RING_THRESHOLD, type GraphCanvasHandle } from '@/components/graph/GraphCanvas'
+import {
+  GraphCanvas,
+  RISK_RING_THRESHOLD,
+  type GraphCanvasHandle,
+} from '@/components/graph/GraphCanvas'
 import { GraphLegend, graphTypeLabel } from '@/components/GraphLegend'
 
 export function GraphExplorer() {

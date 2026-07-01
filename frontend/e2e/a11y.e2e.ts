@@ -26,6 +26,9 @@ async function loginAs(page: Page, persona: RegExp) {
 
 test.describe('reduced-motion a11y audit (worked burst)', () => {
   test('the console is fully usable with reduced motion on', async ({ page }) => {
+    // Force the emulated media feature explicitly (CDP-level) so the assertion below is robust to
+    // Playwright option-precedence quirks between `test.use` and the project's `devices` config.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     await loginAs(page, /\bRM\b/)
 
     // Relationship Manager lands on triage; the worked-burst alert is present as real content

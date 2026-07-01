@@ -111,7 +111,10 @@ function SessionHeatmap({ session }: { session: AttentionSession }) {
                     <div className="flex h-8 w-full items-end justify-center">
                       <div
                         className="w-2 rounded-t-sm bg-ai"
-                        style={{ height: `${16 + Math.round(step.weight * 16)}px`, opacity: 0.3 + step.weight * 0.7 }}
+                        style={{
+                          height: `${16 + Math.round(step.weight * 16)}px`,
+                          opacity: 0.3 + step.weight * 0.7,
+                        }}
                         aria-hidden
                       />
                     </div>
@@ -136,12 +139,7 @@ function SessionHeatmap({ session }: { session: AttentionSession }) {
                   {humanize(variable)}
                 </th>
                 {session.steps.map((step, i) => (
-                  <HeatCell
-                    key={step.event_id ?? i}
-                    step={step}
-                    variable={variable}
-                    peak={peak}
-                  />
+                  <HeatCell key={step.event_id ?? i} step={step} variable={variable} peak={peak} />
                 ))}
               </tr>
             ))}

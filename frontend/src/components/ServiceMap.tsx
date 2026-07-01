@@ -13,13 +13,14 @@ import { Eyebrow } from '@/components/ui/eyebrow'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
-const STATUS_META: Record<
-  ServiceStatus['status'],
-  { label: string; dot: string; text: string }
-> = {
+const STATUS_META: Record<ServiceStatus['status'], { label: string; dot: string; text: string }> = {
   up: { label: 'Running', dot: 'bg-[hsl(var(--sla-ok))]', text: 'text-[hsl(var(--sla-ok))]' },
   in_process: { label: 'In-process', dot: 'bg-primary', text: 'text-primary' },
-  optional: { label: 'Optional · not running', dot: 'bg-muted-foreground/50', text: 'text-muted-foreground' },
+  optional: {
+    label: 'Optional · not running',
+    dot: 'bg-muted-foreground/50',
+    text: 'text-muted-foreground',
+  },
   down: { label: 'Down', dot: 'bg-destructive', text: 'text-destructive' },
   unknown: { label: 'Unknown', dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' },
 }
@@ -75,7 +76,10 @@ export function ServiceMap() {
                   ) : (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Badge variant="muted" className="cursor-help text-3xs uppercase tracking-wide">
+                        <Badge
+                          variant="muted"
+                          className="cursor-help text-3xs uppercase tracking-wide"
+                        >
                           optional
                         </Badge>
                       </TooltipTrigger>

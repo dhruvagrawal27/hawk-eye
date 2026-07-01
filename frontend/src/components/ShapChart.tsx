@@ -101,8 +101,9 @@ export function ShapChart({
   return (
     <div>
       <p className="mb-1.5 text-2xs leading-relaxed text-muted-foreground">
-        Each bar is a feature’s <span className="text-foreground">signed push</span> on the risk score:
-        bars to the right (red) increased risk, bars to the left (green) reduced it; longer = stronger.
+        Each bar is a feature’s <span className="text-foreground">signed push</span> on the risk
+        score: bars to the right (red) increased risk, bars to the left (green) reduced it; longer =
+        stronger.
         {synthesized ? (
           <span className="ml-1 rounded bg-muted px-1 py-0.5 text-[0.65rem] text-amber-500/90">
             illustrative — derived from this alert’s fired signals, not a fitted-GBDT SHAP run

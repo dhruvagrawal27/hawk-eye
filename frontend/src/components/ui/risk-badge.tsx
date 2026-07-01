@@ -31,7 +31,8 @@ const riskBadgeVariants = cva(
 )
 
 export interface RiskBadgeProps
-  extends Omit<React.HTMLAttributes<HTMLSpanElement>, 'children'>,
+  extends
+    Omit<React.HTMLAttributes<HTMLSpanElement>, 'children'>,
     Omit<VariantProps<typeof riskBadgeVariants>, 'level'> {
   /** Explicit band, or omit and pass `score`. */
   level?: RiskLevel

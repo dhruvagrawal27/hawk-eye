@@ -534,8 +534,8 @@ function AssignmentCard({ detail }: { detail: CaseDetail }) {
           </Tabs>
         ) : (
           <p className="rounded-md bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
-            Your role — {role ? ROLE_META[role].label : 'this role'} — cannot assign cases. Assignment
-            is handled by the case-handling roles: {TRIAGE_OWNERS}.
+            Your role — {role ? ROLE_META[role].label : 'this role'} — cannot assign cases.
+            Assignment is handled by the case-handling roles: {TRIAGE_OWNERS}.
           </p>
         )}
       </CardContent>

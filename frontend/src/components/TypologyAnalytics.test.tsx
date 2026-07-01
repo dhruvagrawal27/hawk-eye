@@ -8,10 +8,9 @@ import { TypologyAnalytics } from '@/components/TypologyAnalytics'
 
 describe('TypologyAnalytics', () => {
   it('renders typologies ranked by prevalence with confirmed-rate + exposure', async () => {
-    const { getByText, getAllByText, findByText } = renderWithProviders(
-      <TypologyAnalytics />,
-      { role: 'agm_vigilance' },
-    )
+    const { getByText, getAllByText, findByText } = renderWithProviders(<TypologyAnalytics />, {
+      role: 'agm_vigilance',
+    })
     await findByText(/Fraud typologies/i)
     await waitFor(() => getByText('New-beneficiary → high-value approve'))
     getByText('Maker-checker collusion ring')

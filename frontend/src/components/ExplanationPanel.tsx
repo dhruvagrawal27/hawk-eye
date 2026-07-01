@@ -162,7 +162,10 @@ function ModelLineageSection({ lineage }: { lineage: ModelLineageEntry[] }) {
       </div>
       <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
         {lineage.map((l) => (
-          <li key={`${l.layer}-${l.model_id}`} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
+          <li
+            key={`${l.layer}-${l.model_id}`}
+            className="flex items-center gap-2 px-2.5 py-1.5 text-xs"
+          >
             <span className="w-24 shrink-0 truncate font-mono text-foreground" title={l.layer}>
               {l.layer}
             </span>
@@ -179,9 +182,15 @@ function ModelLineageSection({ lineage }: { lineage: ModelLineageEntry[] }) {
               </span>
             ) : null}
             {l.signed ? (
-              <BadgeCheck className="size-3.5 shrink-0 text-severity-high" aria-label="signature verified" />
+              <BadgeCheck
+                className="size-3.5 shrink-0 text-severity-high"
+                aria-label="signature verified"
+              />
             ) : (
-              <ShieldAlert className="size-3.5 shrink-0 text-severity-medium" aria-label="unsigned" />
+              <ShieldAlert
+                className="size-3.5 shrink-0 text-severity-medium"
+                aria-label="unsigned"
+              />
             )}
           </li>
         ))}
@@ -387,7 +396,8 @@ export function ExplanationPanel({ alertId }: { alertId: string }) {
                 description="Which model version produced each layer's score, and whether it is signed and signed-off — the reproducibility trail for audit."
                 meta={
                   <Badge variant="muted" className="text-[0.7rem]">
-                    {data.model_lineage.filter((l) => l.signed).length}/{data.model_lineage.length} signed
+                    {data.model_lineage.filter((l) => l.signed).length}/{data.model_lineage.length}{' '}
+                    signed
                   </Badge>
                 }
               >

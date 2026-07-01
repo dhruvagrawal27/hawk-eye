@@ -40,7 +40,13 @@ import type { AuditEvent } from '@/lib/types'
 // Live backend uses a dotted action vocabulary (alert.view / pii.unmask / alert.disposition …).
 // Legacy underscore names are kept so MSW / older fixtures still classify correctly.
 /** Actions that record who looked at a person — the privacy-sensitive reads. */
-const VIEW_ACTIONS = new Set(['entity.view', 'alert.view', 'pii.unmask', 'view_entity', 'unmask_pii'])
+const VIEW_ACTIONS = new Set([
+  'entity.view',
+  'alert.view',
+  'pii.unmask',
+  'view_entity',
+  'unmask_pii',
+])
 /** Actions that record who decided a case — the accountability-critical writes. */
 const DECISION_ACTIONS = new Set([
   'alert.disposition',
@@ -99,7 +105,8 @@ function explainAction(action: string): string {
     alert_disposition: 'A user decided an alert (true / false positive) — an accountable write.',
     disposition: 'A user decided an alert (true / false positive) — an accountable write.',
     close_alert: 'A user closed an alert.',
-    alert_block_request: 'A user requested an account/action block for review (alert-only — never auto-applied).',
+    alert_block_request:
+      'A user requested an account/action block for review (alert-only — never auto-applied).',
     alert_block_approved: 'A supervisor approved a requested block.',
     model_promote: 'A model version was promoted to Production.',
     rule_change_proposed: 'A rule change was proposed (four-eyes change control).',
@@ -370,8 +377,8 @@ function AuditDetailDialog({ event, onClose }: { event: AuditEvent | null; onClo
             ) : null}
 
             <p className="text-[0.7rem] text-muted-foreground">
-              Immutable WORM record — shown for inspection only; audit entries can never be edited or
-              deleted.
+              Immutable WORM record — shown for inspection only; audit entries can never be edited
+              or deleted.
             </p>
 
             <DialogFooter>

@@ -281,7 +281,9 @@ export const apiClient = {
       shap: (raw.shap as ExplanationResponse['shap']) ?? [],
       shap_synthesized: raw.shap_synthesized as boolean | undefined,
       rules: (raw.rules ?? raw.rule_provenance ?? []) as ExplanationResponse['rules'],
-      attention: (raw.attention ?? raw.sequence_attention ?? []) as ExplanationResponse['attention'],
+      attention: (raw.attention ??
+        raw.sequence_attention ??
+        []) as ExplanationResponse['attention'],
       graph: raw.graph as ExplanationResponse['graph'],
       fusion: raw.fusion as ExplanationResponse['fusion'],
       model_lineage: raw.model_lineage as ExplanationResponse['model_lineage'],
