@@ -472,6 +472,10 @@ export interface GraphNode {
   risk?: number
   is_focus?: boolean // the entity the subgraph is centred on
   tokenized?: boolean
+  // Optional precomputed layout coordinates. When present the canvas can render with the fast
+  // `preset` layout (no iterative solver) — used by the dense Graph Explorer overview.
+  x?: number
+  y?: number
 }
 export interface GraphEdge {
   id: string

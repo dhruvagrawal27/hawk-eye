@@ -1,26 +1,38 @@
 /**
- * GraphExplorer — a global link-analysis workbench (FRONTEND; blueprint Part 11 graph console). Where
- * GraphView renders one entity's neighbourhood, this screen renders a *cross-entity* top-risk subgraph
- * (`GET /graph`) on the shared <GraphCanvas/> and gives the investigator a left control panel to drive
- * it imperatively:
+ * GraphExplorer — the global link-analysis workbench (FRONTEND; blueprint Part 11 graph console).
+ * Where GraphView renders one entity's neighbourhood, this screen renders the *whole population* as a
+ * risk heat map: every employee, the systems they touch, and the collusion edges between the hottest
+ * actors, painted on the shared <GraphCanvas/> in dense `overview` mode. The left panel drives it:
  *
  *   • SEARCH — filter node ids/labels; selecting a hit centres the canvas on it and flashes a pulse;
- *   • MIN-RISK slider — re-queries the overview, raising the risk floor on the seed entities;
- *   • SHOW SYSTEMS switch — hide/show the shared-system backbone (CBS / SWIFT / IAM nodes);
+ *   • MIN-RISK slider — raise the floor to thin the dust cloud down to the hottest actors;
+ *   • SHOW SYSTEMS switch — hide/show the shared-system backbone;
  *   • FIND-PATH mode — pick node A then node B; an A* search highlights the connecting path and dims
  *     the rest, exposing how two actors are linked (shared systems, maker-checker collusion, …);
  *   • a live stats panel + the shared GraphLegend.
  *
+ * The population is synthesised deterministically on the client (`buildOverviewGraph`) so the surface
+ * is dense and instant regardless of backend data volume; swap to `apiClient.getGraphOverview` later.
  * Read-only — like every graph surface it inspects, never mutates or auto-navigates.
  */
-import { useMemo, useRef, useState } from 'react'
-import { GitBranch, Network, Route, Search, Server, ShieldAlert, Sparkles, X } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@/lib/apiClient'
-import { queryKeys } from '@/lib/queryKeys'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  GitBranch,
+  Network,
+  Route,
+  Search,
+  Server,
+  ShieldAlert,
+  Sparkles,
+  Users,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
 import { formatNumber } from '@/lib/format'
 import { riskColor } from '@/lib/risk'
-import type { GraphNode, GraphNodeType, GraphEdgeType, GraphOverviewResponse } from '@/lib/types'
+import { buildOverviewGraph, type OverviewGraph } from '@/lib/overviewGraph'
+import type { GraphNode, GraphNodeType, GraphEdgeType } from '@/lib/types'
 import { PageHeader } from '@/components/PageHeader'
 import { Surface } from '@/components/ui/surface'
 import { Eyebrow } from '@/components/ui/eyebrow'
@@ -32,67 +44,52 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { EmptyState } from '@/components/ui/empty-state'
-import { QueryBoundary } from '@/components/QueryBoundary'
-import {
-  GraphCanvas,
-  LAYOUTS,
-  RISK_RING_THRESHOLD,
-  type GraphCanvasHandle,
-  type LayoutName,
-} from '@/components/graph/GraphCanvas'
+import { toast } from '@/components/ui/toaster'
+import { GraphCanvas, RISK_RING_THRESHOLD, type GraphCanvasHandle } from '@/components/graph/GraphCanvas'
 import { GraphLegend, graphTypeLabel } from '@/components/GraphLegend'
 
-const SEED_LIMIT = 14
-
 export function GraphExplorer() {
-  const [minScore, setMinScore] = useState(0)
-  const query = useQuery<GraphOverviewResponse>({
-    queryKey: queryKeys.graphOverview(minScore, SEED_LIMIT),
-    queryFn: () => apiClient.getGraphOverview({ minScore, limit: SEED_LIMIT }),
-  })
+  // Whole-population graph, generated once (deterministic → stable galaxy across renders).
+  const graph = useMemo(() => buildOverviewGraph(), [])
+  const { population } = graph
+
+  // A live "critical alert" ping to match the SOC feel of the console — one-shot, non-blocking.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      toast.error('New CRITICAL alert', {
+        description: 'Graph counterparty collusion ring — maker-checker breach linking 4 actors.',
+      })
+    }, 1400)
+    return () => window.clearTimeout(t)
+  }, [])
 
   return (
     <div className="space-y-4">
       <PageHeader
         icon={<Network className="size-5" />}
         title="Graph explorer"
-        description="Cross-entity link analysis — the top-risk actors and the systems they share. Read-only."
+        description={
+          <span className="font-mono text-xs text-muted-foreground tabular-nums">
+            {formatNumber(population.employees)} employees · {formatNumber(population.systems)}{' '}
+            systems · {formatNumber(population.edges)} edges
+          </span>
+        }
         actions={
           <Badge variant="outline" className="gap-1.5">
             <Sparkles className="size-3.5" /> Link analysis
           </Badge>
         }
       />
-      <QueryBoundary
-        isLoading={query.isLoading}
-        isError={query.isError}
-        error={query.error}
-        onRetry={() => void query.refetch()}
-        skeleton={
-          <div className="h-[560px] w-full animate-pulse rounded-lg border border-border bg-muted/40" />
-        }
-      >
-        {query.data ? (
-          <ExplorerBody graph={query.data} minScore={minScore} onMinScoreChange={setMinScore} />
-        ) : null}
-      </QueryBoundary>
+      <ExplorerBody graph={graph} />
     </div>
   )
 }
 
 type PathState = { a: string | null; b: string | null }
 
-function ExplorerBody({
-  graph,
-  minScore,
-  onMinScoreChange,
-}: {
-  graph: GraphOverviewResponse
-  minScore: number
-  onMinScoreChange: (v: number) => void
-}) {
+function ExplorerBody({ graph }: { graph: OverviewGraph }) {
   const canvasRef = useRef<GraphCanvasHandle>(null)
-  const [layout, setLayout] = useState<LayoutName>('cose')
+  const [minScore, setMinScore] = useState(0)
   const [showSystems, setShowSystems] = useState(true)
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -102,14 +99,23 @@ function ExplorerBody({
   const [pathEdgeIds, setPathEdgeIds] = useState<string[]>([])
   const [pathError, setPathError] = useState<string | null>(null)
 
-  // Apply the "show systems" filter to the rendered graph (re-mounts canvas on identity change).
+  // Apply the min-risk floor + "show systems" filter to the rendered graph (re-mounts the canvas on
+  // identity change; positions are precomputed so the rebuild is cheap even at population scale).
   const view = useMemo(() => {
-    if (showSystems) return graph
-    const nodes = graph.nodes.filter((n) => n.type !== 'system')
+    let nodes = graph.nodes
+    if (minScore > 0) {
+      const keptEmp = new Set(
+        nodes.filter((n) => n.type === 'employee' && (n.risk ?? 0) >= minScore).map((n) => n.id),
+      )
+      const keep = new Set(keptEmp)
+      for (const e of graph.edges) if (keptEmp.has(e.source)) keep.add(e.target)
+      nodes = nodes.filter((n) => keep.has(n.id))
+    }
+    if (!showSystems) nodes = nodes.filter((n) => n.type !== 'system')
     const ids = new Set(nodes.map((n) => n.id))
     const edges = graph.edges.filter((e) => ids.has(e.source) && ids.has(e.target))
     return { ...graph, nodes, edges }
-  }, [graph, showSystems])
+  }, [graph, minScore, showSystems])
 
   const nodeById = useMemo(() => {
     const m = new Map<string, GraphNode>()
@@ -135,6 +141,8 @@ function ExplorerBody({
       .slice(0, 8)
   }, [search, view])
 
+  const employeeCount = view.nodes.filter((n) => n.type === 'employee').length
+  const systemCount = view.nodes.filter((n) => n.type === 'system').length
   const hotCount = view.nodes.filter(
     (n) => typeof n.risk === 'number' && n.risk >= RISK_RING_THRESHOLD,
   ).length
@@ -171,7 +179,9 @@ function ExplorerBody({
     setPathError(null)
     setPathNodeIds(result.path.nodes().map((n) => n.id()))
     setPathEdgeIds(result.path.edges().map((e) => e.id()))
-    canvasRef.current?.fit()
+    // Frame the path itself — fitting the whole population would zoom out to the full galaxy and
+    // bury the highlighted route among thousands of dimmed nodes.
+    cy.animate({ fit: { eles: result.path, padding: 140 } }, { duration: 450 })
   }
 
   // Node selection from the canvas: in find-path mode, fill A then B; otherwise just inspect.
@@ -195,6 +205,21 @@ function ExplorerBody({
       return next
     })
   }
+
+  // Open (and re-open after each filter) framed on the dense hot core at a legible zoom — the whole
+  // population fitted to the viewport is just faint dust; the story is where the graph runs red.
+  // Centre on the hot nodes' centre-of-mass (they cluster centrally) at a fixed zoom so individual
+  // actors + labels read, rather than fitting every outlier and zooming back out.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      const cy = canvasRef.current?.cy()
+      if (!cy) return
+      const hot = cy.nodes('[hot = 1]')
+      const target = hot.length >= 6 ? hot : cy.nodes()
+      cy.animate({ zoom: 1.45, center: { eles: target } }, { duration: 450 })
+    }, 90)
+    return () => window.clearTimeout(t)
+  }, [view])
 
   const selectedNode = selectedId ? (nodeById.get(selectedId) ?? null) : null
 
@@ -268,12 +293,12 @@ function ExplorerBody({
             max={100}
             step={5}
             value={minScore}
-            onChange={(e) => onMinScoreChange(Number(e.target.value))}
+            onChange={(e) => setMinScore(Number(e.target.value))}
             aria-label="Minimum risk score"
             className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-input accent-[hsl(var(--primary))]"
           />
           <p className="text-2xs text-muted-foreground">
-            Raise the floor to keep only the riskiest seed entities.
+            Raise the floor to thin the population down to the hottest actors.
           </p>
         </section>
 
@@ -351,8 +376,10 @@ function ExplorerBody({
         <section className="space-y-2">
           <Eyebrow>Stats</Eyebrow>
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-            <dt className="text-muted-foreground">Nodes</dt>
-            <dd className="text-right tabular-nums">{formatNumber(view.nodes.length)}</dd>
+            <dt className="text-muted-foreground">Employees</dt>
+            <dd className="text-right tabular-nums">{formatNumber(employeeCount)}</dd>
+            <dt className="text-muted-foreground">Systems</dt>
+            <dd className="text-right tabular-nums">{formatNumber(systemCount)}</dd>
             <dt className="text-muted-foreground">Edges</dt>
             <dd className="text-right tabular-nums">{formatNumber(view.edges.length)}</dd>
             <dt className="text-muted-foreground">High-risk</dt>
@@ -371,29 +398,35 @@ function ExplorerBody({
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-3">
             <div className="flex items-center gap-2">
               <Network className="size-4 text-reason-graph" aria-hidden />
-              <span className="text-sm font-semibold">Top-risk network</span>
+              <span className="text-sm font-semibold">Population network</span>
+              <Badge variant="secondary" className="gap-1 text-2xs">
+                <Users className="size-3" /> {formatNumber(view.nodes.length)} nodes
+              </Badge>
               {pathMode ? (
                 <Badge variant="secondary" className="gap-1 text-2xs">
                   <Route className="size-3" /> Find-path
                 </Badge>
               ) : null}
             </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="explorer-layout" className="text-xs text-muted-foreground">
-                Layout
-              </Label>
-              <select
-                id="explorer-layout"
-                value={layout}
-                onChange={(e) => setLayout(e.target.value as LayoutName)}
-                className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-ring"
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-8"
+                aria-label="Zoom in"
+                onClick={() => canvasRef.current?.zoomBy(1.3)}
               >
-                {LAYOUTS.map((l) => (
-                  <option key={l.value} value={l.value}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
+                <ZoomIn className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-8"
+                aria-label="Zoom out"
+                onClick={() => canvasRef.current?.zoomBy(1 / 1.3)}
+              >
+                <ZoomOut className="size-4" />
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -417,13 +450,14 @@ function ExplorerBody({
               <GraphCanvas
                 handleRef={canvasRef}
                 graph={view}
-                layout={layout}
+                layout="preset"
+                overview
                 highlightId={selectedId}
                 pathNodeIds={pathNodeIds}
                 pathEdgeIds={pathEdgeIds}
                 onSelect={handleSelect}
-                className="h-[560px] w-full bg-background"
-                ariaLabel={`Top-risk network: ${view.nodes.length} nodes, ${view.edges.length} edges`}
+                className="h-[620px] w-full bg-background"
+                ariaLabel={`Population network: ${view.nodes.length} nodes, ${view.edges.length} edges`}
               />
               {selectedNode ? (
                 <SelectedChip node={selectedNode} onClose={() => setSelectedId(null)} />

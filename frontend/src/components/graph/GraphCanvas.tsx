@@ -30,7 +30,9 @@ import type { GraphEdge, GraphEdgeType, GraphNode, GraphNodeType, GraphResponse 
 import { GRAPH_EDGE_STYLE, GRAPH_NODE_STYLE } from '@/components/GraphLegend'
 
 /* ── Layout presets (cytoscape built-ins; no external layout plugins) ────────────────────────── */
-export type LayoutName = 'cose' | 'breadthfirst' | 'concentric' | 'circle'
+// `preset` reads precomputed node positions (the dense Explorer overview) — no iterative solver, so
+// it paints thousands of nodes instantly where cose would hang.
+export type LayoutName = 'preset' | 'cose' | 'breadthfirst' | 'concentric' | 'circle'
 export const LAYOUTS: { value: LayoutName; label: string }[] = [
   { value: 'cose', label: 'Force-directed' },
   { value: 'breadthfirst', label: 'Hierarchy' },
@@ -43,6 +45,9 @@ export const RISK_RING_THRESHOLD = 70
 
 export function layoutOptions(name: LayoutName): LayoutOptions {
   const base = { name, fit: true, padding: 36, animate: false as const }
+  if (name === 'preset') {
+    return { ...base, name: 'preset', padding: 48 } as LayoutOptions
+  }
   if (name === 'cose') {
     return {
       ...base,
@@ -74,9 +79,20 @@ export function layoutOptions(name: LayoutName): LayoutOptions {
 function colourResolver() {
   const root = typeof document !== 'undefined' ? document.documentElement : null
   const styles = root ? getComputedStyle(root) : null
+  // Cytoscape ships its OWN colour parser, which rejects the space-separated `hsl(H S% L%)` form that
+  // Tailwind CSS variables use — and silently drops the property, leaving every node/edge the default
+  // grey. Normalise to a form it accepts: a bare "H S% L%" triplet (or space-`hsl(...)`) becomes comma
+  // syntax `hsl(H, S%, L%)`; hex/rgb/already-comma values pass through untouched.
+  const toCss = (value: string): string => {
+    const inner = value.trim().replace(/^hsl\(|\)$/gi, '').trim()
+    if (/^[\d.]+\s+[\d.]+%\s+[\d.]+%/.test(inner)) {
+      return `hsl(${inner.split('/')[0].trim().split(/\s+/).join(', ')})`
+    }
+    return value.trim()
+  }
   return (cssVar: string, fallback: string): string => {
     const raw = styles?.getPropertyValue(cssVar)?.trim()
-    return raw ? `hsl(${raw})` : fallback
+    return toCss(raw ? `hsl(${raw})` : fallback)
   }
 }
 
@@ -86,27 +102,42 @@ function nodeSize(risk?: number): number {
   return Math.round(34 + (r / 100) * 34) // 34–68px
 }
 
+/**
+ * Dense-overview node diameter — much smaller than the entity view so a few-thousand-node hairball
+ * stays legible: employees scale 9→39px by risk, systems sit at 5→16px so the population reads as a
+ * cool dust cloud with the hot actors punching through.
+ */
+function overviewNodeSize(type: GraphNode['type'], risk?: number): number {
+  const r = typeof risk === 'number' ? clamp(risk, 0, 100) : 0
+  return type === 'employee' ? Math.round(9 + (r / 100) * 30) : Math.round(5 + (r / 100) * 11)
+}
+
 /* ── Build cytoscape elements + stylesheet from the API response ─────────────────────────────── */
-export function buildElements(graph: GraphResponse): ElementDefinition[] {
+export function buildElements(graph: GraphResponse, opts: { overview?: boolean } = {}): ElementDefinition[] {
   const ringOf = new Map<string, string>()
   for (const ring of graph.rings ?? []) {
     for (const id of ring.member_ids) ringOf.set(id, ring.ring_id)
   }
 
-  const nodes: ElementDefinition[] = graph.nodes.map((n: GraphNode) => ({
-    group: 'nodes',
-    data: {
-      id: n.id,
-      label: n.label,
-      type: n.type,
-      risk: n.risk ?? null,
-      // Drives the RISK-RING selector (booleans aren't selectable in cytoscape, so use 0/1).
-      hot: typeof n.risk === 'number' && n.risk >= RISK_RING_THRESHOLD ? 1 : 0,
-      focus: n.is_focus ? 1 : 0,
-      ring: ringOf.get(n.id) ?? '',
-      size: nodeSize(n.risk),
-    },
-  }))
+  const nodes: ElementDefinition[] = graph.nodes.map((n: GraphNode) => {
+    const el: ElementDefinition = {
+      group: 'nodes',
+      data: {
+        id: n.id,
+        label: n.label,
+        type: n.type,
+        risk: n.risk ?? null,
+        // Drives the RISK-RING selector (booleans aren't selectable in cytoscape, so use 0/1).
+        hot: typeof n.risk === 'number' && n.risk >= RISK_RING_THRESHOLD ? 1 : 0,
+        focus: n.is_focus ? 1 : 0,
+        ring: ringOf.get(n.id) ?? '',
+        size: opts.overview ? overviewNodeSize(n.type, n.risk) : nodeSize(n.risk),
+      },
+    }
+    // Precomputed coordinates → the fast `preset` layout renders the whole population at once.
+    if (typeof n.x === 'number' && typeof n.y === 'number') el.position = { x: n.x, y: n.y }
+    return el
+  })
 
   const edges: ElementDefinition[] = graph.edges.map((e: GraphEdge, i) => ({
     group: 'edges',
@@ -126,7 +157,7 @@ export function buildElements(graph: GraphResponse): ElementDefinition[] {
   return [...nodes, ...edges]
 }
 
-export function buildStylesheet(): StylesheetStyle[] {
+export function buildStylesheet(opts: { overview?: boolean } = {}): StylesheetStyle[] {
   const c = colourResolver()
   const text = c('--foreground', 'hsl(210 38% 95%)')
   const muted = c('--muted-foreground', 'hsl(215 18% 64%)')
@@ -137,6 +168,7 @@ export function buildStylesheet(): StylesheetStyle[] {
   // RISK-RING glow — colour the high-risk band straight from the severity tokens (no hardcoded hex).
   const riskHigh = c(`--severity-${riskLevelFromScore(RISK_RING_THRESHOLD)}`, 'hsl(25 95% 57%)')
   const riskCritical = c('--severity-critical', 'hsl(348 83% 60%)')
+  const riskMedium = c('--severity-medium', 'hsl(43 96% 58%)')
 
   const sheet: StylesheetStyle[] = [
     {
@@ -304,6 +336,55 @@ export function buildStylesheet(): StylesheetStyle[] {
       },
     },
   ]
+
+  // ── Dense-overview variant — recolour the population as a RISK HEAT MAP and swap to cheap
+  //    straight (haystack) edges + zoom-gated labels so a few-thousand-node graph stays smooth.
+  //    Appended last so these win over the per-type colour rules above (equal specificity, later).
+  if (opts.overview) {
+    const cool = c('--muted', 'hsl(215 20% 22%)')
+    const coolNode = 'hsl(215, 22%, 34%)' // slate dust for the quiet majority (cytoscape comma syntax)
+    sheet.push(
+      {
+        selector: 'node',
+        style: {
+          'border-width': 1,
+          'border-color': card,
+          'font-size': 7,
+          'text-margin-y': 2,
+          'text-outline-width': 1.5,
+          'min-zoomed-font-size': 8, // hide labels when zoomed out → fast + uncluttered
+        },
+      },
+      { selector: 'node[type = "system"]', style: { 'background-color': coolNode } },
+      { selector: 'node[type = "employee"]', style: { 'background-color': coolNode } },
+      // Risk heat ramp — ascending so the hottest band wins.
+      { selector: 'node[risk >= 40]', style: { 'background-color': riskMedium } },
+      { selector: 'node[risk >= 55]', style: { 'background-color': riskHigh } },
+      { selector: 'node[risk >= 70]', style: { 'background-color': riskHigh } },
+      { selector: 'node[risk >= 85]', style: { 'background-color': riskCritical } },
+      // `[weight >= 0]` matches every edge but outranks the per-type colour rules (same specificity,
+      // declared later) so the whole mesh reads as one faint uniform hairball. Class overlays
+      // (.path/.dimmed) are still higher specificity and win.
+      {
+        selector: 'edge[weight >= 0]',
+        style: {
+          'curve-style': 'haystack',
+          'haystack-radius': 0,
+          width: 'mapData(weight, 1, 2, 0.5, 1.4)',
+          'line-color': cool,
+          'target-arrow-shape': 'none',
+          label: '',
+          opacity: 0.4,
+        },
+      },
+      // Collusion stays loud even in the dust cloud.
+      {
+        selector: 'edge[collusion = 1]',
+        style: { 'line-color': collusion, width: 1.6, opacity: 0.9 },
+      },
+    )
+  }
+
   return sheet
 }
 
@@ -330,6 +411,8 @@ export interface GraphCanvasProps {
   /** GNNExplainer-style evidence emphasis (node + edge ids). */
   evidenceNodeIds?: string[]
   evidenceEdgeIds?: string[]
+  /** Dense-population mode: risk heat-map colours, cheap straight edges + large-graph perf flags. */
+  overview?: boolean
   onSelect?: (id: string | null) => void
   className?: string
   ariaLabel?: string
@@ -344,6 +427,7 @@ export function GraphCanvas({
   pathEdgeIds,
   evidenceNodeIds,
   evidenceEdgeIds,
+  overview = false,
   onSelect,
   className,
   ariaLabel,
@@ -359,12 +443,17 @@ export function GraphCanvas({
     if (!containerRef.current) return
     const cy = cytoscape({
       container: containerRef.current,
-      elements: buildElements(graph),
-      style: buildStylesheet(),
+      elements: buildElements(graph, { overview }),
+      style: buildStylesheet({ overview }),
       layout: layoutOptions(layout),
       wheelSensitivity: 0.25,
-      minZoom: 0.25,
+      minZoom: overview ? 0.04 : 0.25,
       maxZoom: 3,
+      // Large-graph render budget: skip edges mid-pan and render the canvas as a texture while
+      // interacting so a few-thousand-node overview stays smooth.
+      ...(overview
+        ? { hideEdgesOnViewport: true, textureOnViewport: true, pixelRatio: 1, motionBlur: false }
+        : {}),
     })
     cyRef.current = cy
 
