@@ -42,6 +42,9 @@ const FE_PROPOSED: ReadonlySet<string> = new Set([
   '/action-gate/holds',
   '/action-gate/holds/{}/decision',
   '/action-gate/policies',
+  // Root ops readiness probe (served at the server ROOT like /health) — reports live NEAR AI + Intel
+  // TDX TEE status; newer than the committed openapi.json snapshot, folded in on next regen.
+  '/readyz',
 ])
 
 /** Normalise any route to canonical form: strip an `/api/v1` prefix, collapse `{param}` and `${expr}`

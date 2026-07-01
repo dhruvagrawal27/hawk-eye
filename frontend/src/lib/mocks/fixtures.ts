@@ -21,6 +21,7 @@ import type {
   ExplanationResponse,
   GraphResponse,
   HealthResponse,
+  ReadyzResponse,
   KriResponse,
   ModelEntry,
   ModelQualityResponse,
@@ -2046,6 +2047,25 @@ export const HEALTH: HealthResponse = {
       detail: 'TEE attestation verified',
     },
   ],
+}
+
+export const READYZ: ReadyzResponse = {
+  status: 'ready',
+  ready: true,
+  service: 'hawk-eye-api',
+  checks: { serving: true, not_degraded: true, near_ai: true, tee_attestation: true },
+  llm: {
+    provider: 'nearai',
+    near_ai_connected: true,
+    tee_attested: true,
+    model: 'openai/gpt-oss-120b',
+    gateway: 'near-ai-confidential (cloud-api.near.ai)',
+    signing_address: 'cb6fc58f6bd685919fa42fb54d3fcfe03222e324bdda91f0bac6d5c73dc4',
+    signing_algo: 'ed25519',
+    intel_quote_sha256: 'c1df03cd03b6f66a762f32949fdbedcb3ee91329',
+    intel_quote_bytes: 5006,
+  },
+  ts: '2026-06-30T03:12:00Z',
 }
 
 export const METRICS_TEXT = `# HELP hawkeye_alerts_total Total alerts emitted

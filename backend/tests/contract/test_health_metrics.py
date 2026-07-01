@@ -25,6 +25,7 @@ def test_metrics_prometheus_exposition(client):
 
 def test_all_routes_under_api_v1(client):
     spec = client.get("/api/v1/openapi.json").json()
-    non_ops = [p for p in spec["paths"] if p not in ("/health", "/metrics")]
+    ops_routes = ("/health", "/metrics", "/readyz", "/api/readyz")
+    non_ops = [p for p in spec["paths"] if p not in ops_routes]
     assert non_ops, "expected API routes"
     assert all(p.startswith("/api/v1") for p in non_ops), non_ops

@@ -36,6 +36,7 @@ import type {
   GraphOverviewResponse,
   GraphResponse,
   HealthResponse,
+  ReadyzResponse,
   KriResponse,
   ModelEntry,
   ModelMetrics,
@@ -466,6 +467,10 @@ export const apiClient = {
       rootPath: !env.useMocks,
     })
     return isRenderHealth(raw) ? raw : adaptHealth(raw)
+  },
+  /** Readiness + live LLM/TEE surface. Also served at the server ROOT (`/readyz`), like /health. */
+  getReadyz(): Promise<ReadyzResponse> {
+    return request<ReadyzResponse>('/readyz', { rootPath: !env.useMocks })
   },
   getMetrics(): Promise<string> {
     return request('/metrics', { responseType: 'text' })

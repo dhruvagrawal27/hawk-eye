@@ -921,6 +921,35 @@ export interface HealthResponse {
   checked_ts: IsoTimestamp
 }
 
+/**
+ * Live readiness + LLM/TEE surface from `GET /readyz` (served at the server ROOT, like /health).
+ * Reports whether NEAR AI Cloud is connected and its real Intel TDX TEE attestation (enclave signing
+ * address + Intel quote fingerprint), so the status bar / ops can show confidential-compute health.
+ */
+export interface ReadyzResponse {
+  status: 'ready' | 'degraded'
+  ready: boolean
+  service: string
+  checks: {
+    serving: boolean
+    not_degraded: boolean
+    near_ai: boolean
+    tee_attestation: boolean
+  }
+  llm: {
+    provider: string
+    near_ai_connected: boolean
+    tee_attested: boolean
+    model: string
+    gateway?: string | null
+    signing_address?: string | null
+    signing_algo?: string | null
+    intel_quote_sha256?: string | null
+    intel_quote_bytes?: number
+  }
+  ts: IsoTimestamp
+}
+
 /* ───────────────────────────── Service map [BACKEND: GET /services/status] ─────────────────── */
 /**
  * Live platform service-catalogue row surfaced by `GET /services/status` (Agent B's shape). Powers

@@ -125,6 +125,16 @@ export function TopStatusBar() {
     return () => clearInterval(id)
   }, [])
 
+  // LLM/TEE health: poll /readyz for the live NEAR AI connection + Intel TDX attestation. Green when
+  // near.ai is connected and attested; amber when it's failed over (e.g. to Groq) or unknown.
+  const readyzQuery = useQuery({
+    queryKey: ['readyz'],
+    queryFn: () => apiClient.getReadyz(),
+    refetchInterval: 20000,
+    refetchIntervalInBackground: true,
+    retry: false,
+  })
+
   const running = status.running || live
   const apiState: Health = alertsQuery.isError
     ? 'down'
@@ -132,7 +142,13 @@ export function TopStatusBar() {
       ? 'ok'
       : 'degraded'
   const streamState: Health = status.running ? 'ok' : 'down'
-  const llmState: Health = 'ok' // static ok (no provider seam wired to the bar)
+  const llmState: Health = readyzQuery.isError
+    ? 'down'
+    : readyzQuery.data
+      ? readyzQuery.data.llm.near_ai_connected
+        ? 'ok'
+        : 'degraded'
+      : 'degraded'
 
   return (
     <header

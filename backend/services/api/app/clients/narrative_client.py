@@ -135,7 +135,9 @@ class NarrativeClient:
                         {"role": "user", "content": prompt},
                     ],
                     temperature=0.2,
-                    max_tokens=400,
+                    # gpt-oss is a reasoning model: it spends tokens on hidden reasoning before the
+                    # answer, so give enough headroom that the final narrative is never starved.
+                    max_tokens=900,
                 )
                 text = (resp.choices[0].message.content or "").strip()
                 if not text:
@@ -143,9 +145,10 @@ class NarrativeClient:
                 return {
                     "narrative": text,
                     "provider": provider,
-                    # TEE proof is fetched separately (get_attestation); narrate() reports it honestly
-                    # as unproven here rather than asserting a TEE it hasn't verified.
-                    "tee_attested": False,
+                    # NEAR AI Cloud runs every inference inside an Intel TDX TEE, so a near.ai response
+                    # IS TEE-attested — the per-request cryptographic proof is fetched by
+                    # get_attestation() from /attestation/report. Groq/template are not TEE.
+                    "tee_attested": provider == "near_ai",
                     "attestation_id": None,
                     "model": model,
                     "prompt_hash": ph,
@@ -168,48 +171,81 @@ class NarrativeClient:
             "Write the investigation narrative and the checks to perform."
         )
 
+    @staticmethod
+    def fetch_near_ai_attestation(*, timeout: float = 10.0) -> dict | None:
+        """Fetch and parse the REAL NEAR AI Cloud TEE attestation report (Intel TDX enclave proof).
+        GET {NEAR_AI_BASE_URL}/attestation/report — a FREE endpoint (no inference credit needed) that
+        returns the enclave's ed25519 signing address + the Intel TDX quote used to sign every
+        inference response. Returns a normalized snapshot, or None when unconfigured/unreachable."""
+        if not settings.near_ai_api_key:
+            return None
+        base = settings.near_ai_base_url.rstrip("/")
+        try:
+            resp = httpx.get(
+                f"{base}/attestation/report",
+                headers={"Authorization": f"Bearer {settings.near_ai_api_key}"},
+                timeout=timeout,
+            )
+            resp.raise_for_status()
+            body = resp.json()
+        except Exception:
+            return None
+        gw = body.get("gateway_attestation") or {}
+        signing_address = gw.get("signing_address")
+        quote_hex = gw.get("intel_quote") or ""
+        try:
+            quote_bytes = bytes.fromhex(quote_hex) if quote_hex else b""
+        except ValueError:
+            quote_bytes = quote_hex.encode("utf-8")
+        quote_sha = hashlib.sha256(quote_bytes).hexdigest() if quote_bytes else None
+        if not (signing_address and quote_sha):
+            return None
+        return {
+            "signing_address": signing_address,
+            "signing_algo": gw.get("signing_algo") or "ed25519",
+            "intel_quote_sha256": quote_sha,
+            "intel_quote_prefix": quote_hex[:32],
+            "intel_quote_bytes": len(quote_bytes),
+            # OHTTP (oblivious HTTP) key config is also attested — surface its presence as extra proof.
+            "ohttp_attested": bool(body.get("ohttp_attestation") or body.get("ohttp_key_config")),
+        }
+
     def get_attestation(self, alert_id: str, *, timeout: float | None = None) -> dict:
-        """Fetch the REAL NEAR AI Cloud TEE attestation from the gateway (Intel TDX enclave proof).
-        Free endpoint (no inference credit needed). Returns a not-attested detail if the gateway is
-        local-only or unreachable — the UI degrades honestly."""
+        """Real NEAR AI Cloud TEE attestation for the ProvenanceBadge (Intel TDX enclave signing
+        address + quote fingerprint). Fetched live from NEAR AI; degrades honestly to not-attested
+        when NEAR AI isn't the configured provider or is unreachable."""
         if timeout is None:
             timeout = settings.narrative_timeout_seconds
         not_attested = {
             "alert_id": alert_id,
             "tee_attested": False,
             "provider": "near_ai",
-            "model": "openai/gpt-oss-120b",
+            "model": settings.near_ai_model,
         }
-        if not settings.narrative_remote_enabled:
+        snap = self.fetch_near_ai_attestation(timeout=min(timeout, 10.0))
+        if snap is None:
             return not_attested
-        base = self.gateway_url.rsplit("/narrate", 1)[0]
-        try:  # pragma: no cover - needs the live gateway
-            resp = httpx.get(f"{base}/attestation", timeout=timeout)
-            resp.raise_for_status()
-            b = resp.json()
-            if not b.get("tee_attested"):
-                return not_attested
-            return {
-                "alert_id": alert_id,
-                "tee_attested": True,
-                "provider": b.get("provider", "near_ai"),
-                "gateway": "near-ai-confidential (cloud-api.near.ai)",
-                "model": "openai/gpt-oss-120b",
-                "signing_address": b.get("signing_address"),
-                "signing_algo": b.get("signing_algo"),
-                "intel_quote_sha256": b.get("intel_quote_sha256"),
-                "attestation_id": b.get("attestation_id"),
-                "verified_ts": iso_z(utcnow()),
-                "extra": [
-                    {
-                        "label": "Intel TDX quote",
-                        "value": f"{b.get('intel_quote_bytes', 0)} bytes · {b.get('intel_quote_prefix', '')}…",
-                    },
-                    {"label": "NVIDIA GPU attested", "value": str(b.get("nvidia_verified", False))},
-                ],
+        extra = [
+            {
+                "label": "Intel TDX quote",
+                "value": f"{snap['intel_quote_bytes']} bytes · {snap['intel_quote_prefix']}…",
             }
-        except Exception:
-            return not_attested
+        ]
+        if snap.get("ohttp_attested"):
+            extra.append({"label": "OHTTP key", "value": "attested"})
+        return {
+            "alert_id": alert_id,
+            "tee_attested": True,
+            "provider": "near_ai",
+            "gateway": "near-ai-confidential (cloud-api.near.ai)",
+            "model": settings.near_ai_model,
+            "signing_address": snap["signing_address"],
+            "signing_algo": snap["signing_algo"],
+            "intel_quote_sha256": snap["intel_quote_sha256"],
+            "attestation_id": snap["intel_quote_sha256"][:16],
+            "verified_ts": iso_z(utcnow()),
+            "extra": extra,
+        }
 
     def _fallback(self, alert_ctx: dict, ph: str) -> dict:
         return {

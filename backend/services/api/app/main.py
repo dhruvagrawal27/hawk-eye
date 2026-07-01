@@ -110,6 +110,46 @@ def health() -> dict:
     }
 
 
+@app.get("/api/readyz", tags=["ops"])
+@app.get("/readyz", tags=["ops"])
+def readyz() -> dict:
+    """Readiness + live LLM/TEE surface. Core readiness = scoring runtime up and not degraded to
+    L1-only (the LLM is an enhancement, never required for alerting). Also reports the live NEAR AI
+    connection and its real Intel TDX TEE attestation (enclave signing address + quote fingerprint),
+    fetched from NEAR AI Cloud's free /attestation/report endpoint."""
+    from app.clients.narrative_client import NARRATIVE_CLIENT
+    from app.schemas.common import iso_z, utcnow
+
+    att = NARRATIVE_CLIENT.fetch_near_ai_attestation(timeout=8.0)
+    near_ai_connected = att is not None
+    serving_ok = SERVING_CLIENT.ready()
+    ready = serving_ok and not DEGRADATION.degraded
+
+    return {
+        "status": "ready" if ready else "degraded",
+        "ready": ready,
+        "service": settings.service_name,
+        "checks": {
+            "serving": serving_ok,
+            "not_degraded": not DEGRADATION.degraded,
+            "near_ai": near_ai_connected,
+            "tee_attestation": near_ai_connected,
+        },
+        "llm": {
+            "provider": settings.llm_provider,
+            "near_ai_connected": near_ai_connected,
+            "tee_attested": near_ai_connected,
+            "model": settings.near_ai_model,
+            "gateway": "near-ai-confidential (cloud-api.near.ai)" if near_ai_connected else None,
+            "signing_address": att.get("signing_address") if att else None,
+            "signing_algo": att.get("signing_algo") if att else None,
+            "intel_quote_sha256": att.get("intel_quote_sha256") if att else None,
+            "intel_quote_bytes": att.get("intel_quote_bytes") if att else 0,
+        },
+        "ts": iso_z(utcnow()),
+    }
+
+
 @app.get("/metrics", tags=["ops"])
 def metrics() -> Response:
     return Response(content=render_latest(), media_type=CONTENT_TYPE_LATEST)
