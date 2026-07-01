@@ -1,4 +1,5 @@
-import { FileCheck2, Gauge, Radar, ScaleIcon, ScrollText, ShieldCheck } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { FileCheck2, Gauge, Info, Radar, ScaleIcon, ScrollText, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/auth/rbac'
 import { ROLE_META } from '@/auth/capabilities'
 import type { Role } from '@/lib/types'
@@ -35,7 +36,7 @@ export function ComplianceView() {
       <PageHeader
         icon={<ScaleIcon className="size-5" />}
         title="Compliance &amp; change control"
-        description="Detection rules, EWS/RFA coverage, and regulatory exports. Rule changes are proposals subject to four-eyes approval; exports are drafts for review."
+        description="Your compliance control centre. Each tab is one job: Command center = decide the alerts that route to you; Rules & thresholds = propose change-controlled rule edits (four-eyes); EWS/RFA coverage = check RBI indicator coverage; Regulatory exports = generate draft returns for review. Nothing here is auto-filed or auto-actioned."
         actions={
           roleLabel ? (
             <Badge variant="secondary" className="gap-1">
@@ -69,7 +70,13 @@ export function ComplianceView() {
         </TabsList>
 
         {showCommandCenter ? (
-          <TabsContent value="command">
+          <TabsContent value="command" className="space-y-3">
+            <TabIntro>
+              <strong className="text-foreground">Your job here:</strong> approve or reject the
+              alerts and block-requests that route up to you, and see where risk is concentrated.
+              Expand any queue row for the evidence and the person&apos;s history before you decide —
+              approving permits containment; it never blocks money automatically.
+            </TabIntro>
             {/* Manager oversight — approval/escalation queue + department risk rollup (Agent B). */}
             <div className="grid gap-3 lg:grid-cols-2">
               <ApprovalQueue />
@@ -78,16 +85,41 @@ export function ComplianceView() {
           </TabsContent>
         ) : null}
 
-        <TabsContent value="rules">
+        <TabsContent value="rules" className="space-y-3">
+          <TabIntro>
+            <strong className="text-foreground">Your job here:</strong> propose and review changes to
+            the detection rules and their thresholds. Every edit is a proposal that needs a second
+            authoriser (four-eyes) before it goes live — nothing changes silently.
+          </TabIntro>
           <RulesEditor />
         </TabsContent>
-        <TabsContent value="coverage">
+        <TabsContent value="coverage" className="space-y-3">
+          <TabIntro>
+            <strong className="text-foreground">Your job here:</strong> confirm every RBI
+            early-warning (EWS) and red-flag (RFA) indicator maps to a live detection layer, and spot
+            any gaps in coverage.
+          </TabIntro>
           <EwsCoverage />
         </TabsContent>
-        <TabsContent value="exports">
+        <TabsContent value="exports" className="space-y-3">
+          <TabIntro>
+            <strong className="text-foreground">Your job here:</strong> generate draft regulatory
+            returns (CRILC, FMR) from confirmed cases and download them for review. These are drafts
+            for a human — they are not filed with the regulator, and PII stays tokenized.
+          </TabIntro>
           <RegulatoryExport />
         </TabsContent>
       </Tabs>
+    </div>
+  )
+}
+
+/** A short "what this tab is for" banner shown at the top of each compliance tab. */
+function TabIntro({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+      <Info className="mt-0.5 size-4 shrink-0 text-primary/70" />
+      <p>{children}</p>
     </div>
   )
 }

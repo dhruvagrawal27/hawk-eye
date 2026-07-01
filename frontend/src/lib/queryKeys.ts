@@ -7,6 +7,7 @@ export const queryKeys = {
   alert: (id: string) => ['alert', id] as const,
   entity: (id: string) => ['entity', id] as const,
   entityTimeline: (id: string) => ['entity', id, 'timeline'] as const,
+  riskIndex: (id: string) => ['entity', id, 'risk-index'] as const,
   entityGraph: (id: string, depth = 1) => ['entity', id, 'graph', depth] as const,
   entityPeers: (id: string) => ['entity', id, 'peers'] as const,
   scoreHistory: (id: string) => ['entity', id, 'score-history'] as const,
