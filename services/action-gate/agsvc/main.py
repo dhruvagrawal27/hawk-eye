@@ -24,7 +24,10 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
+import os
+
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
 from pydantic import BaseModel, Field
@@ -32,6 +35,20 @@ from pydantic import BaseModel, Field
 from agsvc.policy_engine import GATE, Decision
 
 app = FastAPI(title="hawk-eye action-gate (L6.5)", version="1.0.0")
+
+# CORS — the SPA (hawk-eye.*) calls this service cross-origin via caddy (/api/v1/action-gate/*),
+# so it needs the same allow-list as the main backend. Without it the browser blocks the response
+# (and the auth'd request's OPTIONS preflight 405s). Reads HAWKEYE_CORS_ORIGINS (same var the
+# control plane uses); no-op when unset (same-origin deploys).
+_cors_origins = [o.strip() for o in os.environ.get("HAWKEYE_CORS_ORIGINS", "").split(",") if o.strip()]
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # In-memory stores (governance-DB persistence is SCAFFOLD).
 DECISIONS: dict[str, dict] = {}   # request_id -> decision dict (idempotency)

@@ -73,6 +73,7 @@ services:
       context: ../../services/action-gate
       dockerfile: Dockerfile
     image: hawkeye/action-gate:pilot
+    env_file: ../../.env          # HAWKEYE_CORS_ORIGINS (cross-origin from the SPA)
     expose:
       - "8096"                    # internal only — reached via caddy
     healthcheck:
