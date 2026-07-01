@@ -64,9 +64,11 @@ import {
   type LayoutName,
 } from '@/components/graph/GraphCanvas'
 
-/** Hop-depth options for the depth-expand control. */
+/** Hop depth. We AUTO-SCOPE to the smallest neighborhood that reveals a maker-checker ring (2 hops):
+ *  1 hop shows only direct links (misses the collusion partner's partner); 3 hops is usually noise.
+ *  The analyst can still widen to 3 for distant links, but no longer has to pick a depth up front. */
 type GraphDepth = 1 | 2 | 3
-const DEPTHS: GraphDepth[] = [1, 2, 3]
+const INITIAL_DEPTH: GraphDepth = 2
 
 /* ── Node detail (selection inspector — drill is optional; we inspect, never auto-navigate) ──── */
 function NodeDetail({
@@ -136,7 +138,7 @@ function NodeDetail({
 
 /* ── Main component ──────────────────────────────────────────────────────────────────────────── */
 export function GraphView({ entityId }: { entityId: string }) {
-  const [depth, setDepth] = useState<GraphDepth>(1)
+  const [depth, setDepth] = useState<GraphDepth>(INITIAL_DEPTH)
   const query = useQuery<GraphResponse>({
     queryKey: queryKeys.entityGraph(entityId, depth),
     queryFn: () => apiClient.getEntityGraph(entityId, { depth }),
@@ -269,27 +271,27 @@ function GraphViewBody({
             </div>
 
             <div className="flex items-center gap-1.5">
-              <Label
-                htmlFor="graph-depth"
-                className="flex items-center gap-1 text-xs text-muted-foreground"
-              >
-                <Layers className="size-3.5" aria-hidden /> Depth
-              </Label>
-              <Select
-                value={String(depth)}
-                onValueChange={(v) => onDepthChange(Number(v) as GraphDepth)}
-              >
-                <SelectTrigger id="graph-depth" className="h-8 w-24 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DEPTHS.map((d) => (
-                    <SelectItem key={d} value={String(d)}>
-                      {d} {d === 1 ? 'hop' : 'hops'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Layers className="size-3.5" aria-hidden /> Scope
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs"
+                    onClick={() => onDepthChange(depth >= 3 ? INITIAL_DEPTH : ((depth + 1) as GraphDepth))}
+                  >
+                    {depth <= INITIAL_DEPTH ? 'Ring neighborhood' : 'Wider network'}
+                    <span className="font-mono opacity-60">{depth}-hop</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Auto-scoped to the smallest ring-revealing neighborhood ({INITIAL_DEPTH} hops) — no
+                  need to pick a depth. Click to{' '}
+                  {depth >= 3 ? 'return to the ring view' : 'widen to more distant links'}.
+                </TooltipContent>
+              </Tooltip>
               {isFetching ? (
                 <span className="text-[0.7rem] text-muted-foreground" aria-live="polite">
                   expanding…

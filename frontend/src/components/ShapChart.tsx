@@ -75,15 +75,21 @@ function ShapTooltip({ active, payload }: Partial<TooltipContentProps<number, st
   )
 }
 
-export function ShapChart({ features }: { features: ShapContribution[] }) {
+export function ShapChart({
+  features,
+  synthesized = false,
+}: {
+  features: ShapContribution[]
+  synthesized?: boolean
+}) {
   const rows = buildRows(features)
 
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={BarChartHorizontal}
-        title="No SHAP attribution"
-        description="The fusion model returned no per-feature contributions for this alert."
+        title="No feature attribution for this alert"
+        description="This alert fired on deterministic rules or graph evidence only — the supervised model (L3) did not score it, so there are no per-feature contributions to show."
       />
     )
   }
@@ -94,6 +100,15 @@ export function ShapChart({ features }: { features: ShapContribution[] }) {
 
   return (
     <div>
+      <p className="mb-1.5 text-2xs leading-relaxed text-muted-foreground">
+        Each bar is a feature’s <span className="text-foreground">signed push</span> on the risk score:
+        bars to the right (red) increased risk, bars to the left (green) reduced it; longer = stronger.
+        {synthesized ? (
+          <span className="ml-1 rounded bg-muted px-1 py-0.5 text-[0.65rem] text-amber-500/90">
+            illustrative — derived from this alert’s fired signals, not a fitted-GBDT SHAP run
+          </span>
+        ) : null}
+      </p>
       <div style={{ height }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart

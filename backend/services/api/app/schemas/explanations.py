@@ -110,6 +110,9 @@ class Explanation(BaseModel):
     entity_id: str
     risk_score: int = Field(..., ge=0, le=100)
     shap: list[ShapFeature] = Field(default_factory=list)
+    # True when `shap` is an illustrative attribution synthesized from the alert's fired signals
+    # (no fitted-GBDT SHAP was attached to this alert) — the UI labels it as such, never as real GBDT.
+    shap_synthesized: bool = False
     rule_provenance: list[RuleProvenance] = Field(default_factory=list)
     sequence_attention: list[AttentionStep] = Field(default_factory=list)
     graph_evidence: list[str] = Field(default_factory=list)

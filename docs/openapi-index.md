@@ -4,10 +4,11 @@
 > **Validated against blueprint:** **Part 24.2** (API routing, OpenAPI-style), **Part 34.3**
 > (API docs as a required knowledge asset).
 >
-> This is an **INDEX** linking the three API surfaces in Hawk-Eye:
+> This is an **INDEX** linking the API surfaces in Hawk-Eye:
 > 1. the **BACKEND application API** (owned by BACKEND, contract in `BACKEND.md` §3),
-> 2. the **PLATFORM governance-api** routes (read-only governance view), and
-> 3. the **PLATFORM hitl-gate** routes (the natural-justice classification gate).
+> 2. the **PLATFORM governance-api** routes (read-only governance view),
+> 3. the **PLATFORM hitl-gate** routes (the natural-justice classification gate), and
+> 4. the **L6.5 action-gate** routes (the privileged-action interdiction PDP, `:8096`).
 > Each service publishes its own live OpenAPI/Swagger at `/docs` (FastAPI) — this file is the map,
 > not the spec.
 
@@ -37,6 +38,32 @@ Full route table is in **[`BACKEND.md` §3](../BACKEND.md)** — highlights:
 
 > The **alert-only** invariant lives here: `block-request` is a *human-raised* request — there is
 > no auto-block route anywhere in the API (Part 16; *SBI v. Rajesh Agarwal*).
+
+### 1a. Recently added (surfacing overhaul · 10× insider depth · L6.5)
+
+Beyond the highlights above, the live `/api/v1` surface now also includes (all under `/api/v1`,
+JWT + RBAC; see the live `/docs` for exact shapes):
+
+| Method & path | Purpose | RBAC |
+|---|---|---|
+| `GET /alerts/stats` | Portfolio counts for the dashboard header (open / high / SLA-at-risk / confirmed) | Analyst |
+| `GET /activity/sub-threshold` | The "hidden 95%" — detection funnel + near-miss watchlist (scored <70, not alerted) | Analyst |
+| `GET /analytics/typologies` | Fraud-typology prevalence + confirmed-rate + exposure | Analyst |
+| `GET /entities/{id}/risk-index` | Continuous per-user insider-risk index (M2.1) | Analyst |
+| `GET /entities/{id}/score-history` · `/layer-scores` | Risk-over-time + per-layer (L2–L6) score timeline | Analyst |
+| `GET /explanations/{id}/report` | Downloadable, audit-grade explainability report (SAR/FMR pack) | Analyst |
+| `GET /narratives/{id}/attestation` | Real NEAR AI Cloud Intel-TDX TEE attestation | Analyst |
+| `GET /graph?min_score=&limit=` | Global cross-entity risk link-graph | Analyst |
+| `GET /cases` · `/cases/{id}` · `POST /cases/{id}/{status,assign,notes}` | Case management | Analyst |
+| `POST /rules` · `PUT /rules/{code}` · `POST /rules/{change_id}/approve` | Four-eyes rule-change proposal + approval | Compliance |
+| `POST /models/{id}/{disable,enable}` · `GET /models/{id}/state` | Model kill-switch (FREE-AI: halt without redeploy) | Model Eng |
+| `GET /drift` · `GET /metrics/model` | Drift metrics · model-quality metrics | Model Eng |
+| `POST /feedback` | Active-learning label submission (EDD feedback loop) | Analyst |
+| `GET /reports/cfr` · `/reports/ews-coverage` · `/reports/kris` | CFR feed · EWS coverage map · board/SCBMF KRIs | Compliance |
+| `GET /rfa/{id}` · `POST /rfa/{id}/{examination,show-cause,close}` | RFA staff-accountability lifecycle (RBI FRM 2024) | Compliance |
+| `POST /compliance/{transfers,data-principal}` | DPDP cross-border transfer log · data-principal rights intake | Compliance |
+| `GET /services/status` | Service map + live status | Auditor |
+| `POST /events/ingest` | Ingest one L0 event (full run or L1 short-circuit) | service |
 
 ---
 
@@ -81,6 +108,26 @@ hearing, classifies. Nothing is auto-classified as fraud. Live OpenAPI at
 > This is the technical embodiment of the natural-justice requirement (Part 16; *SBI v. Rajesh
 > Agarwal*, 2023): a classification only becomes final on a **recorded human decision** after the
 > subject has been heard.
+
+---
+
+## 4. L6.5 action-gate — privileged-action interdiction PDP (`:8096`, `services/action-gate/`)
+
+The **policy decision point** for held staff actions. It **decides** ALLOW / STEP_UP / HOLD on a
+*reversible privileged action* (entitlement self-grant, maker+checker by the same actor, bulk export
+from a privileged session, SWIFT/SO send, direct DB write); it **never auto-executes and never
+blocks money** — approving a HOLD only *permits* human-initiated execution (four-eyes, no
+self-review). Surfaced in the L7 console at `/interdiction`. Routes (also mounted under `/api/v1`):
+
+| Method & path | Purpose | RBAC |
+|---|---|---|
+| `POST /action-gate/evaluate` | Evaluate a privileged action → `{ALLOW · STEP_UP · HOLD_FOR_REVIEW}` | service / policy |
+| `GET /action-gate/holds` | The HOLD_FOR_REVIEW queue awaiting a second approver | DGM Compliance / AGM Vigilance |
+| `POST /action-gate/holds/{id}/decide` | Four-eyes approve(permit)/reject with mandatory justification (audited) | DGM Compliance / AGM Vigilance |
+| `GET /action-gate/policies` | Read-only interdiction policy list (hard HOLD vs soft STEP-UP) | DGM Compliance / AGM Vigilance |
+
+> Consistent with **alert-only + natural justice**: this is a control on a *reversible staff action*
+> with a human in the loop, not an auto-block of money and not an auto-classification of a person.
 
 ---
 

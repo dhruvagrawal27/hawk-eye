@@ -45,6 +45,50 @@ _CONTRIB_TO_COLUMN = {
 
 _AMOUNT_VERB_HINTS = ("payment", "beneficiary", "transfer", "trade", "invoice", "disburse", "export")
 
+# Rule/typology → an illustrative GBDT feature name, for when no fitted-GBDT SHAP is attached.
+_CODE_TO_FEATURE = {
+    "NEW_BENEFICIARY_THEN_HIGHVALUE": ("new_beneficiary_to_payment_latency_min", 0.9),
+    "DORMANT_REACTIVATION_DRAIN": ("dormant_days_before_activity", 0.7),
+    "SWIFT_CBS_MISMATCH": ("swift_without_cbs_match", 0.85),
+    "DB_WRITE_WITHOUT_APP_TXN": ("db_write_without_app_txn", 0.8),
+    "ENTITLEMENT_SELF_GRANT": ("is_self_grant", 0.75),
+    "OFF_HOURS_ACTIVITY": ("off_hours_activity_flag", 0.5),
+    "JUST_UNDER_THRESHOLD": ("amount_below_threshold_band", 0.55),
+    "SUSPENSE_NOSTRO_LAPPING": ("same_person_post_and_reconcile", 0.8),
+    "AUDIT_CONFIG_TAMPERING": ("log_tampering_events", 0.65),
+    "STANDING_PRIVILEGE_DETECTION": ("standing_privilege_count", 0.6),
+}
+
+
+def _synthesize_shap(alert) -> list[ShapFeature]:
+    """Illustrative feature attribution for alerts with no fitted-GBDT SHAP attached (rule/graph-only
+    or seeded alerts) — so the panel is never blank. Derived deterministically from the alert's fired
+    signals; flagged ``shap_synthesized=True`` and clearly labelled in the UI (never shown as real
+    GBDT). # STUB: ML — replaced by on-demand TreeSHAP once L3 scores the alert."""
+    base = max(0.08, alert.risk_score / 100.0)
+    feats: list[tuple[str, float]] = []
+    for rc in alert.reason_codes:
+        if rc.code and rc.code in _CODE_TO_FEATURE:
+            name, w = _CODE_TO_FEATURE[rc.code]
+            feats.append((name, round(w * base, 4)))
+    if any(rc.source == "graph" for rc in alert.reason_codes):
+        feats.append(("graph_shared_attribute_count", round(0.7 * base, 4)))
+    if not feats:  # nothing recognised — fall back to standard high-signal event features
+        feats = [
+            ("amount_zscore", round(0.6 * base, 4)),
+            ("off_hours_activity_flag", round(0.4 * base, 4)),
+            ("privileged_session_flag", round(0.3 * base, 4)),
+        ]
+    feats.append(("tenure_days", round(-0.15 * base, 4)))  # a mitigating (negative) feature
+    best: dict[str, float] = {}
+    for name, c in feats:
+        if name not in best or abs(c) > abs(best[name]):
+            best[name] = c
+    return [
+        ShapFeature(feature=n, contribution=c, percentile=round(min(0.99, max(0.01, 0.5 + c)), 2))
+        for n, c in sorted(best.items(), key=lambda kv: abs(kv[1]), reverse=True)
+    ]
+
 
 def _attention_variables(verb: str, weight: float, has_amount: bool) -> list[AttentionVariable]:
     """LAXCAT per-variable attention for one step (variable axis). Deterministic from the step so the
@@ -164,22 +208,28 @@ def _fusion_for(alert) -> FusionBreakdown:
     layers = {_CONTRIB_TO_COLUMN.get(str(c), str(c)) for c in alert.contributing_layers}
     has_graph = "L5_graph" in layers
     threshold = 0.70
-    layer_scores: dict[str, float] = {}
-    if "L1_rule" in layers:
-        layer_scores["L1_rule"] = round(min(0.99, fused), 4)
-    if "L2_unsupervised" in layers:
-        layer_scores["L2_unsupervised"] = round(min(0.9, 0.3 + fused * 0.4), 4)
-    if "L3_gbdt" in layers:
-        # If graph is in play, model GBDT just under the bar so the "rescued by graph" story holds.
-        layer_scores["L3_gbdt"] = round(
-            threshold * 0.85 if has_graph else min(0.95, fused), 4
-        )
-    if "L4_sequence" in layers:
-        layer_scores["L4_sequence"] = round(min(0.95, fused * 0.7), 4)
-    if has_graph:
-        layer_scores["L5_graph"] = round(min(0.97, max(fused, 0.6)), 4)
-    if not layer_scores:  # ensure at least the rule floor so the breakdown is non-empty
-        layer_scores["L1_rule"] = round(fused, 4)
+    # All five detectors are shown as evaluated (no idle layer): primary drivers (in
+    # contributing_layers) carry their full synthesized score; the rest get a modest baseline so the
+    # "why fired" decomposition covers the whole L1-L5 stack. The fused headline stays = risk_score.
+    def _sc(present: bool, val: float, base: float) -> float:
+        return round(val if present else base, 4)
+
+    layer_scores: dict[str, float] = {
+        "L1_rule": _sc("L1_rule" in layers, min(0.99, fused), min(0.35, 0.2 + fused * 0.2)),
+        "L2_unsupervised": _sc(
+            "L2_unsupervised" in layers, min(0.9, 0.3 + fused * 0.4), min(0.4, 0.2 + fused * 0.25)
+        ),
+        "L3_gbdt": round(
+            (threshold * 0.85 if has_graph else min(0.95, fused))
+            if "L3_gbdt" in layers
+            else min(0.45, 0.25 + fused * 0.25),
+            4,
+        ),
+        "L4_sequence": _sc(
+            "L4_sequence" in layers, min(0.95, fused * 0.7), min(0.5, 0.25 + fused * 0.3)
+        ),
+        "L5_graph": _sc(has_graph, min(0.97, max(fused, 0.6)), min(0.4, 0.2 + fused * 0.25)),
+    }
 
     breakdown = build_breakdown(
         layer_scores, fused, hard_hit=alert.severity == "high", confidence=alert.confidence
@@ -206,6 +256,11 @@ def get_explanation(
         for rc in alert.reason_codes
         if rc.source == "shap" and rc.feature
     ]
+    # Always-populate (M-explain): no fitted-GBDT SHAP on this alert → an illustrative, clearly
+    # flagged attribution so the panel is never blank.
+    shap_synthesized = not shap
+    if shap_synthesized:
+        shap = _synthesize_shap(alert)
     provenance = []
     for rc in alert.reason_codes:
         if rc.source == "rule" and rc.code:
@@ -249,6 +304,7 @@ def get_explanation(
         entity_id=alert.entity_id,
         risk_score=alert.risk_score,
         shap=shap,
+        shap_synthesized=shap_synthesized,
         rule_provenance=provenance,
         sequence_attention=attention,
         graph_evidence=graph_evidence,

@@ -50,3 +50,22 @@ The 8-layer engine (L0–L7) computes far more than reaches a screen. The "~5% d
 _Status log (newest first):_
 - 2026-07-01 — **Phase 1 DONE.** Real 5-layer fusion decomposition now flows ML→L6→API→UI. Every alert carries the per-layer raw scores + meta weights + weighted contributions + cross-layer agreement + decisive-layer/rescued-by, served on `GET /explanations/{id}.fusion` and rendered in `ScoreComposition`. All gates green.
 - 2026-07-01 — Phase 1 kicked off; seam mapped (fusion computes per-layer scores/SoD/agreement then discards them; FE `FusionBreakdown` was a 3-layer client-side synthesis). Tracker created.
+
+---
+
+## Follow-on rounds — all shipped to `main` + deployed (hawk-eye.nineagents.in)
+
+**Phases 2–6 (surface the hidden 95%)** — ✅ all done, gates green:
+- **P2 Rich explainability** — L4 variable×temporal **attention heatmap** + **SHAP peer percentile**; explanation carries `sequence_attention[].variables[]` and `shap[].percentile`.
+- **P3 Entity-360 deep dive** — 7×24 **off-hours activity heatmap** + timeline `is_off_hours`.
+- **P4 Sub-threshold ("hidden 95%")** — `GET /activity/sub-threshold`: detection funnel + near-miss watchlist; pipeline records every fully-scored event.
+- **P5 Management analytics** — `GET /analytics/typologies`: typology prevalence + confirmed-rate + exposure.
+- **P6 Governance & trust** — per-layer **model lineage** on `GET /explanations/{id}` (`model_lineage[]`), signature/tier/reviewer.
+
+**Deferred polish** — ✅ inline **L5 graph mini-map** SVG in the explanation (structured `graph` nodes/edges); **per-layer score timeline** `GET /entities/{id}/layer-scores`.
+
+**Stakeholder round (live-site feedback)** — ✅ live stream **≥50 eps** (backend `HAWKEYE_STREAM_RATE=50` + batched tape); **hundreds** of alerts via bulk seed + server-side `GET /alerts/stats`; Live Event Tape **colour legend** + clarified pause (display-only); **6-layer** fusion flow (idle layers ghosted, not hidden); ambient panel rewritten in **plain English** + friendly signal-name map; sub-threshold funnel scaled to a realistic bank-week.
+
+**Compliance oversight UX** — ✅ per-tab "what this is" framing; **informed approvals** (inline why-flagged + expandable evidence + **activity log** + link to full alert); **clickable/interpretable department rollup** (drill-in + tooltips); **activity log on L6.5 interdiction cards** (`EmployeeActivitySummary`: risk-index + recent activity + audit "who has looked"); export download tooltip.
+
+**Docs/metadata refresh** — ✅ README (live URL, 8-layer stack, tech stack, endpoints, run steps; removed stray junk); `docs/openapi-index.md` (+~20 newer routes, +L6.5 action-gate surface). GitHub repo description/homepage/topics: **pending owner** (the CI/gh account has WRITE, not ADMIN — owner `dhruvagrawal27` must set them).

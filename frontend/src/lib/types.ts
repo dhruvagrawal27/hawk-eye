@@ -302,6 +302,8 @@ export interface ModelLineageEntry {
 export interface ExplanationResponse {
   alert_id: AlertId
   shap: ShapContribution[]
+  /** true = `shap` is an illustrative attribution synthesized from fired signals (no fitted-GBDT SHAP). */
+  shap_synthesized?: boolean
   rules: RuleProvenanceItem[]
   attention: AttentionSession[]
   graph?: GraphEvidence
@@ -879,6 +881,9 @@ export interface AuditQuery {
   from?: string
   to?: string
   action?: string
+  // Backend WORM trail pagination (limit/offset). page/page_size kept for older callers.
+  limit?: number
+  offset?: number
   page?: number
   page_size?: number
 }

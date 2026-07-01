@@ -182,11 +182,22 @@ function LayerBar({ component, maxWeighted }: { component: FusionComponent; maxW
 }
 
 /* ── Fused score vs threshold meter ───────────────────────────────────────── */
-function FusedMeter({ fused, threshold }: { fused: number; threshold: number }) {
+function FusedMeter({
+  fused,
+  threshold,
+  hardHit = false,
+}: {
+  fused: number
+  threshold: number
+  hardHit?: boolean
+}) {
   const score = Math.round(fused * 100)
   const level = riskLevelFromScore(score)
   const thresholdPct = Math.min(100, Math.max(0, threshold * 100))
+  // A hard-hit (deterministic hard rule) is emitted regardless of the fused meter — so even when the
+  // fused score sits under the bar, the alert is a legitimate must-review, not a false positive.
   const cleared = fused >= threshold
+  const emitted = cleared || hardHit
 
   return (
     <div className="space-y-2">
@@ -226,10 +237,19 @@ function FusedMeter({ fused, threshold }: { fused: number; threshold: number }) 
         <span
           className={cn(
             'inline-flex items-center gap-1 font-medium',
-            cleared ? 'text-severity-high' : 'text-sla-ok',
+            emitted ? 'text-severity-high' : 'text-sla-ok',
           )}
+          title={
+            hardHit && !cleared
+              ? 'A deterministic hard rule fired — the alert is emitted for review regardless of the fused meter.'
+              : undefined
+          }
         >
-          {cleared ? 'cleared the bar' : 'below threshold'}
+          {cleared
+            ? 'cleared the bar'
+            : hardHit
+              ? 'hard-rule alert (emitted regardless)'
+              : 'below threshold'}
         </span>
       </div>
     </div>
@@ -277,7 +297,7 @@ export function ScoreComposition({ fusion }: { fusion: FusionBreakdown }) {
 
   return (
     <div className="space-y-4">
-      <FusedMeter fused={fusion.fused} threshold={fusion.threshold} />
+      <FusedMeter fused={fusion.fused} threshold={fusion.threshold} hardHit={fusion.hard_hit} />
 
       {typeof fusion.agreement === 'number' && <AgreementReadout agreement={fusion.agreement} />}
 

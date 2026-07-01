@@ -26,9 +26,16 @@ def test_narrative_returns_labelled_ai_output_and_memo(client, auth):
     assert any(e.action == "narrative.generate" for e in AUDIT.all())
 
 
-def test_narrative_route_never_breaks_when_llm_down(client, auth):
-    # Local mode: the ML gateway is unreachable, so the deterministic template fallback is used and
-    # the route still returns 200 (UI never goes dark).
+def test_narrative_route_never_breaks_when_llm_down(client, auth, monkeypatch):
+    # Force the "no LLM configured" precondition (regardless of any ambient .env with real keys): the
+    # deterministic template fallback is used and the route still returns 200 (UI never goes dark).
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "narrative_remote_enabled", False)
+    monkeypatch.setattr(settings, "llm_provider", "template")
+    monkeypatch.setattr(settings, "near_ai_api_key", "")
+    monkeypatch.setattr(settings, "groq_api_key", "")
+
     r = client.post("/api/v1/narratives/alr_demo03", headers=auth("senior"))
     assert r.status_code == 200
     assert r.json()["provider"] == "template"

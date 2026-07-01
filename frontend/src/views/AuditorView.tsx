@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Eye, FileSearch, Gavel, Lock, ScrollText, ShieldCheck } from 'lucide-react'
 import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
-import { formatIST } from '@/lib/format'
+import { formatIST, formatNumber } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { AuditTable } from '@/components/AuditTable'
@@ -30,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { CountUp, RouteTransition } from '@/ui'
 import type { AuditQuery } from '@/lib/types'
 
 // Live backend dotted action vocabulary (GET /api/v1/audit). Values are the exact `action` strings
@@ -67,6 +66,11 @@ interface DraftFilters {
 
 const EMPTY: DraftFilters = { actor: '', entity: '', action: 'all', from: '', to: '' }
 
+// The WORM trail runs to thousands of rows. Pull a wide window (backend caps at 1000) so the KPI
+// roll-ups are representative, but only paint the most recent slice for a snappy table.
+const AUDIT_WINDOW = 1000
+const ROW_CAP = 250
+
 /** A `datetime-local` value (no zone) → an ISO UTC instant the API understands. */
 function toIso(local: string): string | undefined {
   if (!local) return undefined
@@ -90,11 +94,13 @@ export function AuditorView() {
 
   const auditQuery = useQuery({
     queryKey: queryKeys.audit(applied),
-    queryFn: () => apiClient.getAudit(applied),
+    queryFn: () => apiClient.getAudit({ ...applied, limit: AUDIT_WINDOW }),
   })
 
   const events = useMemo(() => auditQuery.data?.items ?? [], [auditQuery.data])
   const total = auditQuery.data?.total ?? events.length
+  // Only render the most recent slice — the KPI counters still aggregate the whole fetched window.
+  const visibleEvents = useMemo(() => events.slice(0, ROW_CAP), [events])
 
   const counts = useMemo(() => {
     let views = 0
@@ -138,7 +144,7 @@ export function AuditorView() {
     Boolean(applied.to)
 
   return (
-    <RouteTransition className="space-y-4">
+    <div className="space-y-4">
       <PageHeader
         icon={<FileSearch className="size-5" />}
         title="Audit trail"
@@ -243,23 +249,27 @@ export function AuditorView() {
       {/* Highlight counters */}
       {!auditQuery.isLoading && !auditQuery.isError ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Counter icon={<ScrollText className="size-4" />} label="Events shown" value={total} />
+          <Counter
+            icon={<ScrollText className="size-4" />}
+            label="Total events"
+            value={formatNumber(total)}
+          />
           <Counter
             icon={<Eye className="size-4" />}
             label="Employee views"
-            value={counts.views}
+            value={formatNumber(counts.views)}
             tone="info"
           />
           <Counter
             icon={<Lock className="size-4" />}
             label="PII unmasks"
-            value={counts.unmasks}
+            value={formatNumber(counts.unmasks)}
             tone={counts.unmasks > 0 ? 'warn' : undefined}
           />
           <Counter
             icon={<Gavel className="size-4" />}
             label="Case decisions"
-            value={counts.decisions}
+            value={formatNumber(counts.decisions)}
           />
         </div>
       ) : null}
@@ -273,18 +283,21 @@ export function AuditorView() {
             onRetry={() => void auditQuery.refetch()}
             skeleton={<AuditSkeleton />}
           >
-            <AuditTable events={events} />
+            <AuditTable events={visibleEvents} />
           </QueryBoundary>
         </CardContent>
       </Card>
 
       <p className="text-[0.7rem] text-muted-foreground">
+        {!auditQuery.isLoading && !auditQuery.isError && total > visibleEvents.length
+          ? `Showing the ${formatNumber(visibleEvents.length)} most recent of ${formatNumber(total)} events. `
+          : null}
         {auditQuery.dataUpdatedAt
           ? `Snapshot taken ${formatIST(new Date(auditQuery.dataUpdatedAt))}.`
           : null}{' '}
         The authoritative WORM store retains the full, hash-chained record server-side.
       </p>
-    </RouteTransition>
+    </div>
   )
 }
 
@@ -296,7 +309,7 @@ function Counter({
 }: {
   icon: React.ReactNode
   label: string
-  value: number
+  value: string
   tone?: 'info' | 'warn'
 }) {
   return (
@@ -304,13 +317,14 @@ function Counter({
       <CardContent className="flex items-center justify-between gap-2 p-3">
         <div>
           <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">{label}</p>
-          <CountUp
-            value={value}
+          <p
             className={[
-              'mt-0.5 block font-mono text-lg font-semibold',
+              'mt-0.5 text-lg font-semibold tabular-nums',
               tone === 'warn' ? 'text-severity-high' : tone === 'info' ? 'text-reason-shap' : '',
             ].join(' ')}
-          />
+          >
+            {value}
+          </p>
         </div>
         <span className="text-muted-foreground">{icon}</span>
       </CardContent>

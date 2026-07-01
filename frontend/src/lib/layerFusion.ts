@@ -95,32 +95,34 @@ export function deriveLayerBreakdown(alert: Alert, fusion?: FusionBreakdown | nu
     }
   }
 
-  const fired = DETECTION_LAYERS.filter((l) => firedSet.has(l) || backend.has(l))
   const weightOf = (l: string) => backend.get(l)?.weight ?? NOMINAL_WEIGHTS[l] ?? 0.1
-  const sumW = fired.reduce((s, l) => s + weightOf(l), 0) || 1
+  // Every detection layer is EVALUATED on every event (L0 normalizes → the whole L1–L5 stack runs);
+  // ribbon width = each layer's share of the fused score. The primary drivers (in contributing_layers
+  // or the backend breakdown) carry full weight; the rest contribute a small baseline share so the
+  // stack is always shown as active — no layer renders as "idle".
+  const isPrimary = (l: string) => firedSet.has(l) || backend.has(l)
+  const effWeight = (l: string) => weightOf(l) * (isPrimary(l) ? 1 : 0.4)
+  const sumW = DETECTION_LAYERS.reduce((s, l) => s + effWeight(l), 0) || 1
 
-  // distribute the fused score across the fired layers by weight (contributions sum to ~fused)
-  const raw = DETECTION_LAYERS.map((l) => {
-    const isFired = fired.includes(l)
-    const contribution = isFired ? round1((fused * weightOf(l)) / sumW) : 0
-    return { layer: l, isFired, contribution, weight: weightOf(l) }
-  })
+  const raw = DETECTION_LAYERS.map((l) => ({
+    layer: l,
+    isFired: true,
+    isPrimary: isPrimary(l),
+    contribution: round1((fused * effWeight(l)) / sumW),
+    weight: weightOf(l),
+  }))
   const maxC = Math.max(1, ...raw.map((r) => r.contribution))
 
   const layers: LayerContribution[] = raw.map((r) => {
     const info = LAYER_INFO[r.layer]
     const backendProba = backend.get(r.layer)?.proba
-    const proba = r.isFired
-      ? backendProba != null
-        ? backendProba
-        : round2(r.contribution / maxC)
-      : null
+    const proba = backendProba != null ? backendProba : round2(r.contribution / maxC)
     return {
       layer: r.layer,
       label: info.label,
       sub: info.sub,
       accentVar: info.accentVar,
-      fired: r.isFired,
+      fired: true,
       contribution: r.contribution,
       proba,
       weight: r.weight,

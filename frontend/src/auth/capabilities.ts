@@ -266,6 +266,14 @@ export function canViewCaseData(role: Role | undefined): boolean {
   )
 }
 
+/** All roles that hold a capability (✅ or ⚠️), excluding the non-human service account — used to
+ *  tell a blocked user *who* owns an action their role can't perform. */
+export function rolesWithCapability(capability: Capability): Role[] {
+  return (Object.keys(MATRIX) as Role[]).filter(
+    (r) => MATRIX[r][capability].allowed && r !== 'service_account',
+  )
+}
+
 /**
  * Contextual SoD (Part 19.6, re-keyed for the bank model). Returns a reason string if the action is
  * forbidden by separation of duties given the actor/owner, else null. Used to hide controls beyond
