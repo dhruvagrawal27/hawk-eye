@@ -964,7 +964,11 @@ export const handlers = [
     if (actor) items = items.filter((a) => a.actor.includes(actor))
     if (entity) items = items.filter((a) => a.entity_id === entity)
     if (action) items = items.filter((a) => a.action === action)
-    return HttpResponse.json({ items, total: items.length })
+    // Paginate like the backend (WORM trail is large): return a page + the full `total`.
+    const total = items.length
+    const limit = Math.min(Number(url.searchParams.get('limit')) || 1000, 1000)
+    const offset = Number(url.searchParams.get('offset')) || 0
+    return HttpResponse.json({ items: items.slice(offset, offset + limit), total, limit, offset })
   }),
 
   // Admin

@@ -8,6 +8,7 @@ explanation panels render immediately. Idempotent. No real PII.
 from __future__ import annotations
 
 import os
+import random
 from datetime import datetime, timedelta, timezone
 
 from app.schemas.alerts import Alert
@@ -322,6 +323,99 @@ def _seed_bulk_alerts(count: int = 450) -> None:
         ALERTS.add(alert)
 
 
+# ── Bulk WORM audit history (BACKEND-22 / Part 19.3) ─────────────────────────────────────────────
+# The audit store is in-memory and starts empty on every boot — it only fills as console users act,
+# so a fresh deployment shows a near-empty trail. For the demo/MVP we lay down a realistic back-dated
+# history (thousands of who-viewed-whom / disposition / unmask events across every role) so the
+# Auditor screen reads at real-bank scale. Written through AUDIT.write() so the hash-chain stays
+# valid and verify_chain() still passes.
+_AUDIT_ACTORS: list[tuple[str, str]] = [
+    ("rmehra.rm", "relationship_manager"),
+    ("adesai.rm", "relationship_manager"),
+    ("kbhat.rm", "relationship_manager"),
+    ("nsingh.br", "branch_manager"),
+    ("pverma.br", "branch_manager"),
+    ("rchopra.cl", "cluster_head"),
+    ("svig.agm", "agm_vigilance"),
+    ("dcomp.dgm", "dgm_compliance"),
+    ("dsci.lead", "data_science_lead"),
+    ("crisk.cgm", "cgm_risk"),
+    ("caudit.cia", "chief_internal_auditor"),
+    ("edir.board", "executive_director"),
+    ("mdir.board", "managing_director"),
+    ("itops.admin", "it_admin"),
+]
+# (action, weight, target_kind) — views dominate a real trail; mutations are rarer.
+_AUDIT_ACTIONS: list[tuple[str, int, str]] = [
+    ("entity.view", 30, "emp"),
+    ("alert.view", 26, "alert"),
+    ("explanation.view", 10, "alert"),
+    ("alert.assign", 8, "alert"),
+    ("alert.disposition", 7, "alert"),
+    ("narrative.generate", 5, "alert"),
+    ("pii.unmask", 4, "emp"),
+    ("audit.view", 3, "none"),
+    ("alert.block_request", 2, "alert"),
+    ("alert.block_approved", 1, "alert"),
+    ("feedback.submit", 1, "alert"),
+    ("report.crilc", 1, "none"),
+    ("report.fmr", 1, "none"),
+    ("rule.change_proposed", 1, "rule"),
+    ("model.promote", 1, "model"),
+    ("admin.user_create", 1, "user"),
+]
+_AUDIT_RULES = ["HIGH_VALUE_PAYMENT", "NEW_BEN_THEN_HIGHVALUE", "OFF_HOURS_PRIVILEGED", "MAKER_CHECKER_PAIR"]
+_AUDIT_MODELS = ["l3-catboost", "l4-tabtransformer", "l5-graphsage"]
+_AUDIT_DISPOSITIONS = ["confirmed_fraud", "false_positive", "inconclusive"]
+
+
+def _seed_bulk_audit(count: int = 12000) -> None:
+    """Lay down `count` back-dated, hash-chained audit events across ~90 days (deterministic)."""
+    from app.audit.writer import AUDIT
+
+    if AUDIT.all():  # already seeded / populated this boot — never double-append
+        return
+    rng = random.Random(0xA0D17)
+    entities = [f"EMP-x{i:04d}" for i in range(450)] + [
+        "EMP-7f3a", "EMP-1a09", "EMP-2b14", "EMP-3c55", "EMP-4d99", "EMP-9f02",
+    ]
+    alerts = [f"alr_bulk{i:04d}" for i in range(450)] + ["alr_demo01", "alr_demo02", "alr_demo03"]
+    actions = [a for a, w, _ in _AUDIT_ACTIONS]
+    weights = [w for _, w, _ in _AUDIT_ACTIONS]
+    kinds = {a: k for a, _, k in _AUDIT_ACTIONS}
+
+    now = datetime.now(timezone.utc)
+    window = timedelta(days=90)
+    start = now - window
+    span = window.total_seconds()
+    for i in range(count):
+        # Monotonic timestamps (oldest→newest) so the forward chain reads chronologically.
+        t = start + timedelta(seconds=(span * i / count) + rng.uniform(0, span / count))
+        ts = t.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        actor, role = _AUDIT_ACTORS[rng.randrange(len(_AUDIT_ACTORS))]
+        action = rng.choices(actions, weights=weights, k=1)[0]
+        kind = kinds[action]
+        detail: dict = {"src_ip": f"10.20.{rng.randint(1, 12)}.{rng.randint(2, 250)}"}
+        target: str | None
+        if kind == "emp":
+            target = entities[rng.randrange(len(entities))]
+            if action == "pii.unmask":
+                detail["reason"] = "case_review"
+        elif kind == "alert":
+            target = alerts[rng.randrange(len(alerts))]
+            if action == "alert.disposition":
+                detail["outcome"] = _AUDIT_DISPOSITIONS[rng.randrange(3)]
+        elif kind == "rule":
+            target = _AUDIT_RULES[rng.randrange(len(_AUDIT_RULES))]
+        elif kind == "model":
+            target = _AUDIT_MODELS[rng.randrange(len(_AUDIT_MODELS))]
+        elif kind == "user":
+            target = f"user_{rng.randint(1000, 9999)}"
+        else:
+            target = None
+        AUDIT.write(actor=actor, actor_role=role, action=action, target=target, detail=detail, ts=ts)
+
+
 def seed_demo() -> None:
     """Idempotent: populate demo alerts + entity-360 if not already present."""
     # Always (re)seed the re-id vault first — it is separate from the alert store, so it must be
@@ -340,6 +434,10 @@ def seed_demo() -> None:
     # entity-360 surface empty (GET /entities/{id} -> 404 for every entity, incl. worked-burst
     # EMP-7f3a). put_* is idempotent (dict overwrite), so calling this every time is safe.
     _seed_entity_360()
+    # WORM audit trail is in-memory (empty every boot), so — like entity-360 — seed it above the
+    # idempotency guard. Shares the HAWKEYE_SEED_BULK switch (tests set it to 0 for fast reseeds).
+    if os.getenv("HAWKEYE_SEED_BULK", "1") != "0":
+        _seed_bulk_audit(int(os.getenv("HAWKEYE_AUDIT_SEED", "12000")))
     if ALERTS.get(DEMO_ALERT_ID) is not None:
         return
     for builder in (_demo_alert, _second_alert, _third_alert, _fourth_alert):

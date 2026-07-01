@@ -440,8 +440,10 @@ export const apiClient = {
         from: query.from,
         to: query.to,
         action: query.action,
-        page: query.page,
-        page_size: query.page_size,
+        // Backend WORM trail paginates on limit/offset (not page/page_size); the trail is large so
+        // the Auditor view pulls a wide window for accurate KPI roll-ups.
+        limit: query.limit,
+        offset: query.offset,
       },
     })
   },
