@@ -36,6 +36,8 @@ mlruns/
 *.pem
 *.key
 secrets/
+# …but the no-secrets safety-invariant guard is a TEST, not a secret — keep it tracked.
+!frontend/src/__invariants__/no-secrets.invariant.test.ts
 
 # IDE / OS
 .idea/
