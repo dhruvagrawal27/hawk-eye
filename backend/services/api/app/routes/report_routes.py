@@ -14,9 +14,9 @@ from app.auth.deps import require_role
 from app.auth.principal import Principal
 from app.config import settings
 from app.schemas.common import AlertStatus, Role, iso_z, utcnow
-from app.schemas.reports import CrilcReport, FmrReport
+from app.schemas.reports import CfrReport, CrilcReport, FmrReport
 from app.store.alert_store import ALERTS
-from regulatory import crilc, fmr, rfa
+from regulatory import cfr, crilc, fmr, rfa
 
 router = APIRouter(tags=["reports"])
 
@@ -48,6 +48,31 @@ def report_fmr(principal: Principal = Depends(_COMPLIANCE)) -> FmrReport:
         detail={"lines": len(report["items"])},
     )
     return FmrReport(generated_ts=iso_z(utcnow()), **report)
+
+
+@router.get("/reports/cfr", response_model=CfrReport)
+def report_cfr(principal: Principal = Depends(_COMPLIANCE)) -> CfrReport:
+    """Central Fraud Registry feed of human-confirmed insider frauds + DAMI aggregate analytics.
+
+    Alert-only / natural justice: a CFR entry exists only after a human ``CONFIRMED_FRAUD``
+    disposition. SCAFFOLD: ``submission_enabled`` reflects that the live RBI CFR channel is absent.
+    """
+    confirmed: list[dict] = []
+    for a in ALERTS.all():
+        if str(a.status) == AlertStatus.CONFIRMED_FRAUD.value:
+            case = _case(a)
+            # Category aligned with the FMR mapping so CFR/FMR stay consistent (else 'others').
+            case["category"] = fmr.fmr_category(case["reason_codes"])
+            confirmed.append(case)
+    feed = cfr.generate_feed(confirmed, submission_enabled=settings.rbi_submission_enabled)
+    dami = cfr.dami_summary(confirmed)
+    AUDIT.write(
+        actor=principal.user_id,
+        actor_role=principal.role,
+        action="report.cfr",
+        detail={"lines": feed["count"]},
+    )
+    return CfrReport(generated_ts=iso_z(utcnow()), dami_summary=dami, **feed)
 
 
 @router.get("/reports/crilc", response_model=CrilcReport)

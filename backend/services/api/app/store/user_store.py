@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from app.auth.sod import constraints_for
+# NOTE: ``constraints_for`` is imported lazily inside ``to_record`` (not at module top) to break a
+# circular import — ``app.auth`` eagerly imports ``oidc`` which imports this module, so importing
+# ``app.auth.sod`` here at load time would deadlock when ``user_store`` is the entry point.
 from app.schemas.audit import UserRecord
 from app.schemas.common import Role
 
@@ -119,6 +121,8 @@ class UserStore:
             user.assigned_alerts.add(alert_id)
 
     def to_record(self, user: User) -> UserRecord:
+        from app.auth.sod import constraints_for  # lazy: see module-top note (circular import)
+
         return UserRecord(
             user_id=user.user_id,
             display_name=user.display_name,

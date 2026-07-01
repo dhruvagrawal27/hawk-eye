@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from './rbac'
 import { ROLE_META, type Capability } from './capabilities'
 import type { Role } from '@/lib/types'
@@ -13,9 +13,14 @@ import type { Role } from '@/lib/types'
  */
 export function RoleShell({ roles, capability }: { roles?: Role[]; capability?: Capability }) {
   const { role, can } = useAuth()
+  const location = useLocation()
   if (!role) return <Navigate to="/login" replace />
+  const denied = (roles && !roles.includes(role)) || (capability && !can(capability))
+  if (!denied) return <Outlet />
+  // Bounce the user to their own home. Loop-proofing: if home resolves back to the current path
+  // (a misconfigured defaultRoute that itself is denied), fall back to the always-reachable
+  // Dashboard so a denied route can never infinite-redirect and freeze the app.
   const home = ROLE_META[role]?.defaultRoute ?? '/'
-  if (roles && !roles.includes(role)) return <Navigate to={home} replace />
-  if (capability && !can(capability)) return <Navigate to={home} replace />
-  return <Outlet />
+  const target = home === location.pathname ? '/' : home
+  return <Navigate to={target} replace />
 }

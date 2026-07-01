@@ -48,3 +48,23 @@ class CrilcReport(BaseModel):
     submission_enabled: bool = False
     items: list[CrilcLineItem] = Field(default_factory=list)
     total_exposure_inr: int = 0
+
+
+class CfrLineItem(BaseModel):
+    """One Central Fraud Registry feed entry (synthetic) — confirmed-insider-fraud metadata."""
+
+    cfr_id: str
+    entity_id: str
+    amount_inr: int
+    category: str = Field("others", description="fraud category (aligned with FMR mapping)")
+    reported_ts: str
+
+
+class CfrReport(BaseModel):
+    generated_ts: str
+    submission_enabled: bool = Field(False, description="SCAFFOLD: live CFR channel absent locally")
+    items: list[CfrLineItem] = Field(default_factory=list)
+    count: int = 0
+    dami_summary: dict = Field(
+        default_factory=dict, description="DAMI-unit aggregate analytics over the case population"
+    )

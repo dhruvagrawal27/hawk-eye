@@ -381,7 +381,7 @@ export const ROLE_META: Record<Role, RoleMeta> = {
     line: '2nd',
     dept: 'Risk & Compliance',
     reportsTo: 'executive_director',
-    defaultRoute: '/reports',
+    defaultRoute: '/reporting',
     description: 'Chief Risk Officer: de-identified KRIs, change-controls rules, full audit.',
   },
   chief_internal_auditor: {
@@ -401,7 +401,7 @@ export const ROLE_META: Record<Role, RoleMeta> = {
     line: 'Exec',
     dept: 'Board',
     reportsTo: 'managing_director',
-    defaultRoute: '/reports',
+    defaultRoute: '/reporting',
     description: 'Board oversight: de-identified aggregates and KRIs, full audit. No case PII.',
   },
   managing_director: {
@@ -411,7 +411,7 @@ export const ROLE_META: Record<Role, RoleMeta> = {
     line: 'Exec',
     dept: 'Board',
     reportsTo: null,
-    defaultRoute: '/reports',
+    defaultRoute: '/reporting',
     description: 'Top of chart: de-identified aggregates and KRIs, full audit. No case PII.',
   },
   it_admin: {

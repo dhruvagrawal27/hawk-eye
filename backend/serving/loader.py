@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 
-from serving.registry import REGISTRY, ArtifactMeta, LocalRegistry
+from serving.registry import _HIGH_TIERS, REGISTRY, ArtifactMeta, LocalRegistry
 
 
 class SignatureError(Exception):
@@ -50,6 +50,21 @@ class ModelLoader:
         if meta is None:
             return None
         self._verify(meta)
+        model = LoadedModel(layer=layer, model_id=meta.model_id, version=meta.version, meta=meta)
+        self._loaded[layer] = model
+        return model
+
+    def load_production_with_tier_check(
+        self, layer: str, *, high_tiers: tuple[str, ...] = _HIGH_TIERS
+    ) -> LoadedModel | None:
+        """Tier-aware load (M1.4): HIGH/CRITICAL-tier models MUST be validly signed to serve;
+        MODERATE/LOW-tier models may load unsigned (dev/demo convenience). This lets a demo run the
+        low-risk layers without signing keys while still refusing an unsigned critical scorer."""
+        meta = self.registry.production_for(layer)
+        if meta is None:
+            return None
+        if meta.risk_tier in high_tiers:
+            self._verify(meta)  # raises SignatureError if unsigned/invalid
         model = LoadedModel(layer=layer, model_id=meta.model_id, version=meta.version, meta=meta)
         self._loaded[layer] = model
         return model
