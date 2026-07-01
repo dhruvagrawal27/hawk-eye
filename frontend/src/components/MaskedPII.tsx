@@ -36,7 +36,14 @@ export function MaskedPII({
   const constraint = constraintFor('unmask_pii')
 
   const unmask = useMutation({
-    mutationFn: () => apiClient.unmaskEntity(entityId as string, { alert_id: alertId }),
+    mutationFn: () =>
+      apiClient.unmaskEntity(entityId as string, {
+        // Resolve just the token we're displaying (live backend keys the response by token).
+        tokens: [value],
+        // Case-scoped justification (required for the Relationship Manager; logged for everyone).
+        justification: alertId ? `Case-scoped re-identification for alert ${alertId}` : 'Investigation',
+        alert_id: alertId,
+      }),
     onSuccess: (res) => {
       setRevealed(res)
       toast.success('PII unmasked', {
@@ -47,9 +54,18 @@ export function MaskedPII({
   })
 
   if (revealed) {
+    // Live shape: {mapping:{token→value}}. Resolve the token we're displaying; fall back to the
+    // single mapping entry, then to the legacy single `value`, then to the original token.
+    const mapping = revealed.mapping ?? {}
+    const entries = Object.entries(mapping)
+    const revealedValue =
+      mapping[value] ??
+      (entries.length === 1 ? entries[0][1] : undefined) ??
+      revealed.value ??
+      value
     return (
       <span className={cn('inline-flex items-center gap-1.5', className)}>
-        <span className="font-medium">{revealed.value}</span>
+        <span className="font-medium">{revealedValue}</span>
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="inline-flex items-center gap-0.5 text-tee">

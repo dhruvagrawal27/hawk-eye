@@ -468,20 +468,33 @@ export interface FeedbackResponse {
 }
 
 /* ───────────────────────────── PII unmask [BACKEND.md §3 / Part 25.3] ─────────────────────── */
-/** POST /entities/{id}/unmask — audited re-identification (Senior+). */
+/**
+ * POST /entities/{id}/unmask — audited re-identification (Senior+). Live backend body:
+ * `{ tokens?: string[]; justification?: string }` (empty tokens = resolve all on the entity;
+ * `justification` is required for the Relationship Manager, case-scoped + logged).
+ */
 export interface UnmaskBody {
+  tokens?: string[]
+  justification?: string
+  // [FE-proposed / legacy] retained optionally; the live route reads tokens + justification.
   field?: string
   reason?: string
   alert_id?: AlertId // case-scoped for Analyst
 }
 export interface UnmaskResponse {
   entity_id: EntityId
-  token: string
-  /** The re-identified value from the local vault. */
-  value: string
-  field?: string
-  audited: true
+  /**
+   * Live backend shape: `token → re-identified value` for every token resolved by this call
+   * (empty tokens list = all tokens on the entity). Read this, not a single `value`. Optional so the
+   * older single-value MSW shape still type-checks; consumers must handle either.
+   */
+  mapping?: Record<string, string>
   audit_id: AuditId
+  // [FE-proposed / MSW] legacy single-value fields kept optional for backward compatibility.
+  token?: string
+  value?: string
+  field?: string
+  audited?: boolean
 }
 
 /* ───────────────────────────── Cases [BACKEND.md §3 / Part 24.4 screen 4] ─────────────────── */
@@ -597,6 +610,57 @@ export interface ReportExport {
   download_content?: string
 }
 
+/* ───────────────────────────── Models / drift — LIVE backend shapes ────────────────────────── */
+/**
+ * Raw registry row from the live `GET /models` (serving registry). Note the capitalised `stage`
+ * ("Production" / "Challenger" / "Staging" / "Archived"), the `model_id` (no `id`/`name`/`created_ts`),
+ * and a free-form `metrics` bag whose keys vary by layer (pr_auc, precision_at_k, vus_pr, …).
+ */
+export interface RawModelInfo {
+  model_id: string
+  layer: string
+  version: string
+  stage: string
+  signed: boolean
+  training_data_hash?: string
+  feature_set_version?: string
+  approving_reviewer?: string | null
+  metrics?: Record<string, number> | null
+}
+/** Raw flat `GET /drift` report for one model. */
+export interface RawDriftReport {
+  model_id: string
+  version?: string
+  data_drift_psi: number
+  concept_drift: number
+  drift_crossed: boolean
+  window?: string
+}
+/** Raw flat `GET /metrics/model` quality snapshot for one model. */
+export interface RawModelQuality {
+  model_id: string
+  version?: string
+  pr_auc?: number | null
+  precision_at_k?: number | null
+  alert_to_true_fraud_ratio?: number | null
+  calibration_error?: number | null
+}
+/** Live `POST /models/{id}/promote?version=…` request body. */
+export interface PromoteRequestBody {
+  to_stage: string
+  signoff_by: string
+  canary_percent?: number
+}
+/** Live `POST /models/{id}/promote` result. */
+export interface RawPromoteResult {
+  model_id: string
+  version: string
+  stage: string
+  canary_percent: number
+  signature_verified: boolean
+  audit_id: AuditId
+}
+
 /* ───────────────────────────── Models / drift [BACKEND.md §3 / Part 24.4 screen 7] ────────── */
 /** [FE-proposed] GET /models, POST /models/{id}/promote, GET /drift, GET /metrics/model. */
 export type ModelStage = 'champion' | 'challenger' | 'staging' | 'archived'
@@ -608,6 +672,11 @@ export interface ModelMetrics {
   f1?: number
   fpr?: number
   brier?: number
+  // Additional live-registry metrics (vary by layer); surfaced where a column exists.
+  precision_at_k?: number
+  vus_pr?: number
+  calibration_error?: number
+  alert_to_true_fraud_ratio?: number
 }
 export interface ModelEntry {
   id: string
@@ -659,14 +728,21 @@ export interface AuditEvent {
   audit_id: AuditId
   ts: IsoTimestamp
   actor: string
-  actor_role?: Role
-  action: string // e.g. view_entity, unmask_pii, disposition, close_alert, promote_model
+  actor_role?: Role | string
+  // Live backend uses a dotted vocabulary: alert.view / pii.unmask / alert.disposition /
+  // narrative.generate / model.promote / rule.change_* / admin.user_create / audit.view …
+  action: string
   entity_id?: EntityId | null
   alert_id?: AlertId | null
   target?: string | null
   outcome?: string | null
   src_ip?: string | null
-  detail?: string | null
+  /**
+   * Free-form structured context for the entry. The live `/audit` route returns this as an OBJECT
+   * (e.g. `{ alert_id, outcome, evidence_ids }`), older/[FE-proposed] shapes used a string. Render
+   * defensively — never as a raw React child.
+   */
+  detail?: Record<string, unknown> | string | null
 }
 export interface AuditQuery {
   actor?: string
@@ -708,6 +784,23 @@ export interface HealthResponse {
   version?: string
   services: ServiceHealth[]
   checked_ts: IsoTimestamp
+}
+/**
+ * Raw live `GET /health` — served at the server ROOT (not under `/api/v1`) as a flat status dict.
+ * Adapted (apiClient.getHealth) into the {services[]} render shape the health panel expects.
+ */
+export interface RawHealth {
+  status: string
+  service?: string
+  version?: string
+  env?: string
+  serving_ready?: boolean
+  degraded_l1_only?: boolean
+  mtls_internal?: boolean
+  auth_mode?: string
+  alert_only?: boolean
+  pii?: Record<string, unknown>
+  [k: string]: unknown
 }
 
 /* ───────────────────────────── Reporting / KRIs [Part 24.4 / Part 11 reporting] ───────────── */

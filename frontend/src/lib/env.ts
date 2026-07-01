@@ -14,6 +14,30 @@ function readNumber(value: string | undefined, fallback: number): number {
   return Number.isFinite(n) ? n : fallback
 }
 
+/**
+ * Auth mode selection (Agent 3 — local login without Keycloak):
+ *  - 'mock'  : VITE_USE_MOCKS=true → persona picker, MSW-served tokens, no backend/IdP.
+ *  - 'oidc'  : real Keycloak Authorization-Code + PKCE (signinRedirect).
+ *  - 'local' : backend HAWKEYE_AUTH_MODE=local — username/password POST /auth/login, no IdP.
+ *
+ * Explicit override via VITE_AUTH_MODE ('oidc' | 'local'). When unset we default to 'local'
+ * for a live backend that has no OIDC authority configured (so a deployed URL can log in with
+ * no Keycloak running), and 'oidc' when an authority IS explicitly provided. Mocks always win.
+ */
+function readOidcAuthorityConfigured(): boolean {
+  const a = import.meta.env.VITE_OIDC_AUTHORITY
+  return typeof a === 'string' && a.trim().length > 0
+}
+
+function resolveAuthMode(useMocks: boolean): 'mock' | 'oidc' | 'local' {
+  if (useMocks) return 'mock'
+  const explicit = import.meta.env.VITE_AUTH_MODE
+  if (explicit === 'oidc' || explicit === 'local') return explicit
+  return readOidcAuthorityConfigured() ? 'oidc' : 'local'
+}
+
+const useMocks = readBool(import.meta.env.VITE_USE_MOCKS, false)
+
 /** Resolve a (possibly relative/http) realtime URL to an absolute ws(s):// URL. */
 function resolveWs(value: string | undefined): string {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
@@ -28,7 +52,13 @@ export const env = {
   /** BACKEND REST base, includes `/api/v1` (BACKEND.md §3). */
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1',
   /** When true, MSW serves the typed apiClient against Part 24.5 fixtures (no backend needed). */
-  useMocks: readBool(import.meta.env.VITE_USE_MOCKS, false),
+  useMocks,
+  /**
+   * How the frontend authenticates: 'mock' (persona picker), 'oidc' (Keycloak redirect), or
+   * 'local' (backend username/password). Defaults to 'local' against a live backend with no OIDC
+   * authority configured so the deployed URL can log in without Keycloak. See resolveAuthMode.
+   */
+  authMode: resolveAuthMode(useMocks),
   /** Keycloak 25.x OIDC (FRONTEND-2). */
   oidc: {
     authority: import.meta.env.VITE_OIDC_AUTHORITY ?? 'http://localhost:8080/realms/hawk-eye',

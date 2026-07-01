@@ -6,6 +6,7 @@
  * BACKEND.md lists by family but not by exact sub-path (rules PUT, cases) are flagged in CONTEXT.md
  * (2026-06-30 — [FRONTEND]). They bind to MSW today and to BACKEND when finalised.
  */
+import { env } from './env'
 import { request } from './http'
 import type {
   AdminUser,
@@ -33,9 +34,18 @@ import type {
   HealthResponse,
   KriResponse,
   ModelEntry,
+  ModelMetrics,
   ModelPromoteResponse,
   ModelQualityResponse,
+  ModelStage,
   NarrativeMemo,
+  PromoteRequestBody,
+  RawDriftReport,
+  RawHealth,
+  RawModelInfo,
+  RawModelQuality,
+  RawPromoteResult,
+  ServiceHealth,
   Paginated,
   AttestationDetail,
   PeerComparisonResponse,
@@ -48,6 +58,102 @@ import type {
   UnmaskBody,
   UnmaskResponse,
 } from './types'
+
+/* ──────────────────────────────────────────────────────────────────────────────────────────────
+ * Adapters — normalise the LIVE backend's flat model/drift/health shapes into the render shapes the
+ * components already consume. Each is defensive: a shape surprise degrades one panel, never the app.
+ * ────────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** Live registry `stage` ("Production"/"Challenger"/…) → the UI's champion/challenger/staging/archived. */
+function mapStage(stage: string | undefined): ModelStage {
+  switch ((stage ?? '').toLowerCase()) {
+    case 'production':
+    case 'champion':
+      return 'champion'
+    case 'challenger':
+      return 'challenger'
+    case 'staging':
+      return 'staging'
+    default:
+      return 'archived'
+  }
+}
+
+/** A readable display name from the flat `model_id` (e.g. "l3_lightgbm" → "L3 lightgbm"). */
+function modelDisplayName(modelId: string): string {
+  const s = modelId.replace(/_/g, ' ').trim()
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : modelId
+}
+
+/** Live metrics bag → the typed ModelMetrics the UI knows (extra keys pass through untouched). */
+function adaptMetrics(raw: Record<string, number> | null | undefined): ModelMetrics {
+  return { ...(raw ?? {}) }
+}
+
+/** One live registry row → the ModelEntry the registry table renders. */
+function adaptModel(m: RawModelInfo): ModelEntry {
+  return {
+    id: m.model_id,
+    name: modelDisplayName(m.model_id),
+    layer: m.layer,
+    version: m.version,
+    stage: mapStage(m.stage),
+    signed: Boolean(m.signed),
+    promoted_by: m.approving_reviewer ?? null,
+    // The live registry does not carry a created timestamp; fall back to the version tag.
+    created_ts: m.version,
+    metrics: adaptMetrics(m.metrics),
+    de_identified: true,
+  }
+}
+
+function isRawModelInfo(v: unknown): v is RawModelInfo {
+  return typeof v === 'object' && v !== null && typeof (v as RawModelInfo).model_id === 'string'
+}
+
+/** The live flat `/health` dict has no `services[]` array — the render-shape one does. */
+function isRenderHealth(v: unknown): v is HealthResponse {
+  return typeof v === 'object' && v !== null && Array.isArray((v as HealthResponse).services)
+}
+
+/** Flat live `/health` dict → the {status, services[], checked_ts} shape the panel renders. */
+function adaptHealth(raw: RawHealth): HealthResponse {
+  const overall: HealthResponse['status'] =
+    raw.status === 'ok' && raw.serving_ready !== false
+      ? raw.degraded_l1_only
+        ? 'degraded'
+        : 'ok'
+      : raw.serving_ready === false
+        ? 'down'
+        : 'degraded'
+
+  const services: ServiceHealth[] = [
+    {
+      name: raw.service ?? 'hawk-eye-api',
+      status: raw.serving_ready === false ? 'down' : 'ok',
+      detail: raw.env ? `env: ${raw.env}` : undefined,
+    },
+    {
+      name: 'Scoring pipeline (L1–L6)',
+      status: raw.degraded_l1_only ? 'degraded' : raw.serving_ready === false ? 'down' : 'ok',
+      detail: raw.degraded_l1_only
+        ? 'Degraded — L1 rules only (ML layers unavailable)'
+        : 'All layers serving',
+    },
+    {
+      name: 'Internal mTLS',
+      status: raw.mtls_internal ? 'ok' : 'degraded',
+      detail: raw.mtls_internal ? 'Mutual TLS enforced' : 'mTLS not enforced',
+    },
+    {
+      name: 'Authentication',
+      status: 'ok',
+      detail: raw.auth_mode ? `mode: ${raw.auth_mode}` : undefined,
+    },
+  ]
+
+  return { status: overall, version: raw.version, services, checked_ts: new Date().toISOString() }
+}
 
 export const apiClient = {
   /* ── Auth (BACKEND.md §3 public) ───────────────────────────────────────── */
@@ -112,9 +218,22 @@ export const apiClient = {
   ): Promise<GraphOverviewResponse> {
     return request('/graph', { query: { min_score: opts.minScore, limit: opts.limit } })
   },
-  /** Audited re-identification (Part 25.3). Server logs it; UI surfaces the audit_id. */
-  unmaskEntity(id: string, body: UnmaskBody = {}): Promise<UnmaskResponse> {
-    return request(`/entities/${encodeURIComponent(id)}/unmask`, { method: 'POST', body })
+  /**
+   * Audited re-identification (Part 25.3). Server logs it; UI surfaces the audit_id. The live
+   * response is `{entity_id, mapping:{token→value}, audit_id}`; older/MSW shape is a single `value`.
+   * Normalise so `mapping` is always populated for consumers.
+   */
+  async unmaskEntity(id: string, body: UnmaskBody = {}): Promise<UnmaskResponse> {
+    const res = await request<UnmaskResponse>(`/entities/${encodeURIComponent(id)}/unmask`, {
+      method: 'POST',
+      body,
+    })
+    if (res.mapping && Object.keys(res.mapping).length > 0) return res
+    // Fold a legacy single-value response into the mapping shape (keyed by its token / entity id).
+    if (res.value != null) {
+      return { ...res, mapping: { [res.token ?? res.entity_id]: res.value } }
+    }
+    return { ...res, mapping: res.mapping ?? {} }
   },
 
   /* ── Explanation + narrative ───────────────────────────────────────────── */
@@ -153,17 +272,80 @@ export const apiClient = {
   },
 
   /* ── Models / drift / quality (de-identified) ──────────────────────────── */
-  listModels(): Promise<ModelEntry[]> {
-    return request('/models')
+  async listModels(): Promise<ModelEntry[]> {
+    // Live `/models` returns raw registry rows ({model_id, stage:"Production", metrics:{…}}); MSW
+    // returns the FE render shape already. Adapt raw rows, pass render rows through unchanged.
+    const rows = await request<unknown>('/models')
+    if (!Array.isArray(rows)) return []
+    return rows.map((r) => (isRawModelInfo(r) ? adaptModel(r) : (r as ModelEntry)))
   },
-  promoteModel(id: string): Promise<ModelPromoteResponse> {
-    return request(`/models/${encodeURIComponent(id)}/promote`, { method: 'POST', body: {} })
+  /**
+   * Promote a model artifact. The live route is
+   * `POST /models/{id}/promote?version=…` with body `{to_stage, signoff_by, canary_percent?}` —
+   * SoD requires `signoff_by ≠ requester`. Returns a normalised {model_id, stage, requires_signoff}.
+   */
+  async promoteModel(
+    id: string,
+    opts: { version: string; toStage?: string; signoffBy: string; canaryPercent?: number },
+  ): Promise<ModelPromoteResponse> {
+    const body: PromoteRequestBody = {
+      to_stage: opts.toStage ?? 'Production',
+      signoff_by: opts.signoffBy,
+      canary_percent: opts.canaryPercent,
+    }
+    const res = await request<RawPromoteResult>(`/models/${encodeURIComponent(id)}/promote`, {
+      method: 'POST',
+      query: { version: opts.version },
+      body,
+    })
+    return {
+      model_id: res.model_id,
+      stage: mapStage(res.stage),
+      requires_signoff: true,
+      audit_id: res.audit_id,
+    }
   },
-  getDrift(): Promise<DriftResponse> {
-    return request('/drift')
+  async getDrift(): Promise<DriftResponse> {
+    // Live `/drift` is a flat single-model report; MSW serves the multi-series render shape.
+    const raw = await request<RawDriftReport | DriftResponse>('/drift')
+    if (raw && Array.isArray((raw as DriftResponse).series)) return raw as DriftResponse
+    const d = raw as RawDriftReport
+    const status = d.drift_crossed ? 'drifting' : d.data_drift_psi >= 0.1 ? 'warning' : 'ok'
+    const now = new Date().toISOString()
+    return {
+      generated_ts: now,
+      series: [
+        {
+          model_id: d.model_id,
+          feature: 'population_stability',
+          metric: 'psi',
+          status,
+          points: [{ ts: now, value: d.data_drift_psi, threshold: 0.2 }],
+        },
+        {
+          model_id: d.model_id,
+          feature: 'concept_drift',
+          metric: 'js',
+          status: d.drift_crossed ? 'drifting' : d.concept_drift >= 0.1 ? 'warning' : 'ok',
+          points: [{ ts: now, value: d.concept_drift, threshold: 0.1 }],
+        },
+      ],
+    }
   },
-  getModelMetrics(): Promise<ModelQualityResponse> {
-    return request('/metrics/model')
+  async getModelMetrics(): Promise<ModelQualityResponse> {
+    // Live `/metrics/model` is a flat single-model snapshot; MSW serves the multi-row render shape.
+    const raw = await request<RawModelQuality | ModelQualityResponse>('/metrics/model')
+    if (raw && Array.isArray((raw as ModelQualityResponse).models)) {
+      return raw as ModelQualityResponse
+    }
+    const q = raw as RawModelQuality
+    const metrics: ModelMetrics = {}
+    if (q.pr_auc != null) metrics.pr_auc = q.pr_auc
+    if (q.precision_at_k != null) metrics.precision_at_k = q.precision_at_k
+    if (q.calibration_error != null) metrics.calibration_error = q.calibration_error
+    if (q.alert_to_true_fraud_ratio != null)
+      metrics.alert_to_true_fraud_ratio = q.alert_to_true_fraud_ratio
+    return { models: [{ model_id: q.model_id, metrics }] }
   },
 
   /* ── Regulatory exports + coverage + KRIs ──────────────────────────────── */
@@ -206,8 +388,14 @@ export const apiClient = {
   },
 
   /* ── Health / metrics ──────────────────────────────────────────────────── */
-  getHealth(): Promise<HealthResponse> {
-    return request('/health')
+  async getHealth(): Promise<HealthResponse> {
+    // The live backend serves `/health` at the server ROOT (a flat status dict), NOT under the
+    // `/api/v1` base — hitting `/api/v1/health` 404s. Bypass the base against a real backend; under
+    // MSW keep the base path so the mock (registered at `${base}/health`) still intercepts.
+    const raw = await request<RawHealth | HealthResponse>('/health', {
+      rootPath: !env.useMocks,
+    })
+    return isRenderHealth(raw) ? raw : adaptHealth(raw)
   },
   getMetrics(): Promise<string> {
     return request('/metrics', { responseType: 'text' })

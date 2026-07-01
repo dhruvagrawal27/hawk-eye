@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     # local; postgresql://… = Postgres (psycopg). Empty keeps the current in-memory behaviour.
     db_url: str = Field("", alias="HAWKEYE_DB_URL")
     clickhouse_url: str = Field("http://localhost:8123", alias="HAWKEYE_CLICKHOUSE_URL")
+    # When 1, the online stream persists scored events to ClickHouse (durable score-history);
+    # otherwise score-history is in-memory only. Guarded — CH being down never breaks scoring.
+    clickhouse_enabled: bool = Field(False, alias="HAWKEYE_CLICKHOUSE_ENABLED")
     postgres_dsn: str = Field(
         "postgresql://hawkeye:hawkeye@localhost:5432/hawkeye", alias="HAWKEYE_POSTGRES_DSN"
     )

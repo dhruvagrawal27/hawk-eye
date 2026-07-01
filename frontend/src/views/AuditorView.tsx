@@ -32,18 +32,28 @@ import {
 } from '@/components/ui/select'
 import type { AuditQuery } from '@/lib/types'
 
+// Live backend dotted action vocabulary (GET /api/v1/audit). Values are the exact `action` strings
+// the audit route filters on.
 const ACTION_FILTERS: { value: string; label: string }[] = [
   { value: 'all', label: 'All actions' },
-  { value: 'view_entity', label: 'Viewed employee (entity-360)' },
-  { value: 'unmask_pii', label: 'Unmasked PII' },
-  { value: 'disposition', label: 'Dispositioned alert' },
-  { value: 'close_alert', label: 'Closed alert' },
-  { value: 'assign', label: 'Assigned alert' },
-  { value: 'block_request', label: 'Requested block' },
-  { value: 'promote_model', label: 'Promoted model' },
-  { value: 'rule_change_proposed', label: 'Proposed rule change' },
-  { value: 'create_user', label: 'Provisioned user' },
-  { value: 'view_audit', label: 'Viewed audit log' },
+  { value: 'entity.view', label: 'Viewed employee (entity-360)' },
+  { value: 'alert.view', label: 'Viewed alert' },
+  { value: 'pii.unmask', label: 'Unmasked PII' },
+  { value: 'alert.disposition', label: 'Dispositioned alert' },
+  { value: 'alert.assign', label: 'Assigned alert' },
+  { value: 'alert.block_request', label: 'Requested block' },
+  { value: 'alert.block_approved', label: 'Approved block' },
+  { value: 'narrative.generate', label: 'Generated narrative' },
+  { value: 'explanation.view', label: 'Viewed explanation' },
+  { value: 'feedback.submit', label: 'Submitted feedback' },
+  { value: 'model.promote', label: 'Promoted model' },
+  { value: 'rule.change_proposed', label: 'Proposed rule change' },
+  { value: 'rule.change_approved', label: 'Approved rule change' },
+  { value: 'rule.change_rejected', label: 'Rejected rule change' },
+  { value: 'report.fmr', label: 'Exported FMR report' },
+  { value: 'report.crilc', label: 'Exported CRILC report' },
+  { value: 'admin.user_create', label: 'Provisioned user' },
+  { value: 'audit.view', label: 'Viewed audit log' },
 ]
 
 interface DraftFilters {
@@ -90,9 +100,15 @@ export function AuditorView() {
     let unmasks = 0
     let decisions = 0
     for (const e of events) {
-      if (e.action === 'view_entity') views += 1
-      else if (e.action === 'unmask_pii') unmasks += 1
-      else if (e.action === 'disposition' || e.action === 'close_alert' || e.action === 'close')
+      if (e.action === 'entity.view' || e.action === 'alert.view' || e.action === 'view_entity')
+        views += 1
+      else if (e.action === 'pii.unmask' || e.action === 'unmask_pii') unmasks += 1
+      else if (
+        e.action === 'alert.disposition' ||
+        e.action === 'disposition' ||
+        e.action === 'close_alert' ||
+        e.action === 'close'
+      )
         decisions += 1
     }
     return { views, unmasks, decisions }

@@ -16,6 +16,7 @@ import logging
 
 from app.config import settings
 from app.pipeline.online import ONLINE
+from app.store.score_history import SCORE_HISTORY
 from app.stream.generator import alert_json, make_event, make_tick
 from app.stream.manager import ConnectionManager
 
@@ -71,7 +72,16 @@ class StreamEngine:
         except Exception:  # noqa: BLE001 - scoring must never kill the stream
             alert = None
         self.events += 1
-        await self.manager.broadcast(make_tick(event, alert))
+        tick = make_tick(event, alert)
+        # persist the scored point to the score-history store (ClickHouse when enabled, else memory)
+        try:
+            SCORE_HISTORY.record(
+                tick["employee_id"], tick["ts"], int(tick["score"]),
+                event_id=str(event.get("event_id", "")), note=str(tick.get("top_signal") or ""),
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        await self.manager.broadcast(tick)
         if alert is not None:
             self.alerts += 1
             await self.manager.broadcast({"type": "alert.new", "alert": alert_json(alert)})

@@ -3,7 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Eye, Fingerprint, KeyRound, Loader2, ShieldCheck } from 'lucide-react'
 import { useAuth } from './rbac'
 import { HUMAN_ROLES, ROLE_META } from './capabilities'
+import { LOCAL_PASSWORD, LOCAL_PERSONAS } from './localAuth'
 import type { Role } from '@/lib/types'
+import { env } from '@/lib/env'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/cn'
@@ -19,7 +21,9 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [pending, setPending] = useState<Role | 'oidc' | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
+  const isLocal = env.authMode === 'local'
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
 
   useEffect(() => {
@@ -30,8 +34,11 @@ export function LoginPage() {
 
   const signIn = async (r?: Role) => {
     setPending(r ?? 'oidc')
+    setError(null)
     try {
       await login(r)
+    } catch {
+      setError('Sign-in failed. Check that the backend is running and try again.')
     } finally {
       setPending(null)
     }
@@ -97,18 +104,69 @@ export function LoginPage() {
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Sign in</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Authenticate via your bank SSO. Multi-factor is enforced by the identity provider.
+              {isLocal
+                ? 'Local sign-in — pick a persona to authenticate against the backend directory.'
+                : 'Authenticate via your bank SSO. Multi-factor is enforced by the identity provider.'}
             </p>
           </div>
 
-          <Button className="w-full" size="lg" onClick={() => signIn()} disabled={pending !== null}>
-            {pending === 'oidc' ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <KeyRound className="size-4" />
-            )}
-            Sign in with Keycloak (OIDC)
-          </Button>
+          {!isLocal ? (
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => signIn()}
+              disabled={pending !== null}
+            >
+              {pending === 'oidc' ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <KeyRound className="size-4" />
+              )}
+              Sign in with Keycloak (OIDC)
+            </Button>
+          ) : null}
+
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          {isLocal ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {LOCAL_PERSONAS.map((p) => (
+                  <Card
+                    key={p.role}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => signIn(p.role)}
+                    onKeyDown={(e) =>
+                      (e.key === 'Enter' || e.key === ' ') && signIn(p.role)
+                    }
+                    className={cn(
+                      'cursor-pointer p-3 transition-colors hover:border-primary/60 hover:bg-accent focus-ring',
+                      pending === p.role && 'border-primary',
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{ROLE_META[p.role].short}</span>
+                      {pending === p.role ? (
+                        <Loader2 className="size-3.5 animate-spin text-primary" />
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 text-[0.7rem] text-muted-foreground">
+                      {p.name} · {p.username}
+                    </p>
+                  </Card>
+                ))}
+              </div>
+              <p className="text-center text-xs text-muted-foreground">
+                Local auth mode — POSTs {`{username, password: "${LOCAL_PASSWORD}"}`} to the
+                backend. No Keycloak required.
+              </p>
+            </div>
+          ) : null}
 
           {isMock ? (
             <div className="space-y-3">

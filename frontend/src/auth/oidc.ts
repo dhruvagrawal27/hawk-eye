@@ -79,7 +79,7 @@ export async function signoutRedirect(): Promise<void> {
  * Keys are the bank org-chart role identities plus IdP synonyms AND the legacy console role names
  * (old → new per docs/BANK_ROLES.md), so existing realms/tests stay green during the migration.
  */
-const ROLE_CLAIM_MAP: Record<string, Role> = {
+export const ROLE_CLAIM_MAP: Record<string, Role> = {
   // ── bank org-chart roles (identity) + synonyms ──
   relationship_manager: 'relationship_manager',
   rm: 'relationship_manager',

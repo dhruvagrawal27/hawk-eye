@@ -13,6 +13,7 @@ _RFA_TRIGGER_CODES = {
     "SWIFT_CBS_MISMATCH",
     "DB_WRITE_WITHOUT_APP_TXN",
     "ENTITLEMENT_SELF_GRANT",
+    "SUSPENSE_NOSTRO_LAPPING",
 }
 
 RFA_EXPOSURE_INR = 50_00_000  # ₹50 lakh — escalate to RFA on material exposure

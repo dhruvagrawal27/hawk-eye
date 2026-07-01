@@ -25,16 +25,47 @@ import {
 } from '@/components/ui/table'
 import type { AuditEvent } from '@/lib/types'
 
+// Live backend uses a dotted action vocabulary (alert.view / pii.unmask / alert.disposition …).
+// Legacy underscore names are kept so MSW / older fixtures still classify correctly.
 /** Actions that record who looked at a person — the privacy-sensitive reads. */
-const VIEW_ACTIONS = new Set(['view_entity', 'unmask_pii'])
+const VIEW_ACTIONS = new Set(['entity.view', 'alert.view', 'pii.unmask', 'view_entity', 'unmask_pii'])
 /** Actions that record who decided a case — the accountability-critical writes. */
 const DECISION_ACTIONS = new Set([
+  'alert.disposition',
+  'alert.block_request',
+  'alert.block_approved',
+  'model.promote',
+  'rule.change_approved',
+  'rule.change_proposed',
+  'rule.change_rejected',
+  // legacy
   'disposition',
   'close_alert',
   'close',
   'block_request',
   'promote_model',
 ])
+
+const UNMASK_ACTIONS = new Set(['pii.unmask', 'unmask_pii'])
+
+/**
+ * Render the audit `detail` safely. The live backend sends it as an OBJECT (e.g.
+ * `{alert_id, outcome, evidence_ids}`); a raw object as a React child throws
+ * "Objects are not valid as a React child". Flatten to a compact `key: value` string.
+ */
+function formatDetail(detail: AuditEvent['detail']): string {
+  if (detail == null) return ''
+  if (typeof detail === 'string') return detail
+  if (typeof detail !== 'object') return String(detail)
+  try {
+    const parts = Object.entries(detail)
+      .filter(([, v]) => v != null && !(Array.isArray(v) && v.length === 0))
+      .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
+    return parts.length > 0 ? parts.join(' · ') : ''
+  } catch {
+    return ''
+  }
+}
 
 type ActionKind = 'view' | 'decision' | 'other'
 
@@ -46,7 +77,7 @@ function actionKind(action: string): ActionKind {
 
 function ActionCell({ action }: { action: string }) {
   const kind = actionKind(action)
-  const isUnmask = action === 'unmask_pii'
+  const isUnmask = UNMASK_ACTIONS.has(action)
   const Icon = isUnmask
     ? ShieldOff
     : kind === 'view'
@@ -65,13 +96,22 @@ function ActionCell({ action }: { action: string }) {
   return (
     <span className={cn('inline-flex items-center gap-1.5 font-medium', tone)}>
       <Icon className="size-3.5 shrink-0" />
-      {humanize(action)}
+      {humanize(action.replace(/\./g, ' '))}
     </span>
   )
 }
 
 function AuditRow({ ev }: { ev: AuditEvent }) {
   const kind = actionKind(ev.action)
+  const detailObj =
+    ev.detail && typeof ev.detail === 'object' ? (ev.detail as Record<string, unknown>) : undefined
+  // The live backend nests alert_id / outcome inside `detail`; fall back to those when the
+  // top-level fields are absent (older shapes carried them at the top level).
+  const alertId =
+    ev.alert_id ?? (typeof detailObj?.alert_id === 'string' ? detailObj.alert_id : undefined)
+  const outcome =
+    ev.outcome ?? (typeof detailObj?.outcome === 'string' ? detailObj.outcome : undefined)
+  const detailText = formatDetail(ev.detail)
   return (
     <TableRow
       className={cn(
@@ -107,28 +147,32 @@ function AuditRow({ ev }: { ev: AuditEvent }) {
         )}
       </TableCell>
       <TableCell className="font-mono text-xs">
-        {ev.alert_id ? (
-          <span className="text-muted-foreground">{ev.alert_id}</span>
+        {alertId ? (
+          <span className="text-muted-foreground">{alertId}</span>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
       <TableCell>
-        {ev.outcome ? (
+        {outcome ? (
           <Badge variant="outline" className="font-normal">
-            {humanize(ev.outcome)}
+            {humanize(outcome)}
           </Badge>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </TableCell>
       <TableCell className="max-w-[18rem]">
-        {ev.detail ? (
+        {detailText ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="block truncate text-xs text-muted-foreground">{ev.detail}</span>
+              <span className="block truncate text-xs text-muted-foreground">{detailText}</span>
             </TooltipTrigger>
-            <TooltipContent>{ev.detail}</TooltipContent>
+            <TooltipContent>
+              <span className="block max-w-[24rem] whitespace-pre-wrap break-words">
+                {detailText}
+              </span>
+            </TooltipContent>
           </Tooltip>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>

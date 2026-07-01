@@ -126,3 +126,33 @@ rules:
     description: No-leave-streak proxy combined with continued sensitive access.
     params:
       no_leave_days_threshold: 365
+
+  # --- Treasury / suspense lapping (M1.1) ---
+  - code: SUSPENSE_NOSTRO_LAPPING
+    name: Suspense/nostro lapping (same operator posts & reconciles)
+    enabled: true
+    severity: high
+    hard_hit: true
+    version: "1.0.0"
+    description: >-
+      Same operator posts a suspense/nostro item and later reconciles it, with the item
+      aged past the threshold (teeming-and-lapping). Consumes the suspense_nostro_aging feature.
+    params:
+      aging_days_threshold: 1
+      post_verbs: [suspense_post, nostro_post]
+      recon_verbs: [reconcile]
+
+  # --- DBA/sysadmin god-mode concealment (M1.2) ---
+  - code: AUDIT_CONFIG_TAMPERING
+    name: Audit-log / logging-config tampering
+    enabled: true
+    severity: high
+    hard_hit: false
+    version: "1.0.0"
+    description: >-
+      Audit-config change / logging disablement by a privileged or off-hours actor — a
+      concealment signal. Contributes to L6 fusion (not a hard short-circuit).
+    params:
+      tampering_count_min: 1
+      decay_hours: 24
+      sensitive_verbs: [audit_config_change, disable_logging, modify_audit, clear_log]
