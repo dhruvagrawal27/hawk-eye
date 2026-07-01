@@ -87,15 +87,19 @@ class StreamEngine:
             await self.manager.broadcast({"type": "alert.new", "alert": alert_json(alert)})
 
     async def _inprocess_loop(self) -> None:
-        # Floor 0.005s ⇒ up to ~200 eps; default rate is 50 eps (HAWKEYE_STREAM_RATE).
-        delay = max(0.005, 1.0 / max(0.5, settings.stream_rate))
+        # Floor 0.005s ⇒ up to ~200 eps; default rate is 50 eps (HAWKEYE_STREAM_RATE). The base delay
+        # is jittered per tick so the live EPS reads as a natural rate (~45–55 around 50) rather than
+        # a suspicious flat 50.0.
+        import random
+
+        base = max(0.005, 1.0 / max(0.5, settings.stream_rate))
         try:
             while self.manager.count > 0:
                 hot = self._burst > 0
                 if hot:
                     self._burst -= 1
                 await self._score_and_broadcast(make_event(hot))
-                await asyncio.sleep(delay)
+                await asyncio.sleep(max(0.005, base * random.uniform(0.83, 1.22)))
         except asyncio.CancelledError:
             pass
 
