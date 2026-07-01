@@ -254,6 +254,58 @@ function DistTooltip({ dim, stats }: { dim: PeerDimension; stats: DimStats }) {
   )
 }
 
+/* ── One plain-English sentence a non-analyst can read (no σ / percentile jargon) ── */
+function PlainReadout({ dim }: { dim: PeerDimension }) {
+  const stats = deriveStats(dim)
+  const d = dim.peer_distribution
+  const higherRiskier = dim.direction !== 'lower_is_riskier'
+  const n = d.samples?.length ?? null
+  const val = formatValue(dim.actor_value, dim.unit)
+  const median = formatValue(d.median, dim.unit)
+
+  // "higher/lower than X% of peers", stated in the risk-relevant direction.
+  const pct = stats.percentile != null ? Math.round(stats.percentile * 100) : null
+  const compare =
+    pct != null
+      ? higherRiskier
+        ? `higher than ${pct}% of ${n ?? ''} peers`.replace(/\s+/g, ' ')
+        : `lower than ${100 - pct}% of ${n ?? ''} peers`.replace(/\s+/g, ' ')
+      : dim.actor_value >= d.median
+        ? `above the peer median of ${median}`
+        : `below the peer median of ${median}`
+
+  const risky = stats.beyondRiskyTail || (stats.zScore != null && Math.abs(stats.zScore) >= 2)
+  const watch = !risky && (stats.outsideIqr || (stats.zScore != null && Math.abs(stats.zScore) >= 1))
+
+  const label = (dim.label || dim.key).toLowerCase()
+  let sentence: string
+  let tone: 'risky' | 'watch' | 'normal'
+  if (risky) {
+    tone = 'risky'
+    sentence = `This actor's ${label} is ${val} — ${compare}. That sits well outside the normal range for this cohort, in the direction that signals risk${dim.flagged ? ', which is why it is flagged' : ''}.`
+  } else if (watch) {
+    tone = 'watch'
+    sentence = `This actor's ${label} is ${val} — ${compare}. That is toward the edge of the normal range; worth a look but not extreme on its own.`
+  } else {
+    tone = 'normal'
+    sentence = `This actor's ${label} is ${val} — ${compare}, well within the normal range for this cohort. No concern on this dimension.`
+  }
+
+  const cls =
+    tone === 'risky'
+      ? 'border-severity-high/40 bg-severity-high/5 text-foreground'
+      : tone === 'watch'
+        ? 'border-severity-medium/40 bg-severity-medium/5 text-foreground'
+        : 'border-border bg-muted/40 text-muted-foreground'
+
+  return (
+    <p className={cn('rounded-md border px-3 py-2 text-xs leading-relaxed', cls)}>
+      <span className="font-medium">In plain terms: </span>
+      {sentence}
+    </p>
+  )
+}
+
 /* ── A small read of how the actor compares, in plain language ──────────────── */
 function ComparisonVerdict({ dim }: { dim: PeerDimension }) {
   const stats = deriveStats(dim)
@@ -516,7 +568,8 @@ export function PeerComparison({ entityId }: { entityId: string }) {
                 <p className="text-xs text-muted-foreground">{active.description}</p>
               ) : null}
 
-              {/* The distribution chart. */}
+              {/* Plain-language read first, then the chart, then the numeric verdict. */}
+              <PlainReadout dim={active} />
               <PeerComparisonLegend />
               <DimensionChart dim={active} />
               <ComparisonVerdict dim={active} />
@@ -551,22 +604,30 @@ export function PeerComparison({ entityId }: { entityId: string }) {
 function PeerComparisonLegend() {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.7rem] text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-3 w-5 rounded-sm border border-muted-foreground/50 bg-muted-foreground/15" />
-        Peer IQR (p25–p75)
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-3 w-0.5 bg-primary" />
-        Peer median
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="size-2 rounded-full bg-muted-foreground/45" />
-        Peer sample
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-3 w-0.5 bg-severity-critical" />
-        Actor value
-      </span>
+      <InfoTip label="The middle 50% of peers — half of the cohort sits inside this shaded band. Being outside it is unusual.">
+        <span className="inline-flex cursor-help items-center gap-1.5">
+          <span className="h-3 w-5 rounded-sm border border-muted-foreground/50 bg-muted-foreground/15" />
+          Typical range (middle 50% of peers)
+        </span>
+      </InfoTip>
+      <InfoTip label="The typical peer — half of the cohort is above this value, half below.">
+        <span className="inline-flex cursor-help items-center gap-1.5">
+          <span className="h-3 w-0.5 bg-primary" />
+          Peer median (the typical peer)
+        </span>
+      </InfoTip>
+      <InfoTip label="Each dot is one real peer's value, so you can see how the cohort is spread out.">
+        <span className="inline-flex cursor-help items-center gap-1.5">
+          <span className="size-2 rounded-full bg-muted-foreground/45" />
+          Each peer
+        </span>
+      </InfoTip>
+      <InfoTip label="Where THIS actor lands. Red = past the risky edge of the cohort; green = within the normal spread.">
+        <span className="inline-flex cursor-help items-center gap-1.5">
+          <span className="h-3 w-0.5 bg-severity-critical" />
+          This actor
+        </span>
+      </InfoTip>
     </div>
   )
 }
