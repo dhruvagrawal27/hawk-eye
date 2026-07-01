@@ -40,6 +40,7 @@ import {
   familyForEvent,
 } from '@/components/TimelineEvent'
 import { ActivityHeatmap, type ActivityPoint } from '@/components/ActivityHeatmap'
+import { LayerScoreTimeline } from '@/components/LayerScoreTimeline'
 import type { EntityProfile, EventFamily, TimelineEntry } from '@/lib/types'
 
 type FamilyFilter = Record<EventFamily, boolean>
@@ -239,6 +240,9 @@ export function Entity360Timeline({ entityId, alertId }: { entityId: string; ale
       </QueryBoundary>
 
       {activityPoints.length > 0 ? <ActivityHeatmap points={activityPoints} /> : null}
+
+      {/* Per-layer score timeline — which detection layer saw it first, decomposed over time. */}
+      <LayerScoreTimeline entityId={entityId} />
 
       <Card>
         <CardHeader className="gap-3 pb-3">

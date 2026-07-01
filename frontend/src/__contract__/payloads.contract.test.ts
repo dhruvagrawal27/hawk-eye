@@ -67,6 +67,27 @@ describe('explanations + narrative (Part 11 / Part 25)', () => {
     expect(exp.attention[0]?.model).toBe('LAXCAT')
     expect(exp.graph?.ring_id).toBe('RNG-12')
     expect(exp.graph?.explainer_model).toBe('GNNExplainer')
+    // structured subgraph is drawable (inline mini-graph): >=2 nodes and edges reference them
+    expect((exp.graph?.nodes.length ?? 0)).toBeGreaterThanOrEqual(2)
+    const ids = new Set(exp.graph?.nodes.map((n) => n.id))
+    for (const e of exp.graph?.edges ?? []) {
+      expect(ids.has(e.source) && ids.has(e.target)).toBe(true)
+    }
+  })
+
+  it('exposes a per-layer score timeline (deferred polish)', async () => {
+    const ls = await apiClient.getLayerScores('EMP-7f3a')
+    expect(ls.threshold_score).toBe(70)
+    const layers = ls.series.map((s) => s.layer)
+    expect(layers).toContain('L3_gbdt')
+    expect(layers).toContain('L6_fusion')
+    for (const s of ls.series) {
+      expect(s.points.length).toBeGreaterThan(1)
+      for (const p of s.points) {
+        expect(p.score).toBeGreaterThanOrEqual(0)
+        expect(p.score).toBeLessThanOrEqual(100)
+      }
+    }
   })
 
   it('exposes fraud-typology prevalence + confirmed-rate (Phase 5)', async () => {

@@ -30,4 +30,5 @@ export const queryKeys = {
   case: (id: string) => ['case', id] as const,
   subThreshold: (limit = 20) => ['activity', 'sub-threshold', limit] as const,
   typologyAnalytics: () => ['analytics', 'typologies'] as const,
+  layerScores: (id: string) => ['entity', id, 'layer-scores'] as const,
 } as const

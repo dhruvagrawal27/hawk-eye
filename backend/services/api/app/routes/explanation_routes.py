@@ -19,6 +19,9 @@ from app.schemas.explanations import (
     AttentionVariable,
     Explanation,
     FusionBreakdown,
+    GraphEvidence,
+    GraphEvidenceEdge,
+    GraphEvidenceNode,
     ModelLineageEntry,
     RuleProvenance,
     ShapFeature,
@@ -60,6 +63,42 @@ def _attention_variables(verb: str, weight: float, has_amount: bool) -> list[Att
         AttentionVariable(name="off_hours", weight=clamp(0.5 + weight * 0.45 if has_amount else 0.1)),
         AttentionVariable(name="velocity_1h", weight=clamp(0.2 + weight * 0.55)),
     ]
+
+
+def _graph_evidence_struct(alert, graph_evidence: list[str]) -> GraphEvidence | None:
+    """Structured L5 subgraph for the inline mini-graph — built from the entity graph store (the same
+    nodes/edges the Cytoscape canvas uses), so the explanation panel can *draw* the ring rather than
+    describe it in text. Node importance ~ node risk; edge importance ~ edge weight (GNNExplainer
+    attribution proxy). Falls back to None when the entity has no stored subgraph."""
+    eg = ENTITIES.get_graph(alert.entity_id)
+    if eg is None or not eg.nodes:
+        return None
+    nodes = [
+        GraphEvidenceNode(
+            id=n.id,
+            label=n.label or n.id,
+            type=n.kind,
+            importance=round((n.risk or 0) / 100.0, 4) if n.risk is not None else 0.5,
+        )
+        for n in eg.nodes
+    ]
+    edges = [
+        GraphEvidenceEdge(
+            source=e.source, target=e.target, type=e.kind, importance=round(float(e.weight), 4)
+        )
+        for e in eg.edges
+    ]
+    summary = graph_evidence[0] if graph_evidence else (
+        f"Isolated maker-checker subgraph around {alert.entity_id}"
+        + (f" (ring {eg.ring_id})" if eg.ring_id else "")
+    )
+    return GraphEvidence(
+        ring_id=eg.ring_id,
+        summary=summary,
+        explainer_model="GNNExplainer",
+        nodes=nodes,
+        edges=edges,
+    )
 
 
 def _model_lineage(alert) -> list[ModelLineageEntry]:
@@ -213,6 +252,7 @@ def get_explanation(
         rule_provenance=provenance,
         sequence_attention=attention,
         graph_evidence=graph_evidence,
+        graph=_graph_evidence_struct(alert, graph_evidence),
         reason_codes=alert.reason_codes,
         fusion=_fusion_for(alert),
         model_lineage=_model_lineage(alert),

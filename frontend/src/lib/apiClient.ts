@@ -11,6 +11,7 @@ import { request } from './http'
 import type {
   AdminUser,
   Alert,
+  LayerScoresResponse,
   SubThresholdResponse,
   TypologyAnalyticsResponse,
   AlertQuery,
@@ -290,6 +291,10 @@ export const apiClient = {
   /** Fraud-typology prevalence + confirmed-rate + exposure (management analytics). */
   getTypologyAnalytics(): Promise<TypologyAnalyticsResponse> {
     return request('/analytics/typologies')
+  },
+  /** Per-layer score timeline for an entity — one series per detection layer (hawkeye.scores). */
+  getLayerScores(entityId: string): Promise<LayerScoresResponse> {
+    return request(`/entities/${encodeURIComponent(entityId)}/layer-scores`)
   },
   /** Downloadable, audit-grade explainability report for one alert (SAR/FMR evidence pack). */
   getExplanationReport(alertId: string): Promise<Record<string, unknown>> {

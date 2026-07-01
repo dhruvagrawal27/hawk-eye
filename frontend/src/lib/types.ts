@@ -373,6 +373,24 @@ export interface ScoreHistoryResponse {
   threshold_score?: number
 }
 
+/* ───────────────────────────── Per-layer score timeline [GET /entities/{id}/layer-scores] ────── */
+/** One series per detection layer over time (mirrors ClickHouse hawkeye.scores). */
+export interface LayerScorePoint {
+  ts: IsoTimestamp
+  score: number // 0–100
+}
+export interface LayerScoreSeries {
+  layer: string // L2_unsupervised | L3_gbdt | L4_sequence | L5_graph | L6_fusion
+  label: string
+  model_version?: string
+  points: LayerScorePoint[]
+}
+export interface LayerScoresResponse {
+  entity_id: EntityId
+  threshold_score: number
+  series: LayerScoreSeries[]
+}
+
 /* ───────────────────────────── TEE attestation detail [FE-proposed: GET /narratives/{id}/attestation] ─ */
 /**
  * [FE-proposed] Per-request TEE attestation record (Part 25). Lazily fetched by ProvenanceBadge only

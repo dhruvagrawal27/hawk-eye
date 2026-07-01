@@ -227,7 +227,6 @@ def no_tax_footprint(df: pd.DataFrame) -> pd.Series:
 def demo_frame() -> pd.DataFrame:
     """Frame with a self-granting actor, a ghost employee, and a self-appraising borrower."""
     rows = []
-    base = pd.Timestamp("2026-01-01T03:00:00Z")
     # self-grant then approve then revoke within a day + toxic combination
     rows.append({E: "EMP-bad", ROLE: "ops", VERB: "self_grant", TS: "2026-01-01T03:00:00Z",
                  ENT: "approve_payment", GRANTEE: "EMP-bad"})

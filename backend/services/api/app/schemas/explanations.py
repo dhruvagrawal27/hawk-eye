@@ -79,6 +79,32 @@ class ModelLineageEntry(BaseModel):
     metrics: dict = Field(default_factory=dict)
 
 
+class GraphEvidenceNode(BaseModel):
+    """One node in the L5 collusion subgraph (for the inline mini-graph render)."""
+
+    id: str
+    label: str
+    type: str  # employee | beneficiary | account | device | ip
+    importance: float = 0.0  # 0–1, drives node size / prominence
+
+
+class GraphEvidenceEdge(BaseModel):
+    source: str
+    target: str
+    type: str  # maker_checker | pays | shares_device | ...
+    importance: float = 0.0  # 0–1, GNNExplainer edge attribution
+
+
+class GraphEvidence(BaseModel):
+    """Structured L5 graph evidence — the ring / GNNExplainer subgraph, renderable as a mini-graph."""
+
+    ring_id: str | None = None
+    summary: str = ""
+    explainer_model: str | None = None
+    nodes: list[GraphEvidenceNode] = Field(default_factory=list)
+    edges: list[GraphEvidenceEdge] = Field(default_factory=list)
+
+
 class Explanation(BaseModel):
     alert_id: str
     entity_id: str
@@ -87,6 +113,7 @@ class Explanation(BaseModel):
     rule_provenance: list[RuleProvenance] = Field(default_factory=list)
     sequence_attention: list[AttentionStep] = Field(default_factory=list)
     graph_evidence: list[str] = Field(default_factory=list)
+    graph: GraphEvidence | None = None
     reason_codes: list[ReasonCode] = Field(default_factory=list)
     fusion: FusionBreakdown | None = None
     model_lineage: list[ModelLineageEntry] = Field(default_factory=list)

@@ -17,6 +17,7 @@ import type {
   ExplanationResponse,
   FusionBreakdown,
   GraphResponse,
+  LayerScoresResponse,
   PeerComparisonResponse,
   RiskIndex,
   ActionHold,
@@ -376,6 +377,34 @@ function buildScoreHistory(entityId: string): ScoreHistoryResponse {
     points,
     threshold_score: Math.round(FUSION_THRESHOLD * 100),
   }
+}
+
+/** Per-layer score timeline — mirror of the backend synthesis (one series per detection layer). */
+function buildLayerScores(entityId: string): LayerScoresResponse {
+  const fused = ENTITIES[entityId]?.risk_score ?? 50
+  const start = new Date('2026-06-30T00:00:00Z').getTime()
+  const weekMs = 7 * 86_400_000
+  const shapes: { layer: string; label: string; frac: number; curve: 'early' | 'late' | 'steady' }[] = [
+    { layer: 'L2_unsupervised', label: 'Anomaly', frac: 0.62, curve: 'steady' },
+    { layer: 'L3_gbdt', label: 'GBDT', frac: 0.9, curve: 'early' },
+    { layer: 'L4_sequence', label: 'Sequence', frac: 0.5, curve: 'steady' },
+    { layer: 'L5_graph', label: 'Graph', frac: 0.8, curve: 'late' },
+    { layer: 'L6_fusion', label: 'Fused L6', frac: 1.0, curve: 'early' },
+  ]
+  const wobble = (layer: string, i: number) => ((layer.charCodeAt(0) + i * 13) % 7) - 3
+  const series = shapes.map((s) => {
+    const target = fused * s.frac
+    const base = Math.max(4, target * 0.25)
+    const points = Array.from({ length: 8 }).map((_, i) => {
+      const t = i / 7
+      const shape = s.curve === 'late' ? t ** 3 : s.curve === 'early' ? t ** 0.6 : t * t
+      const score = Math.round(base + (target - base) * shape + wobble(s.layer, i))
+      const ts = new Date(start - (7 - i) * weekMs).toISOString()
+      return { ts, score: Math.min(100, Math.max(0, score)) }
+    })
+    return { layer: s.layer, label: s.label, model_version: 'stub-2026.06.30', points }
+  })
+  return { entity_id: entityId, threshold_score: 70, series }
 }
 
 /**
@@ -762,6 +791,9 @@ export const handlers = [
   }),
   http.get(api('/entities/:id/peers'), ({ params }) =>
     HttpResponse.json(buildPeers(String(params.id))),
+  ),
+  http.get(api('/entities/:id/layer-scores'), ({ params }) =>
+    HttpResponse.json(buildLayerScores(String(params.id))),
   ),
   http.get(api('/entities/:id/score-history'), ({ params }) =>
     HttpResponse.json(buildScoreHistory(String(params.id))),

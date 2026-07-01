@@ -40,6 +40,7 @@ import { AttentionView } from '@/components/AttentionView'
 import { AiNarrative } from '@/components/AiNarrative'
 import { ScoreComposition } from '@/components/ScoreComposition'
 import { ProvenanceBadge } from '@/components/ProvenanceBadge'
+import { GraphEvidenceMini } from '@/components/GraphEvidenceMini'
 import type { GraphEvidence, ModelLineageEntry } from '@/lib/types'
 
 /* ── Section chrome ─────────────────────────────────────────────────────── */
@@ -85,6 +86,13 @@ function GraphEvidenceSummary({ graph }: { graph: GraphEvidence }) {
   return (
     <div className="space-y-3">
       <p className="text-sm leading-relaxed text-foreground">{graph.summary}</p>
+
+      {/* Inline mini-graph — draw the ring, don't just describe it (the full surface is the Graph tab). */}
+      {graph.nodes.length >= 2 ? (
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-2">
+          <GraphEvidenceMini graph={graph} />
+        </div>
+      ) : null}
 
       {topNodes.length > 0 ? (
         <div>
