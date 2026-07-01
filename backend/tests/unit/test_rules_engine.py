@@ -172,5 +172,34 @@ def test_standing_privilege_below_threshold_silent():
     assert "STANDING_PRIVILEGE_DETECTION" not in res.fired_codes
 
 
+# --- M2.3 PAM session-content -------------------------------------------------------------
+def test_pam_mass_select_export_fires():
+    res = DEFAULT_ENGINE.evaluate(_ev("db_select", channel="pam"), {"pam_mass_select_export": True})
+    assert "PAM_MASS_SELECT_EXPORT" in res.fired_codes
+
+
+def test_pam_mass_export_fires_on_table_fanout():
+    res = DEFAULT_ENGINE.evaluate(_ev("db_select", channel="pam"), {"pam_tables_touched": 12})
+    assert "PAM_MASS_SELECT_EXPORT" in res.fired_codes
+
+
+def test_pam_ddl_chain_fires_for_non_dba():
+    res = DEFAULT_ENGINE.evaluate(_ev("query", channel="pam"), {"pam_ddl_chain": 4})
+    assert "PAM_DDL_CHAIN_ANOMALY" in res.fired_codes
+
+
+def test_pam_ddl_chain_exempts_dba():
+    ev = {
+        "event_id": "e",
+        "actor": {"employee_id": "EMP-dba", "role": "dba"},
+        "action": {"verb": "query", "channel": "pam"},
+        "object": {},
+        "context": {},
+        "linkage": {},
+    }
+    res = DEFAULT_ENGINE.evaluate(ev, {"pam_ddl_chain": 9})
+    assert "PAM_DDL_CHAIN_ANOMALY" not in res.fired_codes
+
+
 if __name__ == "__main__":  # pragma: no cover
     pytest.main([__file__, "-q"])

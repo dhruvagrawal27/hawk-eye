@@ -100,6 +100,45 @@ def standing_privilege_detection(ctx: RuleContext, cfg: RuleConfig) -> RuleHit |
     return None
 
 
+def pam_mass_select_export(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
+    """PAM session-content (M2.3): a mass SELECT / SELECT INTO OUTFILE / dump / scp-out inside a
+    privileged session, or a table-touch fan-out beyond baseline. Reads features materialized by
+    ``data.features.pam_session`` from the parsed session commands."""
+    mass = bool(ctx.feat("pam_mass_select_export"))
+    tables = int(ctx.feat("pam_tables_touched", 0) or 0)
+    rows = int(ctx.feat("pam_export_rowcount", 0) or 0)
+    table_max = int(cfg.params.get("tables_touched_max", 5))
+    rowcount_max = int(cfg.params.get("rowcount_max", 10000))
+    if mass or tables > table_max or rows >= rowcount_max:
+        return _hit(
+            cfg,
+            f"privileged session for {ctx.actor_id}: mass export / {tables} tables touched "
+            f"(content-parsed)",
+            0.8,
+        )
+    return None
+
+
+def pam_ddl_chain_anomaly(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
+    """PAM session-content (M2.3): a chain of destructive/DDL statements (DROP/ALTER/GRANT/TRUNCATE)
+    in one privileged session — a concealment tell. Gated behind a role filter so legitimate DBA
+    migrations don't dominate (``exempt_roles``)."""
+    chain = int(ctx.feat("pam_ddl_chain", 0) or 0)
+    threshold = int(cfg.params.get("ddl_chain_min", 3))
+    exempt = {r.lower() for r in cfg.params.get("exempt_roles", [])}
+    role = str(ctx.actor.get("role") or "").lower()
+    if role in exempt:
+        return None
+    if chain >= threshold:
+        return _hit(
+            cfg,
+            f"{ctx.actor_id} ran a chain of {chain} destructive/DDL statements in a privileged "
+            f"session (content-parsed)",
+            0.7,
+        )
+    return None
+
+
 PRIVILEGED_RULES: dict[str, Predicate] = {
     "PRIVILEGED_SESSION_CORRELATION": privileged_session_correlation,
     "ORPHANED_ACCOUNT_USE": orphaned_account_use,
@@ -107,4 +146,6 @@ PRIVILEGED_RULES: dict[str, Predicate] = {
     "LEAVER_WINDOW_EXFIL": leaver_window_exfil,
     "NO_LEAVE_STREAK": no_leave_streak,
     "STANDING_PRIVILEGE_DETECTION": standing_privilege_detection,
+    "PAM_MASS_SELECT_EXPORT": pam_mass_select_export,
+    "PAM_DDL_CHAIN_ANOMALY": pam_ddl_chain_anomaly,
 }

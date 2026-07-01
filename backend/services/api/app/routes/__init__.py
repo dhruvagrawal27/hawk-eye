@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.routes import (
+    activity_routes,
     admin_routes,
     alert_routes,
     audit_routes,
@@ -28,6 +29,7 @@ api_router = APIRouter()
 for module in (
     auth_routes,
     alert_routes,
+    activity_routes,
     entity_routes,
     explanation_routes,
     narrative_routes,

@@ -22,6 +22,7 @@ from app.observability.metrics import ALERTS_EMITTED, RULE_HITS
 from app.schemas.alerts import Alert, ReasonCode
 from app.schemas.common import iso_z, new_alert_id, utcnow
 from app.store.alert_store import ALERTS, AlertStore
+from app.store.subthreshold_store import SUBTHRESHOLD
 from app.workflow.escalation import apply_sla
 from fusion.service import DEFAULT_FUSION, FusionService, build_breakdown
 from reliability.circuit_breaker import CircuitBreaker
@@ -184,6 +185,21 @@ class OnlinePipeline:
         emit = (
             result.hard_hit or fusion.severity == "high" or fusion.risk_score >= self.emit_threshold
         )
+        # Ambient/sub-threshold capture (the 'hidden 95%'): record EVERY fully-scored event — whether
+        # or not it clears the bar — so the detection funnel + near-miss watchlist reflect reality.
+        try:
+            top = fusion.reason_codes[0] if fusion.reason_codes else {}
+            SUBTHRESHOLD.observe(
+                entity_id=(event.get("actor") or {}).get("employee_id", "EMP-unknown"),
+                score=fusion.risk_score,
+                top_signal=str(
+                    top.get("code") or top.get("feature") or top.get("detail") or "scored"
+                ),
+                ts=created_ts or iso_z(utcnow()),
+                emitted=bool(emit),
+            )
+        except Exception:  # pragma: no cover - ambient capture is best-effort, never blocks scoring
+            pass
         if not emit:
             return None  # recorded to ClickHouse, not surfaced as an alert
         return self._emit(

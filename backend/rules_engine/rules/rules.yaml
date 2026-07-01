@@ -142,6 +142,33 @@ rules:
       min_grant_age_days: 14
       window_days: 90
 
+  # --- PAM session-content parsing (M2.3) ---
+  - code: PAM_MASS_SELECT_EXPORT
+    name: PAM session — mass SELECT / export
+    enabled: true
+    severity: high
+    hard_hit: false
+    version: "1.0.0"
+    description: >-
+      Command-level parse of a privileged session: a mass SELECT / SELECT INTO OUTFILE / dump /
+      scp-out, or table-touch fan-out beyond baseline.
+    params:
+      tables_touched_max: 5
+      rowcount_max: 10000
+
+  - code: PAM_DDL_CHAIN_ANOMALY
+    name: PAM session — destructive/DDL chain
+    enabled: true
+    severity: medium
+    hard_hit: false
+    version: "1.0.0"
+    description: >-
+      A chain of destructive/DDL statements (DROP/ALTER/GRANT/TRUNCATE) in one privileged session —
+      a concealment tell. Gated behind a role filter so legitimate DBA migrations don't dominate.
+    params:
+      ddl_chain_min: 3
+      exempt_roles: [dba, database_admin]
+
   # --- Treasury / suspense lapping (M1.1) ---
   - code: SUSPENSE_NOSTRO_LAPPING
     name: Suspense/nostro lapping (same operator posts & reconciles)

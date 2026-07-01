@@ -262,6 +262,11 @@ def seed_demo() -> None:
     # Always (re)seed the re-id vault first — it is separate from the alert store, so it must be
     # populated even when the alerts already exist (e.g. after a restart that reloaded alerts).
     _seed_reid_vault()
+    # Ambient sub-threshold population ('hidden 95%') — reseeded every call (cleared on reset) so the
+    # detection funnel + near-miss watchlist are never empty; the live pipeline also records into it.
+    from app.store.subthreshold_store import seed_subthreshold
+
+    seed_subthreshold()
     if ALERTS.get(DEMO_ALERT_ID) is not None:
         return
     for builder in (_demo_alert, _second_alert, _third_alert, _fourth_alert):
