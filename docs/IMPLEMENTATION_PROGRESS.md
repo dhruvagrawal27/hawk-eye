@@ -22,7 +22,7 @@ The 8-layer engine (L0–L7) computes far more than reaches a screen. The "~5% d
 | 1 | Detection Transparency — real 5-layer fusion decomposition (raw scores, SoD, agreement, rescued-by) | 1 | Investigator / model-eng | ✅ **done** (all gates green) |
 | 2 | Rich explainability — L4 attention heatmap (variable×temporal) + SHAP peer percentile (L5 chips already structured; inline mini-graph deferred) | 1+3 | Investigator | ✅ **done** (all gates green) |
 | 3 | Entity-360 deep dive — 7×24 off-hours activity heatmap + timeline `is_off_hours` (per-layer score timeline deferred) | 2+3 | Investigator | ✅ **done** (all gates green) |
-| 4 | Sub-threshold / ambient activity — the literal <70 "95%" recorded-not-alerted feed | 2 | Management / investigator | ⏳ pending |
+| 4 | Sub-threshold / ambient activity — detection funnel + near-miss watchlist (`GET /activity/sub-threshold`) | 2 | Management / investigator | ✅ **done** (all gates green) |
 | 5 | Management analytics — typology prevalence + confirmed-rate, detection funnel, disposition analytics | 2 | Management | ⏳ pending |
 | 6 | Governance & trust — per-layer model lineage, drift depth, real TEE proof detail | 2 | Model-eng / auditor | ⏳ pending |
 

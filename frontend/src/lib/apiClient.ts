@@ -12,6 +12,7 @@ import type {
   AdminUser,
   Alert,
   SubThresholdResponse,
+  TypologyAnalyticsResponse,
   AlertQuery,
   AssignBody,
   AssignResponse,
@@ -266,6 +267,10 @@ export const apiClient = {
   /** Sub-threshold ('hidden 95%') activity — detection funnel + near-miss watchlist (scored < 70). */
   getSubThreshold(limit = 20): Promise<SubThresholdResponse> {
     return request(`/activity/sub-threshold?limit=${limit}`)
+  },
+  /** Fraud-typology prevalence + confirmed-rate + exposure (management analytics). */
+  getTypologyAnalytics(): Promise<TypologyAnalyticsResponse> {
+    return request('/analytics/typologies')
   },
   /** Downloadable, audit-grade explainability report for one alert (SAR/FMR evidence pack). */
   getExplanationReport(alertId: string): Promise<Record<string, unknown>> {

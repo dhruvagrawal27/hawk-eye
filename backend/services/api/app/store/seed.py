@@ -264,9 +264,11 @@ def seed_demo() -> None:
     _seed_reid_vault()
     # Ambient sub-threshold population ('hidden 95%') — reseeded every call (cleared on reset) so the
     # detection funnel + near-miss watchlist are never empty; the live pipeline also records into it.
+    from app.store.analytics_store import seed_analytics
     from app.store.subthreshold_store import seed_subthreshold
 
     seed_subthreshold()
+    seed_analytics()  # fraud-typology prevalence + confirmed-rate (management analytics)
     if ALERTS.get(DEMO_ALERT_ID) is not None:
         return
     for builder in (_demo_alert, _second_alert, _third_alert, _fourth_alert):

@@ -81,6 +81,9 @@ def _reset_state() -> None:
     from serving.model_state import MODEL_STATE
 
     MODEL_STATE.reset()
+    from regulatory.rfa_lifecycle import RFA_LIFECYCLE
+
+    RFA_LIFECYCLE.reset()
     for u in USER_STORE.list():
         if u.role == Role.RELATIONSHIP_MANAGER:
             u.assigned_alerts.clear()

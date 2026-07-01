@@ -288,6 +288,32 @@ export interface ExplanationResponse {
   fusion?: FusionBreakdown
 }
 
+/* ───────────────────────────── Management analytics [GET /analytics/typologies] ──────────────── */
+/** Per-typology prevalence + confirmed-rate + exposure — the portfolio oversight view. */
+export interface TypologyStat {
+  typology: string
+  label: string
+  layers: string[] // detection layers that catch it, e.g. ["L1","L3","L5"]
+  alerts: number
+  confirmed: number
+  false_positive: number
+  open: number
+  confirmed_rate: number // 0–1
+  exposure_inr: number
+}
+export interface TypologyTotals {
+  alerts: number
+  confirmed: number
+  false_positive: number
+  open: number
+  confirmed_rate: number
+  exposure_inr: number
+}
+export interface TypologyAnalyticsResponse {
+  typologies: TypologyStat[]
+  totals: TypologyTotals
+}
+
 /* ───────────────────────────── Sub-threshold / ambient activity [GET /activity/sub-threshold] ── */
 /**
  * The 'hidden 95%': every event is scored, but only fused ≥ emit_threshold (70) surfaces as an
