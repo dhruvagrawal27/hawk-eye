@@ -93,6 +93,19 @@ describe('explanations + narrative (Part 11 / Part 25)', () => {
     for (const w of st.watchlist) expect(w.score).toBeGreaterThanOrEqual(40)
   })
 
+  it('carries per-layer model lineage + governance posture (Phase 6)', async () => {
+    const exp = await apiClient.getExplanation('alr_3d7e22')
+    const lineage = exp.model_lineage
+    expect(lineage && lineage.length).toBeTruthy()
+    const layers = lineage!.map((l) => l.layer)
+    expect(layers).toContain('L6_fusion') // fusion is always in the lineage
+    expect(layers).toContain('L3_gbdt') // the worked burst contributes L3
+    for (const l of lineage!) {
+      expect(l.model_id && l.version && l.stage).toBeTruthy()
+      expect(typeof l.signed).toBe('boolean')
+    }
+  })
+
   it('carries LAXCAT variable×temporal attention + SHAP peer percentiles (Phase 2)', async () => {
     const exp = await apiClient.getExplanation('alr_3d7e22')
     // every attention step now carries the variable axis (the heatmap rows)

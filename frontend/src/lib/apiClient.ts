@@ -53,6 +53,10 @@ import type {
   AttestationDetail,
   PeerComparisonResponse,
   RiskIndex,
+  ActionHold,
+  ActionHoldList,
+  ActionPolicy,
+  HoldDecisionBody,
   ReportExport,
   Rule,
   RuleParam,
@@ -212,6 +216,21 @@ export const apiClient = {
   /** M2.1 continuous per-user insider-risk index (0–100, sub-scores + drivers). Alert-only. */
   getRiskIndex(id: string): Promise<RiskIndex> {
     return request(`/entities/${encodeURIComponent(id)}/risk-index`)
+  },
+
+  /* ── L6.5 privileged-action interdiction console (M3.4) ─────────────────── */
+  listActionHolds(): Promise<ActionHoldList> {
+    return request('/action-gate/holds')
+  },
+  /** Four-eyes decision on a held staff action (approve = PERMIT human execution; never auto-runs). */
+  decideActionHold(holdId: string, body: HoldDecisionBody): Promise<ActionHold> {
+    return request(`/action-gate/holds/${encodeURIComponent(holdId)}/decision`, {
+      method: 'POST',
+      body,
+    })
+  },
+  listActionPolicies(): Promise<ActionPolicy[]> {
+    return request('/action-gate/policies')
   },
   /** [FE-proposed] 0–100 fused-risk-score history for the entity (ScoreOverTime on AlertDetail). */
   getScoreHistory(id: string): Promise<ScoreHistoryResponse> {

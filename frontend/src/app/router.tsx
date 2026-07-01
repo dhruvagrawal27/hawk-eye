@@ -26,6 +26,9 @@ const CaseDetailShell = lazy(() =>
 const ComplianceView = lazy(() =>
   import('@/views/ComplianceView').then((m) => ({ default: m.ComplianceView })),
 )
+const ActionGateConsole = lazy(() =>
+  import('@/views/ActionGateConsole').then((m) => ({ default: m.ActionGateConsole })),
+)
 const AuditorView = lazy(() =>
   import('@/views/AuditorView').then((m) => ({ default: m.AuditorView })),
 )
@@ -77,7 +80,10 @@ export const router = createBrowserRouter([
           // Compliance (screen 5)
           {
             element: <RoleShell roles={ROUTE_ROLES.compliance} />,
-            children: [{ path: 'compliance', element: <ComplianceView /> }],
+            children: [
+              { path: 'compliance', element: <ComplianceView /> },
+              { path: 'interdiction', element: <ActionGateConsole /> },
+            ],
           },
 
           // Auditor (screen 6)

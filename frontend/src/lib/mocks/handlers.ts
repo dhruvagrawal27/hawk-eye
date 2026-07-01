@@ -19,6 +19,8 @@ import type {
   GraphResponse,
   PeerComparisonResponse,
   RiskIndex,
+  ActionHold,
+  ActionPolicy,
   ScoreHistoryResponse,
   TimelineResponse,
   AlertStatus,
@@ -297,6 +299,54 @@ function buildRiskIndex(entityId: string): RiskIndex {
     calibrated: false,
   }
 }
+
+/* L6.5 console fixtures (M3.4). Mutable so a four-eyes decision persists for the session. */
+const ACTION_HOLDS: ActionHold[] = [
+  {
+    hold_id: 'hold_9a1c22',
+    request_id: 'req_7f3a01',
+    subject: 'EMP-3c55',
+    verb: 'self_grant',
+    status: 'pending_review',
+    severity: 'high',
+    reason_codes: [
+      { source: 'policy', code: 'SELF_GRANT_HOLD', detail: 'Entitlement self-grant (hard-gate)' },
+    ],
+    proportionality: 'reversible staff action held pending second-approver review',
+    explanation: 'DBA attempted to self-grant approve_payment entitlement in a privileged session',
+    dpia_binding: true,
+    decider: null,
+    justification: null,
+    outcome: null,
+    ts: '2026-06-30T02:41:00Z',
+  },
+  {
+    hold_id: 'hold_4d8811',
+    request_id: 'req_2b1409',
+    subject: 'EMP-7f3a',
+    verb: 'bulk_export',
+    status: 'pending_review',
+    severity: 'high',
+    reason_codes: [
+      { source: 'policy', code: 'BULK_EXPORT_HOLD', detail: 'Bulk export from a privileged session (hard-gate)' },
+    ],
+    proportionality: 'reversible staff action held pending second-approver review',
+    explanation: 'Mass SELECT/export of customer_pii detected in the PAM session (content-parsed)',
+    dpia_binding: true,
+    decider: null,
+    justification: null,
+    outcome: null,
+    ts: '2026-06-30T02:55:00Z',
+  },
+]
+
+const ACTION_POLICIES: ActionPolicy[] = [
+  { code: 'SELF_GRANT_HOLD', name: 'Entitlement self-grant', gate: 'hard', severity: 'high', enabled: true, verbs: ['grant_entitlement', 'self_grant'] },
+  { code: 'MAKER_CHECKER_SAME_ACTOR_HOLD', name: 'Maker+checker by the same actor', gate: 'hard', severity: 'high', enabled: true, verbs: [] },
+  { code: 'BULK_EXPORT_HOLD', name: 'Bulk export from a privileged session', gate: 'hard', severity: 'high', enabled: true, verbs: ['export', 'bulk_export'] },
+  { code: 'SWIFT_SEND_STEP_UP', name: 'SWIFT / SO message send', gate: 'soft', severity: 'high', enabled: true, verbs: ['swift_send', 'so_send'] },
+  { code: 'DB_WRITE_STEP_UP', name: 'Direct DB write', gate: 'soft', severity: 'medium', enabled: true, verbs: ['db_write', 'direct_write'] },
+]
 
 function buildScoreHistory(entityId: string): ScoreHistoryResponse {
   const e = ENTITIES[entityId]
@@ -719,6 +769,29 @@ export const handlers = [
   http.get(api('/entities/:id/risk-index'), ({ params }) =>
     HttpResponse.json(buildRiskIndex(String(params.id))),
   ),
+
+  /* ── L6.5 privileged-action interdiction console (M3.4) ─────────────────── */
+  http.get(api('/action-gate/holds'), () =>
+    HttpResponse.json({ items: ACTION_HOLDS.filter((h) => h.status === 'pending_review'), count: ACTION_HOLDS.filter((h) => h.status === 'pending_review').length }),
+  ),
+  http.post(api('/action-gate/holds/:id/decision'), async ({ params, request }) => {
+    const id = String(params.id)
+    const body = (await request.json().catch(() => ({}))) as {
+      decider?: string
+      approve?: boolean
+      justification?: string
+    }
+    const hold = ACTION_HOLDS.find((h) => h.hold_id === id)
+    if (!hold) return new HttpResponse(null, { status: 404 })
+    if (body.decider && body.decider === hold.subject)
+      return HttpResponse.json({ detail: 'four-eyes: the subject cannot resolve their own hold' }, { status: 403 })
+    hold.status = body.approve ? 'approved_via_four_eyes' : 'rejected'
+    hold.outcome = body.approve ? 'permitted_for_human_initiated_execution' : 'denied_by_reviewer'
+    hold.decider = body.decider ?? null
+    hold.justification = body.justification ?? null
+    return HttpResponse.json(hold)
+  }),
+  http.get(api('/action-gate/policies'), () => HttpResponse.json(ACTION_POLICIES)),
   http.post(api('/entities/:id/unmask'), async ({ params, request }) => {
     const id = String(params.id)
     const body = (await request.json().catch(() => ({}))) as { alert_id?: string }

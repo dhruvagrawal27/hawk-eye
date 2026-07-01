@@ -992,3 +992,44 @@ export interface RiskIndex {
   updated_ts?: string | null
   calibrated: boolean // false = stub weights (human review only, never auto-actioned)
 }
+
+/* ── M3.4 — L6.5 privileged-action interdiction console ────────────────────── */
+export type ActionDecisionKind = 'ALLOW' | 'STEP_UP' | 'HOLD_FOR_REVIEW'
+export interface ActionReasonCode {
+  source: string
+  code: string
+  detail: string
+}
+export interface ActionHold {
+  hold_id: string
+  request_id: string
+  subject: string
+  verb: string
+  status: 'pending_review' | 'approved_via_four_eyes' | 'rejected'
+  severity: string
+  reason_codes: ActionReasonCode[]
+  proportionality: string
+  explanation: string
+  dpia_binding: boolean
+  decider?: string | null
+  justification?: string | null
+  outcome?: string | null
+  ts: string
+}
+export interface ActionHoldList {
+  items: ActionHold[]
+  count: number
+}
+export interface ActionPolicy {
+  code: string
+  name: string
+  gate: 'hard' | 'soft'
+  severity: string
+  enabled: boolean
+  verbs: string[]
+}
+export interface HoldDecisionBody {
+  decider: string
+  approve: boolean
+  justification: string
+}
