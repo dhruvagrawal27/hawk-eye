@@ -44,7 +44,11 @@ describe('EDD panel — alert-only + RBAC/SoD invariants', () => {
     expect(screen.getByRole('button', { name: /request block/i })).toBeInTheDocument()
     // Alert-only: no control that blocks money outright.
     expect(screen.queryByRole('button', { name: /^block$/i })).not.toBeInTheDocument()
-    expect(screen.getByText(/never auto-blocks|routed to a Team Lead/i)).toBeInTheDocument()
+    // The Daylight Forensics EDD panel makes alert-only messaging prominent (human verdict = the
+    // classification; block = a request routed to a Team Lead), so ≥1 such reassurance is present.
+    expect(screen.getAllByText(/never auto-blocks|routed to a Team Lead/i).length).toBeGreaterThan(
+      0,
+    )
   })
 
   it('data science lead cannot disposition (SoD Part 19.6) — controls absent', () => {

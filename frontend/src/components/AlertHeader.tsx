@@ -118,9 +118,21 @@ const REASON_META: Record<
   ReasonCode['source'],
   { label: string; className: string; icon: typeof Hash }
 > = {
-  rule: { label: 'Rule', className: 'text-reason-rule ring-reason-rule/30 bg-reason-rule/5', icon: ShieldAlert },
-  shap: { label: 'SHAP', className: 'text-reason-shap ring-reason-shap/30 bg-reason-shap/5', icon: Sigma },
-  graph: { label: 'Graph', className: 'text-reason-graph ring-reason-graph/30 bg-reason-graph/5', icon: GitBranch },
+  rule: {
+    label: 'Rule',
+    className: 'text-reason-rule ring-reason-rule/30 bg-reason-rule/5',
+    icon: ShieldAlert,
+  },
+  shap: {
+    label: 'SHAP',
+    className: 'text-reason-shap ring-reason-shap/30 bg-reason-shap/5',
+    icon: Sigma,
+  },
+  graph: {
+    label: 'Graph',
+    className: 'text-reason-graph ring-reason-graph/30 bg-reason-graph/5',
+    icon: GitBranch,
+  },
 }
 
 function reasonText(code: ReasonCode): string {

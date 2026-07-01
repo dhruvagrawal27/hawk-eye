@@ -7,11 +7,13 @@ import { navItemsForRole } from './nav-config'
 import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Eyebrow } from '@/components/ui/eyebrow'
 import { PageHeader } from '@/components/PageHeader'
 import { LiveEventTape } from '@/components/realtime/LiveEventTape'
 import { EventRateChart } from '@/components/charts/EventRateChart'
 import { FusionSankey } from '@/components/FusionSankey'
 import { slaInfo, severityRank } from '@/lib/format'
+import { CountUp, RouteTransition } from '@/ui'
 
 /** Role-aware landing. Greets the user, surfaces their permitted screens, and (for triage roles)
  *  a live snapshot of the queue so the most urgent work is one click away. */
@@ -39,7 +41,7 @@ export function Dashboard() {
   const topAlert = [...open].sort((a, b) => b.risk_score - a.risk_score)[0]
 
   return (
-    <div className="space-y-6">
+    <RouteTransition className="space-y-6">
       <PageHeader
         title={`Welcome, ${user?.name?.split(' ')[0] ?? 'Investigator'}`}
         description={role ? ROLE_META[role].description : undefined}
@@ -79,12 +81,16 @@ export function Dashboard() {
       {/* Fusion spotlight — the highest-risk open alert decomposed across our 6 detection layers. */}
       {canTriage && topAlert ? (
         <Link to={`/alerts/${topAlert.alert_id}`} className="block focus-ring rounded-lg">
-          <FusionSankey alert={topAlert} height={180} className="transition-colors hover:border-primary/40" />
+          <FusionSankey
+            alert={topAlert}
+            height={180}
+            className="transition-colors hover:border-primary/40"
+          />
         </Link>
       ) : null}
 
       <div>
-        <h2 className="mb-2 text-sm font-medium text-muted-foreground">Your screens</h2>
+        <Eyebrow className="mb-2">Your screens</Eyebrow>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => {
             const Icon = item.icon
@@ -104,7 +110,7 @@ export function Dashboard() {
           })}
         </div>
       </div>
-    </div>
+    </RouteTransition>
   )
 }
 
@@ -129,7 +135,9 @@ function StatCard({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-semibold tabular-nums">{value}</p>
+          <p className="text-3xl font-semibold tabular-nums text-foreground">
+            <CountUp value={value} />
+          </p>
         </CardContent>
       </Card>
     </Link>

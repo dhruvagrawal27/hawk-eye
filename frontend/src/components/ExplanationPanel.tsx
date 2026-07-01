@@ -63,7 +63,9 @@ function Section({
     <m.div
       initial={reduce ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={reduce ? { duration: 0 } : { duration: 0.24, delay: index * 0.06, ease: 'easeOut' }}
+      transition={
+        reduce ? { duration: 0 } : { duration: 0.24, delay: index * 0.06, ease: 'easeOut' }
+      }
     >
       <Card>
         <CardHeader className="pb-2">

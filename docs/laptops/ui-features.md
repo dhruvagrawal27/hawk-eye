@@ -4,16 +4,21 @@ Agent B for the **Daylight Forensics** UI uplift. I re-skin the 12 investigator 
 Agent A's kit (`@/ui`). I do **not** touch theme/tokens/Tailwind/shell/harness (A + C lanes).
 Contract I build against: `docs/ui/UI_UPLIFT.md`. Ownership: `docs/ui/OWNERSHIP.md`.
 
-## Coordination reality (important)
-All three agents (A/B/C) share **one working tree**; work is uncommitted on top of `67c143e`.
-Rules I follow to stay collision-free:
+## Coordination reality (important) — RESOLVED via isolated worktree
+A/B/C were originally sharing **one working tree + one git HEAD**, which caused live collisions (my
+SHAP commit briefly landed on A's `ui-foundation` branch when A checked out the shared tree between my
+commits). **Fixed:** I now work in a dedicated **`git worktree`** at `../hawk-eye-uib`
+(branch `hawk-eye/ui-features`), so A/C keep the main tree and I'm isolated.
+- A's kit is still uncommitted on A's branch, so I **snapshot** A's current foundation into my worktree
+  as local files to build/preview against: `src/ui/**`, `src/index.css`, `tailwind.config.ts`,
+  `package.json`/lock, `src/__invariants__/**` (C), `docs/ui/**`. `node_modules` is a junction to the
+  main checkout. **Reconcile** when A formally lands its foundation (rebase/merge).
+- I **commit only B-owned paths** with explicit paths — never the snapshotted A/C files.
+Rules I still follow:
 - Edit **only B-owned files**: `src/views/**`, domain composites in `src/components/**` (NOT
   `components/ui/**`, `components/layout/**`, `components/command/**`), their tests, this log.
 - **Do not edit `MaskedPII.tsx`** — A owns its peel/decrypt visual (UI_UPLIFT §4). Compose it as-is.
-- `git add` **explicit paths only**, never `-A`. Never `git checkout`/switch branches (would yank the
-  shared tree out from under A/C).
-- Full `vite build` / `tsc` green is a *shared* signal (C's gate). For my own checks I read tsc output
-  and attribute errors to owner (mine vs `src/ui/**` = A, `src/__invariants__/**` = C).
+- Gates run in my worktree. Baseline in worktree: **tsc 0, vitest 198**.
 
 ## House-style crib — apply consistently to every screen
 Import surface: `import { RiskGauge, AmountFlip, CountUp, SlaRing, Sparkline, PeerStrip, HashChainBlock,

@@ -70,7 +70,7 @@ export function GrafanaEmbed({
           <CardTitle>{title}</CardTitle>
         </div>
         <div className="flex items-center gap-1.5">
-          <code className="hidden max-w-[18rem] truncate rounded bg-muted px-2 py-1 text-[0.7rem] text-muted-foreground sm:block">
+          <code className="hidden max-w-[18rem] truncate rounded bg-muted px-2 py-1 font-mono text-[0.7rem] text-muted-foreground sm:block">
             {src}
           </code>
           <Button
@@ -110,9 +110,9 @@ export function GrafanaEmbed({
               <>
                 <p className="text-sm font-medium">Operations dashboard isn’t running here</p>
                 <p className="max-w-md text-xs text-muted-foreground">
-                  Grafana (ops metrics) isn’t part of the pilot stack, so there’s nothing to
-                  embed yet. The rest of Hawk-Eye — alerts, narratives, cases, audit — works
-                  without it. Start the full monitoring stack to enable this panel, then reload.
+                  Grafana (ops metrics) isn’t part of the pilot stack, so there’s nothing to embed
+                  yet. The rest of Hawk-Eye — alerts, narratives, cases, audit — works without it.
+                  Start the full monitoring stack to enable this panel, then reload.
                 </p>
                 <div className="flex items-center gap-2 pt-1">
                   <Button variant="outline" size="sm" onClick={() => setNonce((n) => n + 1)}>

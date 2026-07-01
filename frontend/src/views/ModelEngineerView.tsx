@@ -56,6 +56,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { CountUp, RouteTransition } from '@/ui'
 import type { ModelEntry, ModelMetrics, ModelStage } from '@/lib/types'
 
 const STAGE_VARIANT: Record<ModelStage, Parameters<typeof Badge>[0]['variant']> = {
@@ -80,6 +81,24 @@ const METRIC_COLUMNS: { key: keyof ModelMetrics; label: string; kind: 'pct' | 'r
 function metricText(value: number | undefined, kind: 'pct' | 'ratio'): string {
   if (value == null) return '—'
   return kind === 'pct' ? formatPercent(value, 1) : value.toFixed(3)
+}
+
+/**
+ * Animated metric cell — rolls the number up on mount/refresh (CountUp, reduced-motion → instant),
+ * formatting to match `metricText`. A missing metric renders an explicit em-dash, never a blank.
+ */
+function MetricValue({
+  value,
+  kind,
+  className,
+}: {
+  value: number | undefined
+  kind: 'pct' | 'ratio'
+  className?: string
+}) {
+  if (value == null) return <span className={className}>—</span>
+  // A custom formatter matches metricText exactly, so `decimals` is unused; format wins in CountUp.
+  return <CountUp value={value} className={className} format={(n) => metricText(n, kind)} />
 }
 
 function PanelSkeleton({ rows = 4 }: { rows?: number }) {
@@ -139,7 +158,7 @@ export function ModelEngineerView() {
   })
 
   return (
-    <div className="space-y-4">
+    <RouteTransition className="space-y-4">
       <PageHeader
         icon={<Boxes className="size-5" />}
         title="Model registry & drift"
@@ -283,8 +302,8 @@ export function ModelEngineerView() {
                         </span>
                       </TableCell>
                       {METRIC_COLUMNS.map((c) => (
-                        <TableCell key={c.key} className="text-right tabular-nums">
-                          {metricText((row.metrics ?? {})[c.key], c.kind)}
+                        <TableCell key={c.key} className="text-right font-mono tabular-nums">
+                          <MetricValue value={(row.metrics ?? {})[c.key]} kind={c.kind} />
                         </TableCell>
                       ))}
                     </TableRow>
@@ -307,7 +326,7 @@ export function ModelEngineerView() {
           if (promoting) promote.mutate({ model: promoting, signoffBy })
         }}
       />
-    </div>
+    </RouteTransition>
   )
 }
 
@@ -344,10 +363,9 @@ function PromoteDialog({
         <DialogHeader>
           <DialogTitle>Request promotion — sign-off required</DialogTitle>
           <DialogDescription>
-            Promoting{' '}
-            <span className="font-medium text-foreground">{model?.name}</span> (
-            <span className="font-mono text-xs">{model?.id}</span> · v{model?.version}) to Production.
-            This routes for a second-person sign-off and is never an auto-deploy.
+            Promoting <span className="font-medium text-foreground">{model?.name}</span> (
+            <span className="font-mono text-xs">{model?.id}</span> · v{model?.version}) to
+            Production. This routes for a second-person sign-off and is never an auto-deploy.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">
@@ -369,7 +387,11 @@ function PromoteDialog({
             Cancel
           </Button>
           <Button disabled={!distinct || isPending} onClick={() => onConfirm(trimmed)}>
-            {isPending ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            {isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Upload className="size-4" />
+            )}
             Request promotion
           </Button>
         </DialogFooter>

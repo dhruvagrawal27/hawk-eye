@@ -21,6 +21,7 @@ import { Activity, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { formatISTDate, humanize } from '@/lib/format'
 import { EmptyState } from '@/components/ui/empty-state'
+import { useAutoAnimateList } from '@/ui'
 import type { DriftSeries, DriftStatus } from '@/lib/types'
 
 const STATUS_META: Record<DriftStatus, { label: string; stroke: string; badge: string }> = {
@@ -58,14 +59,14 @@ function DriftTooltip({
   if (!active || !payload || payload.length === 0) return null
   const point = payload[0].payload as ChartPoint
   return (
-    <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
-      <div className="font-medium text-popover-foreground">{point.date}</div>
-      <div className="mt-0.5 flex items-center gap-2 tabular-nums">
+    <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-dossier">
+      <div className="font-mono text-2xs tabular-nums text-muted-foreground">{point.date}</div>
+      <div className="mt-0.5 flex items-center gap-2 font-mono tabular-nums">
         <span className="text-muted-foreground">{metricLabel}</span>
         <span className="font-medium text-foreground">{point.value.toFixed(3)}</span>
       </div>
       {point.threshold != null ? (
-        <div className="tabular-nums text-muted-foreground">
+        <div className="font-mono tabular-nums text-muted-foreground">
           threshold <span className="text-foreground">{point.threshold.toFixed(3)}</span>
         </div>
       ) : null}
@@ -155,6 +156,8 @@ function SeriesPanel({ series }: { series: DriftSeries }) {
 }
 
 export function DriftChart({ series }: { series: DriftSeries[] }) {
+  const [gridRef] = useAutoAnimateList<HTMLDivElement>()
+
   if (series.length === 0) {
     return (
       <EmptyState
@@ -166,7 +169,7 @@ export function DriftChart({ series }: { series: DriftSeries[] }) {
   }
 
   return (
-    <div className="grid gap-3 md:grid-cols-2">
+    <div ref={gridRef} className="grid gap-3 md:grid-cols-2">
       {series.map((s) => (
         <SeriesPanel key={`${s.model_id}:${s.feature ?? s.metric}`} series={s} />
       ))}

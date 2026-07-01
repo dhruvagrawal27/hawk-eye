@@ -29,6 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { InfoTip } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/toaster'
+import { useAutoAnimateList } from '@/ui'
 import type { Rule, RuleChange, RuleParam, RuleStatus, RuleType } from '@/lib/types'
 
 /* ── Rule status → badge variant / label (change-control lifecycle) ─────────── */
@@ -120,13 +121,14 @@ function ParamField({
 
 /* ── Change-history / diff list for one rule ────────────────────────────────── */
 function RuleHistory({ history }: { history: RuleChange[] }) {
+  const [historyRef] = useAutoAnimateList<HTMLOListElement>()
   if (history.length === 0) {
     return (
       <p className="text-xs text-muted-foreground">No change history recorded for this rule.</p>
     )
   }
   return (
-    <ol className="space-y-3">
+    <ol ref={historyRef} className="space-y-3">
       {history.map((h, i) => (
         <li key={`${h.version}-${h.ts}`} className="relative pl-5">
           <span
@@ -412,6 +414,7 @@ export function RulesEditor() {
   const { can, constraintFor } = useAuth()
   const canPropose = can('tune_rules')
   const constraint = constraintFor('tune_rules')
+  const [gridRef] = useAutoAnimateList<HTMLDivElement>()
 
   const rulesQuery = useQuery({
     queryKey: queryKeys.rules(),
@@ -435,7 +438,7 @@ export function RulesEditor() {
           </CardDescription>
         </div>
         {pendingCount > 0 ? (
-          <Badge variant="warning" className="shrink-0">
+          <Badge variant="warning" className="shrink-0 tabular-nums">
             {pendingCount} pending approval
           </Badge>
         ) : null}
@@ -455,7 +458,7 @@ export function RulesEditor() {
               description="Detection rules and thresholds will appear here once published by the rule registry."
             />
           ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div ref={gridRef} className="grid gap-3 lg:grid-cols-2">
               {rules.map((rule) => (
                 <RuleCard
                   key={rule.id}

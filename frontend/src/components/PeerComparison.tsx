@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { PeerStrip, m, staggerParent, staggerItem } from '@/ui'
 import type { PeerDimension, PeerDistribution } from '@/lib/types'
 
 /* ── Chart palette (resolved at render so dark mode flips correctly) ─────────── */
@@ -364,7 +365,7 @@ function DimensionRow({
       type="button"
       onClick={onSelect}
       className={cn(
-        'group flex w-full flex-col gap-1.5 rounded-md border px-3 py-2 text-left transition-colors focus-ring',
+        'group flex h-full w-full flex-col gap-1.5 rounded-md border px-3 py-2 text-left transition-colors focus-ring',
         active
           ? 'border-primary/40 bg-accent/50'
           : 'border-border hover:border-border hover:bg-accent/30',
@@ -396,6 +397,17 @@ function DimensionRow({
           style={{ left: pos(dim.actor_value) }}
         />
       </div>
+
+      {/* Peer-relative deviation: actor value against the cohort mean → p75 outlier band. Makes
+          "how far outside peers" explicit, not an absolute reading. */}
+      <PeerStrip
+        value={dim.actor_value}
+        peerMean={d.mean}
+        peerP95={d.p75}
+        min={lo}
+        max={hi}
+        label="peer-relative"
+      />
     </button>
   )
 }
@@ -523,21 +535,28 @@ export function PeerComparison({ entityId }: { entityId: string }) {
 
               <Separator />
 
-              {/* All dimensions at a glance. */}
+              {/* All dimensions at a glance — each carries its own peer-relative strip so the
+                  cohort framing is visible on every metric, not just the selected one. */}
               <div>
                 <div className="mb-2 text-xs font-medium text-muted-foreground">
-                  All dimensions ({dimensions.length})
+                  All dimensions ({dimensions.length}) · measured against the peer cohort
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <m.div
+                  className="grid gap-2 sm:grid-cols-2"
+                  variants={staggerParent}
+                  initial="hidden"
+                  animate="show"
+                >
                   {dimensions.map((dim) => (
-                    <DimensionRow
-                      key={dim.key}
-                      dim={dim}
-                      active={dim.key === active.key}
-                      onSelect={() => setSelectedKey(dim.key)}
-                    />
+                    <m.div key={dim.key} variants={staggerItem}>
+                      <DimensionRow
+                        dim={dim}
+                        active={dim.key === active.key}
+                        onSelect={() => setSelectedKey(dim.key)}
+                      />
+                    </m.div>
                   ))}
-                </div>
+                </m.div>
               </div>
             </div>
           )}

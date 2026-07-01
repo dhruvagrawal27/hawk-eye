@@ -41,6 +41,7 @@ import {
   type LayoutName,
 } from '@/components/graph/GraphCanvas'
 import { GraphLegend, graphTypeLabel } from '@/components/GraphLegend'
+import { RouteTransition } from '@/ui'
 
 const SEED_LIMIT = 14
 
@@ -52,7 +53,7 @@ export function GraphExplorer() {
   })
 
   return (
-    <div className="space-y-4">
+    <RouteTransition className="space-y-4">
       <PageHeader
         icon={<Network className="size-5" />}
         title="Graph explorer"
@@ -76,7 +77,7 @@ export function GraphExplorer() {
           <ExplorerBody graph={query.data} minScore={minScore} onMinScoreChange={setMinScore} />
         ) : null}
       </QueryBoundary>
-    </div>
+    </RouteTransition>
   )
 }
 
@@ -371,7 +372,7 @@ function ExplorerBody({
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-3">
             <div className="flex items-center gap-2">
               <Network className="size-4 text-reason-graph" aria-hidden />
-              <span className="text-sm font-semibold">Top-risk network</span>
+              <span className="font-display text-sm font-semibold">Top-risk network</span>
               {pathMode ? (
                 <Badge variant="secondary" className="gap-1 text-2xs">
                   <Route className="size-3" /> Find-path

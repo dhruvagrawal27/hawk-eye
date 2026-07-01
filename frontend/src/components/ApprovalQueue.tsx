@@ -18,7 +18,7 @@ import { Check, GanttChartSquare, Loader2, ShieldQuestion, X } from 'lucide-reac
 import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { ApiError } from '@/lib/http'
-import { compositePriority, formatINRCompact, formatRelative } from '@/lib/format'
+import { compositePriority, formatRelative } from '@/lib/format'
 import type { Alert, Paginated } from '@/lib/types'
 import { useAuth } from '@/auth/rbac'
 import { can } from '@/auth/capabilities'
@@ -32,6 +32,7 @@ import { QueryBoundary } from '@/components/QueryBoundary'
 import { StatusBadge } from '@/components/badges'
 import { MaskedPII } from '@/components/MaskedPII'
 import { toast } from '@/components/ui/toaster'
+import { AmountFlip, useAutoAnimateList } from '@/ui'
 
 /** Statuses that route an alert into the manager queue (block-request routed up / escalated). */
 const PENDING_STATUSES = new Set<string>(['escalated', 'pending_lead_approval'])
@@ -117,6 +118,9 @@ export function ApprovalQueue() {
 
   const decidingId = decide.isPending ? decide.variables?.alert.alert_id : undefined
 
+  // AutoAnimate rows out as they clear the queue (optimistic approve/reject) — reduced-motion → instant.
+  const [listRef] = useAutoAnimateList<HTMLUListElement>()
+
   return (
     <Surface tone="actionable" pad="none" className="overflow-hidden">
       <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
@@ -130,6 +134,16 @@ export function ApprovalQueue() {
       </header>
 
       <div className="p-3">
+        {/* Four-eyes posture: the investigator raised the request; a Team Lead makes the second-set-of-
+            -eyes decision here. Approving confirms the disposition — it does not block on its own. */}
+        <p className="mb-2.5 flex items-start gap-1.5 rounded-md bg-muted/30 px-2.5 py-1.5 text-2xs text-muted-foreground">
+          <ShieldQuestion className="mt-px size-3.5 shrink-0 text-primary" aria-hidden />
+          <span>
+            Four-eyes review — the investigator raised each request; a{' '}
+            <span className="font-medium text-foreground">Team Lead</span> approves or rejects here.
+            Approving records the disposition; nothing blocks on its own.
+          </span>
+        </p>
         <QueryBoundary
           isLoading={query.isLoading}
           isError={query.isError}
@@ -143,7 +157,7 @@ export function ApprovalQueue() {
               description="Block requests, escalations and severe open alerts surface here for a manager decision."
             />
           ) : (
-            <ul className="space-y-1.5">
+            <ul ref={listRef} className="space-y-1.5">
               {pending.map((alert) => (
                 <li
                   key={alert.alert_id}
@@ -167,11 +181,18 @@ export function ApprovalQueue() {
                         alertId={alert.alert_id}
                       />
                       <span className="text-muted-foreground/50">·</span>
-                      <span className="tabular-nums">{formatINRCompact(alert.exposure_inr)}</span>
+                      <AmountFlip
+                        value={alert.exposure_inr}
+                        kind="inr"
+                        compact
+                        className="text-2xs text-muted-foreground"
+                      />
                       <span className="text-muted-foreground/50">·</span>
                       <StatusBadge status={alert.status} className="px-1.5 py-0 text-2xs" />
                       <span className="text-muted-foreground/50">·</span>
-                      <span title={alert.created_ts}>{formatRelative(alert.created_ts)}</span>
+                      <span className="font-mono tabular-nums" title={alert.created_ts}>
+                        {formatRelative(alert.created_ts)}
+                      </span>
                     </div>
                   </div>
 

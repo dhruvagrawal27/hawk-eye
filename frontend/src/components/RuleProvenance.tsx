@@ -9,9 +9,12 @@ import { humanize, layerLabel } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { SeverityBadge, ReasonSourceBadge } from '@/components/badges'
 import { EmptyState } from '@/components/ui/empty-state'
+import { useAutoAnimateList } from '@/ui'
 import type { RuleProvenanceItem } from '@/lib/types'
 
 export function RuleProvenance({ rules }: { rules: RuleProvenanceItem[] }) {
+  const [listRef] = useAutoAnimateList<HTMLUListElement>()
+
   if (rules.length === 0) {
     return (
       <EmptyState
@@ -23,7 +26,7 @@ export function RuleProvenance({ rules }: { rules: RuleProvenanceItem[] }) {
   }
 
   return (
-    <ul className="space-y-2">
+    <ul ref={listRef} className="space-y-2">
       {rules.map((rule, i) => (
         <li key={`${rule.code}-${i}`} className="rounded-lg border border-border bg-muted/30 p-3">
           <div className="flex flex-wrap items-center gap-2">

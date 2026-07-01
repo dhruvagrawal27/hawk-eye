@@ -21,6 +21,7 @@ import { AlertHeatmap } from '@/components/AlertHeatmap'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { RouteTransition } from '@/ui'
 
 function ReportingSkeleton() {
   return (
@@ -53,7 +54,7 @@ export function ReportingView() {
   const alerts = alertsQuery.data?.items ?? []
 
   return (
-    <div className="space-y-4">
+    <RouteTransition className="space-y-4">
       <PageHeader
         icon={<BarChart3 className="size-5" />}
         title="Reporting & KRIs"
@@ -62,7 +63,7 @@ export function ReportingView() {
           <div className="flex items-center gap-2">
             {generatedTs ? (
               <Badge variant="outline" className="hidden sm:inline-flex">
-                As of {formatIST(generatedTs)}
+                As of <span className="ml-1 font-mono tabular-nums">{formatIST(generatedTs)}</span>
               </Badge>
             ) : null}
             {canExport ? (
@@ -105,6 +106,6 @@ export function ReportingView() {
       </QueryBoundary>
 
       {alerts.length > 0 ? <AlertHeatmap alerts={alerts} /> : null}
-    </div>
+    </RouteTransition>
   )
 }

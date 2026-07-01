@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { InfoTip } from '@/components/ui/tooltip'
+import { useAutoAnimateList } from '@/ui'
 import type { CoverageIndicator, EwsCoverageResponse } from '@/lib/types'
 
 const CATEGORY_META: Record<CoverageIndicator['category'], { title: string; blurb: string }> = {
@@ -113,6 +114,7 @@ function CategorySection({
   indicators: CoverageIndicator[]
 }) {
   const meta = CATEGORY_META[category] ?? { title: category, blurb: '' }
+  const [gridRef] = useAutoAnimateList<HTMLDivElement>()
   const covered = indicators.filter((i) => i.covered).length
   const total = indicators.length
   const pct = total > 0 ? covered / total : 0
@@ -123,15 +125,15 @@ function CategorySection({
     <section className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold">{meta.title}</h3>
+          <h3 className="font-display text-sm font-semibold">{meta.title}</h3>
           <p className="text-xs text-muted-foreground">{meta.blurb}</p>
         </div>
-        <span className={cn('text-sm font-semibold tabular-nums', ratioTone(pct))}>
+        <span className={cn('font-mono text-sm font-semibold tabular-nums', ratioTone(pct))}>
           {covered}/{total} · {formatPercent(pct)}
         </span>
       </div>
       <CoverageBar covered={covered} total={total} />
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div ref={gridRef} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {indicators.map((i) => (
           <IndicatorCard key={i.code} indicator={i} />
         ))}

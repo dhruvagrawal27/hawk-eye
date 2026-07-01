@@ -25,6 +25,7 @@ import { formatNumber, humanize } from '@/lib/format'
 import { useQuery } from '@tanstack/react-query'
 import { MaskedPII } from '@/components/MaskedPII'
 import { RiskScore, PrivilegedFlag, LeaverFlag, PiiTokenizedBadge } from '@/components/badges'
+import { useAutoAnimateList } from '@/ui'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -38,11 +39,23 @@ import {
   FAMILY_META,
   FAMILY_ORDER,
   familyForEvent,
+  isSuspiciousEvent,
 } from '@/components/TimelineEvent'
 import type { EntityProfile, EventFamily, TimelineEntry } from '@/lib/types'
 
 type FamilyFilter = Record<EventFamily, boolean>
 const ALL_ON: FamilyFilter = { transaction: true, access: true, data: true, change: true }
+
+/** Compact elapsed-time label between two timestamps (e.g. "45 m", "3 h", "2 d"). Null under ~1 min. */
+function formatGap(fromTs: string, toTs: string): string | null {
+  const ms = Math.abs(new Date(toTs).getTime() - new Date(fromTs).getTime())
+  if (!Number.isFinite(ms) || ms < 60_000) return null
+  const mins = Math.round(ms / 60_000)
+  if (mins < 60) return `${mins} m`
+  const hours = Math.round(mins / 60)
+  if (hours < 48) return `${hours} h`
+  return `${Math.round(hours / 24)} d`
+}
 
 /* ── Profile header derived from getEntity ────────────────────────────────────────────────────── */
 function ProfileHeader({ entity, alertId }: { entity: EntityProfile; alertId?: string }) {
@@ -181,6 +194,7 @@ function TimelineSkeleton() {
 export function Entity360Timeline({ entityId, alertId }: { entityId: string; alertId?: string }) {
   const [filter, setFilter] = useState<FamilyFilter>(ALL_ON)
   const [newestFirst, setNewestFirst] = useState(true)
+  const [listRef] = useAutoAnimateList<HTMLOListElement>()
 
   const entityQuery = useQuery({
     queryKey: queryKeys.entity(entityId),
@@ -200,16 +214,29 @@ export function Entity360Timeline({ entityId, alertId }: { entityId: string; ale
     return c
   }, [allEvents])
 
-  /** Filtered + ordered list. */
-  const events = useMemo(() => {
+  /** Filtered + ordered list, each row enriched with a suspicious flag + the gap to the previous
+   *  event *in chronological order* (so the elapsed label reads the same regardless of sort). */
+  const rows = useMemo(() => {
     const list = allEvents.filter((e) => filter[familyForEvent(e)])
-    list.sort((a, b) => {
-      const ta = new Date(a.ts).getTime()
-      const tb = new Date(b.ts).getTime()
-      return newestFirst ? tb - ta : ta - tb
-    })
-    return list
+    const chronological = [...list].sort(
+      (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime(),
+    )
+    const gapById = new Map<string, string | null>()
+    for (let i = 0; i < chronological.length; i++) {
+      const prev = chronological[i - 1]
+      gapById.set(chronological[i].event_id, prev ? formatGap(prev.ts, chronological[i].ts) : null)
+    }
+    const ordered = newestFirst ? [...chronological].reverse() : chronological
+    return ordered.map((event) => ({
+      event,
+      suspicious: isSuspiciousEvent(event),
+      // Gap sits above each row; drop it on the first displayed row (no predecessor on screen).
+      gapLabel: gapById.get(event.event_id) ?? null,
+    }))
   }, [allEvents, filter, newestFirst])
+
+  /** How many of the visible rows sit in the highlighted suspicious sequence. */
+  const suspiciousCount = useMemo(() => rows.filter((r) => r.suspicious).length, [rows])
 
   function toggleFamily(family: EventFamily) {
     setFilter((f) => ({ ...f, [family]: !f[family] }))
@@ -241,6 +268,15 @@ export function Entity360Timeline({ entityId, alertId }: { entityId: string; ale
               </CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">
                 Transactions · access · data-layer · HR/change merged into one ordered history.
+                {suspiciousCount > 0 ? (
+                  <>
+                    {' '}
+                    <span className="font-medium text-severity-critical">
+                      {suspiciousCount} in the highlighted sequence
+                    </span>
+                    .
+                  </>
+                ) : null}
               </p>
             </div>
             <Button
@@ -274,7 +310,7 @@ export function Entity360Timeline({ entityId, alertId }: { entityId: string; ale
                 title="No activity recorded"
                 description="No L0 events have been ingested for this entity yet."
               />
-            ) : events.length === 0 ? (
+            ) : rows.length === 0 ? (
               <EmptyState
                 icon={History}
                 title="No events match the active filters"
@@ -287,14 +323,19 @@ export function Entity360Timeline({ entityId, alertId }: { entityId: string; ale
               />
             ) : (
               <ScrollArea className="-mr-2 max-h-[34rem] pr-2">
-                <ol className="relative space-y-3 border-l border-border/60 py-1">
-                  {events.map((event) => (
-                    <TimelineEvent key={event.event_id} event={event} onSelect={handleSelect} />
+                <ol ref={listRef} className="relative space-y-3 border-l border-border/60 py-1">
+                  {rows.map(({ event, suspicious, gapLabel }) => (
+                    <TimelineEvent
+                      key={event.event_id}
+                      event={event}
+                      onSelect={handleSelect}
+                      suspicious={suspicious}
+                      gapLabel={gapLabel}
+                    />
                   ))}
                 </ol>
                 <p className="px-7 pt-3 text-center text-[0.7rem] text-muted-foreground">
-                  Showing {events.length} of {allEvents.length} events · all PII tokenized by
-                  default
+                  Showing {rows.length} of {allEvents.length} events · all PII tokenized by default
                 </p>
               </ScrollArea>
             )}

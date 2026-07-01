@@ -107,6 +107,21 @@ export function familyForEvent(event: TimelineEntry): EventFamily {
   return 'transaction'
 }
 
+/**
+ * Display-only "part of the suspicious sequence" test. Derived from the event's own risk-bearing
+ * context (no invented API fields): off-hours activity, a privileged/leaver actor, or a maker/checker
+ * step that moves money. Used to tint the rail and mark the evidence tape — never to change state.
+ */
+export function isSuspiciousEvent(event: TimelineEntry): boolean {
+  const { actor, action, object, context } = event
+  return Boolean(
+    context.is_off_hours ||
+    actor.privileged_flag ||
+    actor.leaver_flag ||
+    (action.maker_checker != null && object.amount != null),
+  )
+}
+
 /* ── A labelled key/value pair used in the actor/object/context groups ────────────────────────── */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -120,9 +135,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export function TimelineEvent({
   event,
   onSelect,
+  suspicious = false,
+  gapLabel,
 }: {
   event: TimelineEntry
   onSelect?: (e: TimelineEntry) => void
+  /** Part of the highlighted suspicious sequence (derived via {@link isSuspiciousEvent}). */
+  suspicious?: boolean
+  /** Elapsed time since the previous row in display order, e.g. "2 h" — renders a gap marker. */
+  gapLabel?: string | null
 }) {
   const [open, setOpen] = useState(false)
   const family = familyForEvent(event)
@@ -140,21 +161,40 @@ export function TimelineEvent({
 
   return (
     <li className="relative pl-7">
-      {/* Rail dot */}
+      {/* Time gap since the previous row — makes bursts vs. quiet stretches legible on the tape. */}
+      {gapLabel ? (
+        <span
+          className="mb-1.5 ml-1 inline-flex items-center gap-1 font-mono text-[0.65rem] tabular-nums text-muted-foreground"
+          aria-label={`Time gap since previous event: ${gapLabel}`}
+        >
+          <span className="h-3 w-px bg-border" aria-hidden />
+          {gapLabel} gap
+        </span>
+      ) : null}
+
+      {/* Rail dot — brightens for suspicious steps so the sequence stands out. Nudged down when a
+          gap marker precedes the card so it stays aligned with the row header. */}
       <span
         className={cn(
-          'absolute left-1.5 top-3 z-10 flex size-3 items-center justify-center rounded-full ring-4 ring-background',
-          meta.tint,
+          'absolute left-1.5 z-10 flex size-3 items-center justify-center rounded-full ring-4 ring-background',
+          gapLabel ? 'top-9' : 'top-3',
+          suspicious ? 'bg-severity-critical/20' : meta.tint,
         )}
         aria-hidden
       >
-        <span className={cn('size-1.5 rounded-full bg-current', meta.text)} />
+        <span
+          className={cn(
+            'size-1.5 rounded-full bg-current',
+            suspicious ? 'text-severity-critical' : meta.text,
+          )}
+        />
       </span>
 
       <div
         className={cn(
           'rounded-lg border border-l-2 border-border bg-card transition-colors hover:border-foreground/20',
           meta.rail,
+          suspicious && 'border-l-severity-critical/70 ring-1 ring-inset ring-severity-critical/20',
         )}
       >
         <button
@@ -180,12 +220,20 @@ export function TimelineEvent({
               <Badge variant="outline" className={cn('px-1.5 py-0 text-[0.65rem]', meta.text)}>
                 {meta.label}
               </Badge>
+              {suspicious ? (
+                <Badge
+                  variant="outline"
+                  className="border-severity-critical/40 px-1.5 py-0 text-[0.65rem] text-severity-critical"
+                >
+                  In sequence
+                </Badge>
+              ) : null}
               {action.maker_checker ? (
                 <Badge variant="secondary" className="px-1.5 py-0 text-[0.65rem] uppercase">
                   {action.maker_checker}
                 </Badge>
               ) : null}
-              <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+              <span className="ml-auto shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
                 {formatISTTime(event.ts)}
               </span>
             </div>
@@ -276,7 +324,7 @@ export function TimelineEvent({
             {/* Context */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
               <Field label="When">
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 font-mono tabular-nums">
                   {formatISTDate(event.ts)} · {formatISTTime(event.ts)}
                 </span>
               </Field>

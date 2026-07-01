@@ -10,7 +10,7 @@
  *     not author or four-eyes-approve them (that is Compliance/Lead).
  *   - System health: `getHealth()` service list plus a sandboxed <GrafanaEmbed> ops dashboard.
  */
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
@@ -61,6 +61,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { CountUp, RouteTransition } from '@/ui'
 import type { AdminUser, CreateUserBody, ServiceHealth } from '@/lib/types'
 
 const HEALTH_META: Record<ServiceHealth['status'], { icon: typeof CircleDot; className: string }> =
@@ -93,8 +94,13 @@ export function AdminView() {
   const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data])
   const health = healthQuery.data
 
+  // Aggregate posture counts, derived from the existing queries (no new API surface).
+  const activeUsers = users.filter((u) => u.status === 'active').length
+  const services = health?.services ?? []
+  const servicesOk = services.filter((s) => s.status === 'ok').length
+
   return (
-    <div className="space-y-4">
+    <RouteTransition className="space-y-4">
       <PageHeader
         icon={<ServerCog className="size-5" />}
         title="Platform administration"
@@ -110,6 +116,26 @@ export function AdminView() {
           role manages identities and infrastructure but cannot view alerts, entities, or PII. Every
           admin action below is itself written to the audit trail.
         </p>
+      </div>
+
+      {/* Aggregate posture — roll-up counts (no PII), rolled up on load. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <SummaryStat
+          icon={<Users className="size-3.5" />}
+          label="Provisioned users"
+          value={users.length}
+        />
+        <SummaryStat icon={<UserCog className="size-3.5" />} label="Active" value={activeUsers} />
+        <SummaryStat
+          icon={<ServerCog className="size-3.5" />}
+          label="Services healthy"
+          value={servicesOk}
+        />
+        <SummaryStat
+          icon={<CheckCircle2 className="size-3.5" />}
+          label="Services checked"
+          value={services.length}
+        />
       </div>
 
       {/* Users & roles */}
@@ -229,6 +255,22 @@ export function AdminView() {
 
       {/* Grafana ops dashboard */}
       <GrafanaEmbed title="Operations dashboard (Grafana)" />
+    </RouteTransition>
+  )
+}
+
+/** A small aggregate-count tile — evidence figure animates up via CountUp (reduced-motion → instant). */
+function SummaryStat({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-3.5 py-2.5">
+      <p className="flex items-center gap-1.5 text-2xs uppercase tracking-widest text-muted-foreground">
+        <span className="text-muted-foreground">{icon}</span>
+        {label}
+      </p>
+      <CountUp
+        value={value}
+        className="mt-1 block font-mono text-2xl font-semibold text-foreground"
+      />
     </div>
   )
 }
@@ -262,7 +304,7 @@ function ServiceRow({ service }: { service: ServiceHealth }) {
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {service.latency_ms != null ? (
-          <span className="text-xs tabular-nums text-muted-foreground">
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
             {service.latency_ms} ms
           </span>
         ) : null}

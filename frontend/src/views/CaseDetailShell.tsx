@@ -17,7 +17,7 @@ import {
 import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { ApiError } from '@/lib/http'
-import { formatINR, formatINRCompact, formatIST, statusLabel } from '@/lib/format'
+import { formatINRCompact, formatIST, statusLabel } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/auth/rbac'
 import { violatesSoD } from '@/auth/capabilities'
@@ -49,6 +49,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/toaster'
+import { Eyebrow } from '@/components/ui/eyebrow'
+import { AmountFlip, RouteTransition, SlaRing } from '@/ui'
 import type { Alert, CaseDetail, CaseStatus } from '@/lib/types'
 
 /** Linear case workflow (Part 24.4 screen 4): open → in_progress → escalated → closed. */
@@ -72,7 +74,7 @@ export function CaseDetailShell() {
   })
 
   return (
-    <div className="space-y-4">
+    <RouteTransition className="space-y-4">
       <PageHeader
         icon={<Briefcase className="size-5" />}
         title={
@@ -106,7 +108,7 @@ export function CaseDetailShell() {
       >
         {caseQuery.data ? <CaseDetailBody detail={caseQuery.data} /> : null}
       </QueryBoundary>
-    </div>
+    </RouteTransition>
   )
 }
 
@@ -208,7 +210,9 @@ function LinkedAlertsPanel({ alerts }: { alerts: Alert[] }) {
                         </span>
                       </span>
                       <span>·</span>
-                      <span className="tabular-nums">{formatINRCompact(alert.exposure_inr)}</span>
+                      <span className="font-mono tabular-nums">
+                        {formatINRCompact(alert.exposure_inr)}
+                      </span>
                       <ContributingLayers layers={alert.contributing_layers} className="ml-1" />
                     </div>
                   </div>
@@ -231,8 +235,9 @@ function LinkedAlertsPanel({ alerts }: { alerts: Alert[] }) {
 function CaseSummaryCard({ detail, exposure }: { detail: CaseDetail; exposure: number }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Case summary</CardTitle>
+      <CardHeader className="space-y-1">
+        <Eyebrow>Dossier</Eyebrow>
+        <CardTitle className="font-display">Case summary</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2.5 text-sm">
         <Row label="Status">
@@ -248,21 +253,26 @@ function CaseSummaryCard({ detail, exposure }: { detail: CaseDetail; exposure: n
           <span className="tabular-nums">{detail.alert_ids.length}</span>
         </Row>
         <Row label="Exposure">
-          <span className="font-medium tabular-nums" title={formatINR(exposure)}>
-            {formatINRCompact(exposure)}
-          </span>
+          <AmountFlip value={exposure} kind="inr" className="text-sm font-medium text-foreground" />
         </Row>
         {detail.sla_due_ts ? (
           <Row label="SLA">
-            <SlaTimer dueTs={detail.sla_due_ts} compact showDate />
+            <div className="flex items-center gap-2">
+              <SlaTimer dueTs={detail.sla_due_ts} compact showDate />
+              <SlaRing dueTs={detail.sla_due_ts} size={30} showLabel={false} />
+            </div>
           </Row>
         ) : null}
         <Separator />
         <Row label="Opened">
-          <span className="text-xs text-muted-foreground">{formatIST(detail.created_ts)}</span>
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {formatIST(detail.created_ts)}
+          </span>
         </Row>
         <Row label="Updated">
-          <span className="text-xs text-muted-foreground">{formatIST(detail.updated_ts)}</span>
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {formatIST(detail.updated_ts)}
+          </span>
         </Row>
       </CardContent>
     </Card>
