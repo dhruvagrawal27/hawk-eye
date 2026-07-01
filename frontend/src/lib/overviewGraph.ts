@@ -6,15 +6,15 @@
  * population at a glance — every employee, the systems they touch, and the risk heat across them —
  * so an investigator can spot where the graph is "hot" before drilling in.
  *
- * We synthesise that population deterministically on the client (seeded PRNG → identical layout on
- * every reload, no backend round-trip, works whether mocks are on or off). It emits the same
- * GraphOverviewResponse shape the canvas already speaks, plus precomputed x/y so the canvas can paint
- * it with the fast `preset` layout instead of an iterative solver that would choke on ~4k nodes.
+ * We synthesise that population deterministically on the client (seeded PRNG → identical result on
+ * every reload, no backend round-trip, works whether mocks are on or off). The full population feeds
+ * the header counts, but we RENDER only a focused subgraph — the top-risk actors, the systems they
+ * share, and the collusion mesh — so a live force-directed layout stays smooth, the nodes read
+ * clearly, and find-path is legible (rendering all ~4k nodes was heavy and muddy).
  *
- * Encodings mirror the screenshot: numeric tokenized ids, node colour + size by fused risk (a heat
- * map — cool slate for the quiet majority, red for the hot actors), a preferential-attachment system
- * backbone (a few hub systems, a long tail of lightly-touched / isolated ones), and a scatter of
- * maker-checker collusion edges wiring the riskiest actors together.
+ * Encodings: numeric tokenized ids, node colour + size by fused risk (a heat map — cool slate for the
+ * quiet majority, red for the hot actors), a preferential-attachment system backbone (a few hub
+ * systems many actors share), and maker-checker collusion edges wiring the riskiest actors together.
  *
  * Swap back to the live route later by pointing GraphExplorer at `apiClient.getGraphOverview`.
  */
@@ -206,11 +206,61 @@ export function buildOverviewGraph(): OverviewGraph {
     return { id, type: 'employee', label: id, risk: empRisk.get(id), tokenized: true, x, y }
   })
 
+  // ── Focus the RENDERED graph on the risk story ───────────────────────────────────────────────
+  // The full population (its counts feed the header) is far too dense to animate smoothly or read
+  // clearly. So we render a *focused* subgraph — the top-risk actors, the systems they SHARE (multi-
+  // actor hubs) or that are themselves hot, and the collusion mesh between them. Small enough for a
+  // live force-directed layout, rich enough to tell the story and keep find-path legible.
+  const fullEdgeCount = edges.length
+  const RENDER_EMP = 80
+  const RENDER_SYS = 95
+  const EDGES_PER_EMP = 4
+  const RENDER_COLLUSION = 36
+
+  const topEmp = [...empNodes].sort((a, b) => (b.risk ?? 0) - (a.risk ?? 0)).slice(0, RENDER_EMP)
+  const empSet = new Set(topEmp.map((n) => n.id))
+
+  // System degree within the rendered actors — a hub touched by many actors is the interesting one.
+  const sysDeg = new Map<string, number>()
+  for (const e of edges) {
+    if (e.type === 'maker_checker') continue
+    if (empSet.has(e.source)) sysDeg.set(e.target, (sysDeg.get(e.target) ?? 0) + 1)
+  }
+  const keptSys = sysNodes
+    .filter((n) => (sysDeg.get(n.id) ?? 0) >= 2 || (n.risk ?? 0) >= 70)
+    .sort((a, b) => (sysDeg.get(b.id) ?? 0) - (sysDeg.get(a.id) ?? 0))
+    .slice(0, RENDER_SYS)
+  const sysSet = new Set(keptSys.map((n) => n.id))
+
+  // Per-actor, keep up to EDGES_PER_EMP links to the busiest shared systems (edges arrive
+  // hub-first because the source `edges` were built via preferential attachment).
+  const renderedEdges: GraphEdge[] = []
+  const perEmp = new Map<string, number>()
+  for (const e of edges) {
+    if (e.type === 'maker_checker' || !empSet.has(e.source) || !sysSet.has(e.target)) continue
+    const c = perEmp.get(e.source) ?? 0
+    if (c >= EDGES_PER_EMP) continue
+    perEmp.set(e.source, c + 1)
+    renderedEdges.push(e)
+  }
+  let coll = 0
+  for (const e of edges) {
+    if (e.type !== 'maker_checker' || !empSet.has(e.source) || !empSet.has(e.target)) continue
+    if (coll >= RENDER_COLLUSION) break
+    renderedEdges.push(e)
+    coll++
+  }
+  // Drop systems left isolated by the per-actor cap (keep hot ones so the red still shows).
+  const usedSys = new Set(
+    renderedEdges.flatMap((e) => [e.source, e.target]).filter((id) => sysSet.has(id)),
+  )
+  const renderedSys = keptSys.filter((n) => usedSys.has(n.id) || (n.risk ?? 0) >= 70)
+
   return {
     entity_id: 'overview',
-    nodes: [...empNodes, ...sysNodes],
-    edges,
+    nodes: [...topEmp, ...renderedSys],
+    edges: renderedEdges,
     min_score: 0,
-    population: { employees: EMPLOYEES, systems: SYSTEMS, edges: edges.length },
+    population: { employees: EMPLOYEES, systems: SYSTEMS, edges: fullEdgeCount },
   }
 }
