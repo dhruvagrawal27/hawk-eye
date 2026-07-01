@@ -21,9 +21,10 @@ describe('no secrets in client · env confined to the seam + no hardcoded keys',
     const offenders = listSourceFiles({ includeTests: false, includeMocks: true })
       .filter((f) => !ENV_READERS.has(f.rel) && /import\.meta\.env/.test(f.text))
       .map((f) => f.rel)
-    expect(offenders, `import.meta.env must only be read in: ${[...ENV_READERS].join(', ')}`).toEqual(
-      [],
-    )
+    expect(
+      offenders,
+      `import.meta.env must only be read in: ${[...ENV_READERS].join(', ')}`,
+    ).toEqual([])
   })
 
   it('hardcodes no high-entropy secret literals in app code', () => {

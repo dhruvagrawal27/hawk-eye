@@ -388,8 +388,14 @@ export function buildStylesheet(opts: { overview?: boolean } = {}): StylesheetSt
           'min-zoomed-font-size': 5, // labels stay visible across the usual zoom band
         },
       },
-      { selector: 'node[type = "system"]', style: { 'background-color': coolNode, shape: 'round-rectangle' } },
-      { selector: 'node[type = "employee"]', style: { 'background-color': coolNode, shape: 'ellipse' } },
+      {
+        selector: 'node[type = "system"]',
+        style: { 'background-color': coolNode, shape: 'round-rectangle' },
+      },
+      {
+        selector: 'node[type = "employee"]',
+        style: { 'background-color': coolNode, shape: 'ellipse' },
+      },
       // Risk heat ramp — ascending so the hottest band wins.
       { selector: 'node[risk >= 40]', style: { 'background-color': riskMedium } },
       { selector: 'node[risk >= 55]', style: { 'background-color': riskHigh } },
