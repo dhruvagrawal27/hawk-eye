@@ -11,7 +11,12 @@ Caller may also embed precomputed features under ``event['features']`` — those
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+
+# M1.2 — audit/config-tampering: decayed per-entity counter feeding AUDIT_CONFIG_TAMPERING.
+_TAMPER_VERBS = ("audit_config_change", "disable_logging", "modify_audit", "clear_log")
+_TAMPER_DECAY_HOURS = 24.0
+_TAMPER_MAX_ENTITIES = 100  # bound the map so the stub cannot leak memory
 
 
 def _parse_ts(ts: str | None) -> datetime | None:
@@ -31,6 +36,23 @@ class FeatureReader:
         self._recent_beneficiaries: dict[str, tuple[str | None, datetime | None]] = {}
         # (maker, checker) pair -> count, to flag isolated pairs (L5 graph proxy in the fast path)
         self._pair_counts: dict[tuple[str, str], int] = {}
+        # entity -> recent tampering-event timestamps (decayed window), for log_tampering_proxy
+        self._tampering: dict[str, list[datetime]] = {}
+
+    def _tampering_count(self, actor: str | None, verb: str, now: datetime | None) -> int | None:
+        """Maintain a decayed (24h) per-entity tampering counter; bounded to avoid a leak."""
+        if verb not in _TAMPER_VERBS or not actor or now is None:
+            return None
+        cutoff = now - timedelta(hours=_TAMPER_DECAY_HOURS)
+        hist = self._tampering.setdefault(actor, [])
+        hist[:] = [t for t in hist if t >= cutoff]
+        hist.append(now)
+        if len(self._tampering) > _TAMPER_MAX_ENTITIES:
+            # evict the entity whose most-recent event is oldest (keep the current actor)
+            oldest = min(self._tampering, key=lambda k: self._tampering[k][-1])
+            if oldest != actor:
+                self._tampering.pop(oldest, None)
+        return len(hist)
 
     def observe(self, event: dict) -> None:
         """Update short-term memory from an event (the streaming windower's job in DATA)."""

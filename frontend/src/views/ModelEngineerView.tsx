@@ -34,9 +34,19 @@ import { DriftChart } from '@/components/DriftChart'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { toast } from '@/components/ui/toaster'
 import {
   Table,
@@ -58,10 +68,12 @@ const STAGE_VARIANT: Record<ModelStage, Parameters<typeof Badge>[0]['variant']> 
 const METRIC_COLUMNS: { key: keyof ModelMetrics; label: string; kind: 'pct' | 'ratio' }[] = [
   { key: 'auc', label: 'AUC', kind: 'ratio' },
   { key: 'pr_auc', label: 'PR-AUC', kind: 'ratio' },
+  { key: 'precision_at_k', label: 'P@K', kind: 'ratio' },
   { key: 'precision', label: 'Precision', kind: 'ratio' },
   { key: 'recall', label: 'Recall', kind: 'ratio' },
   { key: 'f1', label: 'F1', kind: 'ratio' },
   { key: 'fpr', label: 'FPR', kind: 'pct' },
+  { key: 'calibration_error', label: 'Cal. err', kind: 'ratio' },
   { key: 'brier', label: 'Brier', kind: 'ratio' },
 ]
 
@@ -81,11 +93,11 @@ function PanelSkeleton({ rows = 4 }: { rows?: number }) {
 }
 
 export function ModelEngineerView() {
-  const { can, constraintFor } = useAuth()
+  const { can, constraintFor, user } = useAuth()
   const queryClient = useQueryClient()
   const canPromote = can('train_models')
   const promoteConstraint = constraintFor('train_models')
-  const [promotingId, setPromotingId] = useState<string | null>(null)
+  const [promoting, setPromoting] = useState<ModelEntry | null>(null)
 
   const modelsQuery = useQuery({
     queryKey: queryKeys.models(),
@@ -105,18 +117,25 @@ export function ModelEngineerView() {
   }, [models])
 
   const promote = useMutation({
-    mutationFn: (id: string) => apiClient.promoteModel(id),
-    onMutate: (id) => setPromotingId(id),
+    mutationFn: (args: { model: ModelEntry; signoffBy: string }) =>
+      apiClient.promoteModel(args.model.id, {
+        version: args.model.version,
+        toStage: 'Production',
+        signoffBy: args.signoffBy,
+      }),
     onSuccess: (res) => {
       toast.success('Promotion request submitted', {
         description: res.requires_signoff
           ? `Routed for sign-off before deploy · ${res.audit_id}`
           : `Recorded · ${res.audit_id}`,
       })
+      setPromoting(null)
       void queryClient.invalidateQueries({ queryKey: queryKeys.models() })
     },
-    onError: () => toast.error('Promotion request failed'),
-    onSettled: () => setPromotingId(null),
+    onError: (err) =>
+      toast.error('Promotion request failed', {
+        description: err instanceof Error ? err.message : undefined,
+      }),
   })
 
   return (
@@ -185,8 +204,8 @@ export function ModelEngineerView() {
                       model={m}
                       canPromote={canPromote}
                       promoteConstraint={promoteConstraint}
-                      isPromoting={promote.isPending && promotingId === m.id}
-                      onPromote={() => promote.mutate(m.id)}
+                      isPromoting={promote.isPending && promoting?.id === m.id}
+                      onPromote={() => setPromoting(m)}
                     />
                   ))}
                 </TableBody>
@@ -238,7 +257,7 @@ export function ModelEngineerView() {
             onRetry={() => void qualityQuery.refetch()}
             skeleton={<PanelSkeleton rows={5} />}
           >
-            {!qualityQuery.data || qualityQuery.data.models.length === 0 ? (
+            {!qualityQuery.data?.models || qualityQuery.data.models.length === 0 ? (
               <EmptyState icon={FlaskConical} title="No quality metrics" />
             ) : (
               <Table>
@@ -265,7 +284,7 @@ export function ModelEngineerView() {
                       </TableCell>
                       {METRIC_COLUMNS.map((c) => (
                         <TableCell key={c.key} className="text-right tabular-nums">
-                          {metricText(row.metrics[c.key], c.kind)}
+                          {metricText((row.metrics ?? {})[c.key], c.kind)}
                         </TableCell>
                       ))}
                     </TableRow>
@@ -276,7 +295,86 @@ export function ModelEngineerView() {
           </QueryBoundary>
         </CardContent>
       </Card>
+
+      <PromoteDialog
+        model={promoting}
+        requesterId={user?.sub ?? ''}
+        isPending={promote.isPending}
+        onOpenChange={(open) => {
+          if (!open) setPromoting(null)
+        }}
+        onConfirm={(signoffBy) => {
+          if (promoting) promote.mutate({ model: promoting, signoffBy })
+        }}
+      />
     </div>
+  )
+}
+
+/**
+ * Second-person sign-off dialog. Promotion is SoD-gated server-side: the approver (`signoff_by`)
+ * must differ from the requester. We collect that approver here rather than auto-deploying.
+ */
+function PromoteDialog({
+  model,
+  requesterId,
+  isPending,
+  onOpenChange,
+  onConfirm,
+}: {
+  model: ModelEntry | null
+  requesterId: string
+  isPending: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: (signoffBy: string) => void
+}) {
+  const [signoffBy, setSignoffBy] = useState('')
+  // Reset the field whenever a different model is targeted.
+  const key = model?.id ?? ''
+  const [lastKey, setLastKey] = useState(key)
+  if (key !== lastKey) {
+    setLastKey(key)
+    setSignoffBy('')
+  }
+  const trimmed = signoffBy.trim()
+  const distinct = trimmed.length > 0 && trimmed !== requesterId
+  return (
+    <Dialog open={model != null} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Request promotion — sign-off required</DialogTitle>
+          <DialogDescription>
+            Promoting{' '}
+            <span className="font-medium text-foreground">{model?.name}</span> (
+            <span className="font-mono text-xs">{model?.id}</span> · v{model?.version}) to Production.
+            This routes for a second-person sign-off and is never an auto-deploy.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1.5">
+          <Label htmlFor="signoff-by">Second-person approver (sign-off)</Label>
+          <Input
+            id="signoff-by"
+            placeholder="e.g. EMP-ds01"
+            value={signoffBy}
+            onChange={(e) => setSignoffBy(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && distinct && onConfirm(trimmed)}
+          />
+          <p className="text-[0.7rem] text-muted-foreground">
+            Separation of duties: the approver must differ from you
+            {requesterId ? ` (${requesterId})` : ''}.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button disabled={!distinct || isPending} onClick={() => onConfirm(trimmed)}>
+            {isPending ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            Request promotion
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

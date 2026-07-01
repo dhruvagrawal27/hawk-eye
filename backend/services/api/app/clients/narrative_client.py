@@ -65,6 +65,49 @@ class NarrativeClient:
         except Exception:
             return self._fallback(alert_ctx, ph)
 
+    def get_attestation(self, alert_id: str, *, timeout: float | None = None) -> dict:
+        """Fetch the REAL NEAR AI Cloud TEE attestation from the gateway (Intel TDX enclave proof).
+        Free endpoint (no inference credit needed). Returns a not-attested detail if the gateway is
+        local-only or unreachable — the UI degrades honestly."""
+        if timeout is None:
+            timeout = settings.narrative_timeout_seconds
+        not_attested = {
+            "alert_id": alert_id,
+            "tee_attested": False,
+            "provider": "near_ai",
+            "model": "openai/gpt-oss-120b",
+        }
+        if not settings.narrative_remote_enabled:
+            return not_attested
+        base = self.gateway_url.rsplit("/narrate", 1)[0]
+        try:  # pragma: no cover - needs the live gateway
+            resp = httpx.get(f"{base}/attestation", timeout=timeout)
+            resp.raise_for_status()
+            b = resp.json()
+            if not b.get("tee_attested"):
+                return not_attested
+            return {
+                "alert_id": alert_id,
+                "tee_attested": True,
+                "provider": b.get("provider", "near_ai"),
+                "gateway": "near-ai-confidential (cloud-api.near.ai)",
+                "model": "openai/gpt-oss-120b",
+                "signing_address": b.get("signing_address"),
+                "signing_algo": b.get("signing_algo"),
+                "intel_quote_sha256": b.get("intel_quote_sha256"),
+                "attestation_id": b.get("attestation_id"),
+                "verified_ts": iso_z(utcnow()),
+                "extra": [
+                    {
+                        "label": "Intel TDX quote",
+                        "value": f"{b.get('intel_quote_bytes', 0)} bytes · {b.get('intel_quote_prefix', '')}…",
+                    },
+                    {"label": "NVIDIA GPU attested", "value": str(b.get("nvidia_verified", False))},
+                ],
+            }
+        except Exception:
+            return not_attested
+
     def _fallback(self, alert_ctx: dict, ph: str) -> dict:
         return {
             "narrative": _FALLBACK_TMPL.render(a=alert_ctx),

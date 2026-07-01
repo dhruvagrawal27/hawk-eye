@@ -24,6 +24,8 @@ from app.observability.metrics import CONTENT_TYPE_LATEST, render_latest, track_
 from app.pii import crypto
 from app.routes import api_router
 from app.store.seed import seed_demo
+from app.stream.engine import STREAM
+from app.stream.ws_routes import stream_router, ws_router
 from reliability.degradation import DEGRADATION
 
 log = get_logger("hawkeye.api")
@@ -33,8 +35,11 @@ log = get_logger("hawkeye.api")
 async def lifespan(app: FastAPI):
     configure_logging(settings.log_level)
     seed_demo()  # synthetic demo data (worked-burst alert + entity-360)
+    if settings.stream_mode == "kafka":
+        await STREAM.start_kafka()  # consume events topic → score → Redis → WS (falls back if down)
     log.info("api.start", extra={"env": settings.env, "base_path": settings.api_base_path})
     yield
+    await STREAM.stop_kafka()
     log.info("api.stop")
 
 
@@ -93,6 +98,10 @@ def health() -> dict:
 def metrics() -> Response:
     return Response(content=render_latest(), media_type=CONTENT_TYPE_LATEST)
 
+
+# --- realtime stream: WS at root (/ws/alerts) + control under /api/v1/stream ---
+app.include_router(ws_router)
+app.include_router(stream_router, prefix=settings.api_base_path)
 
 # --- the /api/v1 surface ---
 app.include_router(api_router, prefix=settings.api_base_path)

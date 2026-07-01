@@ -15,6 +15,7 @@ from app.routes import (
     events_routes,
     explanation_routes,
     feedback_routes,
+    history_routes,
     model_routes,
     narrative_routes,
     report_routes,
@@ -40,6 +41,7 @@ for module in (
     case_routes,
     compliance_routes,
     events_routes,
+    history_routes,
 ):
     api_router.include_router(module.router)
 

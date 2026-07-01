@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/PageHeader'
 import { LiveEventTape } from '@/components/realtime/LiveEventTape'
 import { EventRateChart } from '@/components/charts/EventRateChart'
+import { FusionSankey } from '@/components/FusionSankey'
 import { slaInfo, severityRank } from '@/lib/format'
 
 /** Role-aware landing. Greets the user, surfaces their permitted screens, and (for triage roles)
@@ -34,6 +35,8 @@ export function Dashboard() {
   const slaAtRisk = open.filter((a) =>
     ['urgent', 'breached'].includes(slaInfo(a.sla_due_ts).state),
   ).length
+  // highest-risk open alert → the fusion-flow spotlight (shows our 6-layer fusion at a glance)
+  const topAlert = [...open].sort((a, b) => b.risk_score - a.risk_score)[0]
 
   return (
     <div className="space-y-6">
@@ -72,6 +75,13 @@ export function Dashboard() {
         </div>
         <EventRateChart height={120} />
       </div>
+
+      {/* Fusion spotlight — the highest-risk open alert decomposed across our 6 detection layers. */}
+      {canTriage && topAlert ? (
+        <Link to={`/alerts/${topAlert.alert_id}`} className="block focus-ring rounded-lg">
+          <FusionSankey alert={topAlert} height={180} className="transition-colors hover:border-primary/40" />
+        </Link>
+      ) : null}
 
       <div>
         <h2 className="mb-2 text-sm font-medium text-muted-foreground">Your screens</h2>

@@ -41,6 +41,14 @@ services:
       HAWKEYE_NARRATIVE_URL: "http://gateway:8002/narrate"
       HAWKEYE_NARRATIVE_TIMEOUT: "15"
       HAWKEYE_API_HOST: "0.0.0.0"
+      # Live realtime stream without brokers (the tape/notifications/EPS are real, not mocked).
+      # Switch to "kafka" + run deploy/compose (Kafka+Redis) for the broker-based production path.
+      HAWKEYE_STREAM_MODE: "inprocess"
+      # Durable alerts across restarts via a sqlite volume (no Postgres container needed for the
+      # pilot). Point at postgresql://… + run a Postgres service for the production path.
+      HAWKEYE_DB_URL: "sqlite:////data/hawkeye.db"
+    volumes:
+      - hawkeye-db:/data
     expose:
       - "8000"                    # internal only — nginx is the public edge
     depends_on:
@@ -65,3 +73,6 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  hawkeye-db: {}              # durable sqlite alert store (survives container restarts)

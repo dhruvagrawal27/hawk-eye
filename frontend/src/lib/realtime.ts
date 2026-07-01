@@ -288,9 +288,10 @@ class WsRealtimeSource implements RealtimeSource {
 }
 
 /**
- * THE SWAP: mock generator while the backend has no stream, real WebSocket otherwise.
- * (Today both demo and live run on the mock; flip when the backend exposes /ws/alerts.)
+ * THE SWAP (now live): mock generator in mock mode (no backend), real WebSocket to /ws/alerts
+ * otherwise — the backend now streams event.scored / alert.new from the online pipeline.
  */
-export const realtime: RealtimeSource = env.useMocks ? new MockReplaySource() : new MockReplaySource()
-export const WS_AVAILABLE = false // set true + use WsRealtimeSource once the backend streams
-void WsRealtimeSource // referenced to keep the swap target in the bundle/types
+export const realtime: RealtimeSource = env.useMocks
+  ? new MockReplaySource()
+  : new WsRealtimeSource()
+export const WS_AVAILABLE = true

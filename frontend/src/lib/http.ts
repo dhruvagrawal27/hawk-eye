@@ -27,10 +27,16 @@ export interface RequestOptions {
   /** Override Accept handling for text endpoints (e.g. GET /metrics → Prometheus text). */
   responseType?: 'json' | 'text'
   headers?: Record<string, string>
+  /**
+   * Bypass the `/api/v1` base and hit `{origin}{path}` directly. The live backend serves a few
+   * operational routes (notably `GET /health`) at the server ROOT, not under the API base — under
+   * MSW these are intercepted at the base path, so the flag is a no-op there.
+   */
+  rootPath?: boolean
 }
 
-function buildUrl(path: string, query?: RequestOptions['query']): string {
-  const base = env.apiBaseUrl.replace(/\/$/, '')
+function buildUrl(path: string, query?: RequestOptions['query'], rootPath = false): string {
+  const base = rootPath ? '' : env.apiBaseUrl.replace(/\/$/, '')
   const url = new URL(`${base}${path}`, window.location.origin)
   if (query) {
     for (const [k, v] of Object.entries(query)) {
@@ -41,7 +47,15 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', query, body, signal, responseType = 'json', headers = {} } = options
+  const {
+    method = 'GET',
+    query,
+    body,
+    signal,
+    responseType = 'json',
+    headers = {},
+    rootPath = false,
+  } = options
   const token = getAccessToken()
 
   const init: RequestInit = {
@@ -58,7 +72,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   let res: Response
   try {
-    res = await fetch(buildUrl(path, query), init)
+    res = await fetch(buildUrl(path, query, rootPath), init)
   } catch (cause) {
     throw new ApiError(0, `Network error calling ${method} ${path}`, cause)
   }

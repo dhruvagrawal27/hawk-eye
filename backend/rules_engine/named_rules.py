@@ -166,6 +166,62 @@ def just_under_threshold(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     return None
 
 
+def suspense_nostro_lapping(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
+    """Suspense / nostro lapping (teeming-and-lapping): the same operator both *posts* a
+    suspense/nostro item and later *reconciles* it, with the item aged past the threshold —
+    the same-person-post-and-reconcile control (linkage post↔reconcile on one operator).
+
+    Consumes the DATA feature ``suspense_nostro_aging`` which already materializes
+    ``same_person_post_and_reconcile`` + ``max_aging_days`` per entity.
+    """
+    post_verbs = set(cfg.params.get("post_verbs", ["suspense_post", "nostro_post"]))
+    recon_verbs = set(cfg.params.get("recon_verbs", ["reconcile"]))
+    if ctx.verb not in post_verbs | recon_verbs:
+        return None
+    if not bool(ctx.feat("same_person_post_and_reconcile")):
+        return None
+    aging = ctx.feat("max_aging_days")
+    threshold = float(cfg.params.get("aging_days_threshold", 1))
+    if aging is None or float(aging) < threshold:
+        return None
+    acct = ctx.obj.get("account_id", "<suspense/nostro item>")
+    return _hit(
+        cfg,
+        f"same operator {ctx.actor_id} posted & reconciled {acct} "
+        f"(item aged {float(aging):.0f}d ≥ {threshold:.0f}d) — suspense/nostro lapping",
+        0.91,
+    )
+
+
+def audit_config_tampering(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
+    """Audit-log / logging-config tampering by a privileged or off-hours actor — a DBA /
+    sysadmin god-mode *concealment* signal (audit_config_change / disable_logging / etc.).
+
+    Reads the decayed count ``log_tampering_proxy`` (DATA feature); the tampering event
+    itself counts as 1 when the online view has not materialized a count yet.
+    """
+    verbs = set(
+        cfg.params.get(
+            "sensitive_verbs",
+            ["audit_config_change", "disable_logging", "modify_audit", "clear_log"],
+        )
+    )
+    if ctx.verb not in verbs:
+        return None
+    privileged = bool(ctx.actor.get("privileged_flag")) or bool(ctx.feat("privileged_flag"))
+    if not (privileged or ctx.is_off_hours):
+        return None
+    count = int(ctx.feat("log_tampering_proxy", 1) or 1)
+    if count < int(cfg.params.get("tampering_count_min", 1)):
+        return None
+    scope = "privileged" if privileged else "off-hours"
+    return _hit(
+        cfg,
+        f"{ctx.actor_id} performed {ctx.verb} ({scope}; {count} tampering event(s))",
+        0.85 if privileged else 0.75,
+    )
+
+
 def _hit(cfg: RuleConfig, detail: str, score: float) -> RuleHit:
     return RuleHit(
         code=cfg.code,
@@ -186,4 +242,6 @@ NAMED_RULES: dict[str, Predicate] = {
     "ENTITLEMENT_SELF_GRANT": entitlement_self_grant,
     "OFF_HOURS_ACTIVITY": off_hours_activity,
     "JUST_UNDER_THRESHOLD": just_under_threshold,
+    "SUSPENSE_NOSTRO_LAPPING": suspense_nostro_lapping,
+    "AUDIT_CONFIG_TAMPERING": audit_config_tampering,
 }

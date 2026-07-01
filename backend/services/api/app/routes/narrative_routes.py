@@ -75,3 +75,14 @@ def generate_narrative(
         model=result["model"],
         ai_generated=True,
     )
+
+
+@router.get("/narratives/{alert_id}/attestation")
+def get_attestation(
+    alert_id: str,
+    principal: Principal = Depends(require_capability(Capability.VIEW_ALERTS)),
+) -> dict:
+    """Real NEAR AI Cloud TEE attestation for the confidential-compute claim (Intel TDX enclave
+    signing address + quote fingerprint). Powers the ProvenanceBadge; degrades honestly when the
+    gateway is local-only or unreachable."""
+    return NARRATIVE_CLIENT.get_attestation(alert_id)

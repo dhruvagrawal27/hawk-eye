@@ -17,12 +17,39 @@ from app.schemas.entities import (
     PeerComparison,
     TimelineEvent,
 )
+from app.pii.vault import VAULT
 from app.store.alert_store import ALERTS
 from app.store.entity_store import ENTITIES
 from app.store.user_store import USER_STORE
 from app.workflow.escalation import apply_sla
 
 DEMO_ALERT_ID = "alr_demo01"
+
+# token → (synthetic real value, field_type). The seeded alerts/entity-360 reference these
+# already-tokenized IDs directly (the tokenizer never ran at ingest for the demo data), so the
+# re-id vault would otherwise be empty and POST /entities/{id}/unmask would return {}. Populating
+# it here gives authorized (audited) unmask a real (SYNTHETIC) value to return. No real PII.
+_DEMO_REID: dict[str, tuple[str, str]] = {
+    # employees (field_type "employee")
+    "EMP-7f3a": ("Rohit Mehra (Ops Maker, Trade Finance, BR-219)", "employee"),
+    "EMP-1a09": ("Anita Desai (Ops Checker, Trade Finance, BR-219)", "employee"),
+    "EMP-2b14": ("Vikram Nair (Payments Maker, BR-104)", "employee"),
+    "EMP-3c55": ("Suresh Rao (DBA, Core Banking, BR-001)", "employee"),
+    "EMP-4d99": ("Priya Kulkarni (Ops Maker, BR-330)", "employee"),
+    "EMP-9f02": ("Manish Gupta (former Ops Maker / leaver, BR-219)", "employee"),
+    # beneficiaries (field_type "beneficiary")
+    "BEN-9b1c": ("Sunrise Traders (payee, HDFC ****4471)", "beneficiary"),
+    "BEN-77aa": ("Orbit Exports Pvt Ltd (payee, ICICI ****9920)", "beneficiary"),
+    # accounts (field_type "account")
+    "ACCT-4d22": ("HDFC0002841 / 5011****4471", "account"),
+    "ACCT-77a1": ("SBIN0001102 / 3099****7712", "account"),
+}
+
+
+def _seed_reid_vault() -> None:
+    """Populate the re-id vault with token→(synthetic) real mappings for demo tokens (idempotent)."""
+    for token, (real_value, field_type) in _DEMO_REID.items():
+        VAULT.store(token, real_value, field_type)
 
 
 def _demo_alert() -> Alert:
@@ -208,6 +235,9 @@ def _seed_entity_360() -> None:
 
 def seed_demo() -> None:
     """Idempotent: populate demo alerts + entity-360 if not already present."""
+    # Always (re)seed the re-id vault first — it is separate from the alert store, so it must be
+    # populated even when the alerts already exist (e.g. after a restart that reloaded alerts).
+    _seed_reid_vault()
     if ALERTS.get(DEMO_ALERT_ID) is not None:
         return
     for builder in (_demo_alert, _second_alert, _third_alert, _fourth_alert):

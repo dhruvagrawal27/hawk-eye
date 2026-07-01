@@ -16,6 +16,7 @@ import {
   ROLE_META,
 } from './capabilities'
 import { handleSigninCallback, mapClaimsToUser, signinRedirect, signoutRedirect } from './oidc'
+import { LOCAL_PERSONAS, localLogin } from './localAuth'
 import { useIdleLogout, useRefreshBeforeExpiry } from './session'
 
 /**
@@ -110,9 +111,17 @@ const DEMO_USERS: Record<Role, AuthUser> = {
 }
 
 const DEMO_ROLE_KEY = 'hawkeye.demo_role'
+/** Persisted local-mode username so a soft re-mount (not a hard reload) re-mints the same session. */
+const LOCAL_USER_KEY = 'hawkeye.local_username'
+
+/** role → backend username for the local persona picker (POST /auth/login credentials). */
+const LOCAL_USERNAME_BY_ROLE = Object.fromEntries(
+  LOCAL_PERSONAS.map((p) => [p.role, p.username]),
+) as Partial<Record<Role, string>>
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isMock = env.useMocks
+  const isLocal = env.authMode === 'local'
   const [status, setStatus] = useState<AuthContextValue['status']>('loading')
   const [user, setUser] = useState<AuthUser | null>(null)
   const [activeRole, setActiveRole] = useState<Role | null>(null)
@@ -133,14 +142,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setExpiresAt(null)
     setStatus('unauthenticated')
     sessionStorage.removeItem(DEMO_ROLE_KEY)
-    if (!isMock) {
+    sessionStorage.removeItem(LOCAL_USER_KEY)
+    // Only the real IdP path needs an end-session redirect; mock/local clear state in-place.
+    if (env.authMode === 'oidc') {
       try {
         await signoutRedirect()
       } catch {
         /* best-effort — local state already cleared */
       }
     }
-  }, [isMock])
+  }, [])
 
   const login = useCallback(
     async (role?: Role) => {
@@ -153,9 +164,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         applyUser(DEMO_USERS[r], token.access_token, token.expires_in)
         return
       }
+      if (isLocal) {
+        // Local mode: the picked persona maps to a real backend username; POST credentials and
+        // store the returned JWT (role taken from the token's claims). No Keycloak/OIDC redirect.
+        const r = role ?? 'relationship_manager'
+        const username = LOCAL_USERNAME_BY_ROLE[r] ?? LOCAL_PERSONAS[0].username
+        const { user, token, expiresIn } = await localLogin(username)
+        sessionStorage.setItem(LOCAL_USER_KEY, username)
+        applyUser(user, token, expiresIn)
+        return
+      }
       await signinRedirect()
     },
-    [isMock, applyUser],
+    [isMock, isLocal, applyUser],
   )
 
   const refresh = useCallback(async () => {
@@ -175,7 +196,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     applyUser(authUser, oidcUser.access_token, oidcUser.expires_in ?? 900)
   }, [applyUser])
 
-  // Restore on mount: mock re-mints a token for the persisted demo role; real waits for callback/login.
+  // Restore on mount: mock re-mints a token for the persisted demo role; local re-mints from the
+  // persisted username (fixed dev password); real waits for the OIDC callback/explicit login.
   useEffect(() => {
     if (isMock) {
       const saved = sessionStorage.getItem(DEMO_ROLE_KEY) as Role | null
@@ -183,9 +205,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         void login(saved)
         return
       }
+    } else if (isLocal) {
+      const savedUser = sessionStorage.getItem(LOCAL_USER_KEY)
+      const persona = savedUser
+        ? LOCAL_PERSONAS.find((p) => p.username === savedUser)
+        : undefined
+      if (persona) {
+        void login(persona.role)
+        return
+      }
     }
     setStatus('unauthenticated')
-  }, [isMock, login])
+  }, [isMock, isLocal, login])
 
   // 401 → end the session (server is authoritative; client guard is defense-in-depth).
   useEffect(() => {
@@ -209,15 +240,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       completeSignin: completeSigninCallback,
       setActiveRole: (r: Role) => {
         setActiveRole(r)
-        // Demo-only convenience: switching the active role re-mints the matching mock identity.
-        if (isMock) void login(r)
+        // Demo convenience: switching the active role re-mints the matching identity (mock token,
+        // or a fresh local-mode login for the persona that holds that role).
+        if (isMock || isLocal) void login(r)
       },
       logout,
       can: (cap) => matrixCan(activeRole ?? undefined, cap),
       constraintFor: (cap) => matrixConstraint(activeRole ?? undefined, cap),
       canViewCaseData: matrixCanViewCaseData(activeRole ?? undefined),
     }),
-    [status, user, activeRole, isMock, login, logout, completeSigninCallback],
+    [status, user, activeRole, isMock, isLocal, login, logout, completeSigninCallback],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
