@@ -269,6 +269,12 @@ def seed_demo() -> None:
 
     seed_subthreshold()
     seed_analytics()  # fraud-typology prevalence + confirmed-rate (management analytics)
+    # Entity-360 lives in the in-memory ENTITIES store (never persisted), so — like the re-id vault
+    # above — it must be reseeded on every boot even when the alerts already exist. Otherwise a
+    # restart that reloads alerts from the sqlite store trips the guard below and leaves the
+    # entity-360 surface empty (GET /entities/{id} -> 404 for every entity, incl. worked-burst
+    # EMP-7f3a). put_* is idempotent (dict overwrite), so calling this every time is safe.
+    _seed_entity_360()
     if ALERTS.get(DEMO_ALERT_ID) is not None:
         return
     for builder in (_demo_alert, _second_alert, _third_alert, _fourth_alert):
@@ -276,7 +282,6 @@ def seed_demo() -> None:
         if alert.sla_due_ts is None:
             apply_sla(alert)
         ALERTS.add(alert)
-    _seed_entity_360()
     # Relationship Manager case scope: assign the demo alerts to the seeded RM (need-to-know).
     # EMP-an01 is the legacy analyst→relationship_manager login alias (docs/BANK_ROLES.md).
     USER_STORE.assign_alert("EMP-an01", "alr_demo01")
