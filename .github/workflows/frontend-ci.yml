@@ -1,0 +1,88 @@
+# =============================================================================
+# Hawk-Eye FRONTEND CI (Agent C · hawk-eye/ui-integrity)
+#
+# The repo's ci.yml covers the Python/platform tiers but has NO frontend gate. This workflow is the
+# missing floor for the "L7" investigator console + the Daylight-Forensics UI uplift: it runs every
+# gate on every push and blocks a merge that drops the test count, breaks the build, blows the bundle
+# budget, or trips a safety-invariant guard (alert-only, contestability, audited-unmask, RBAC/SoD,
+# no-secrets, no-invented-API-fields, reduced-motion). See docs/ui/INTEGRITY.md for the live status.
+#
+# Path-filtered to frontend/** so it only runs when the console changes.
+# =============================================================================
+name: frontend-ci
+
+on:
+  push:
+    branches: ["main", "hawk-eye/**"]
+    paths: ["frontend/**", ".github/workflows/frontend-ci.yml"]
+  pull_request:
+    branches: ["main"]
+    paths: ["frontend/**", ".github/workflows/frontend-ci.yml"]
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  gates:
+    name: Gates (tsc · eslint · prettier · vitest≥112 · build · bundle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install (clean, locked)
+        run: npm ci
+
+      - name: Typecheck — tsc --noEmit (strict)
+        run: npx tsc --noEmit
+
+      - name: Lint — eslint (zero warnings)
+        run: npx eslint . --max-warnings=0
+
+      - name: Format — prettier --check
+        run: npx prettier --check .
+
+      - name: Unit + invariant guards — vitest, with ≥112 test-count floor
+        run: node scripts/check-test-count.mjs
+
+      - name: Build — vite (production)
+        run: npx vite build
+
+      - name: Bundle budget — initial payload + total JS (gzip)
+        run: node scripts/check-bundle-size.mjs
+
+  e2e:
+    name: e2e (Playwright ≥3, MSW-mocked slice + reduced-motion a11y)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install (clean, locked)
+        run: npm ci
+
+      - name: e2e-count floor (≥3, static)
+        run: node scripts/check-e2e-count.mjs
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run e2e (VITE_USE_MOCKS=true vertical slice)
+        run: npx playwright test
+        env:
+          CI: "true"
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7

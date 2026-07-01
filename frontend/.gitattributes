@@ -1,0 +1,19 @@
+# Line-ending policy for the frontend (Agent C · hawk-eye/ui-integrity).
+# Prettier is configured with `endOfLine: "lf"`. Without this file, Windows + core.autocrlf=true checks
+# out CRLF, so `prettier --check` flags every file locally even though CI (Linux/LF) is green. Enforcing
+# LF in git keeps the format gate consistent across every OS. After adding this, run once to normalize
+# the working tree:  git add --renormalize .
+* text=auto eol=lf
+
+# Binary assets — never normalize line endings.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.avif binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
