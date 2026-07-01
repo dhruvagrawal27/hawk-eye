@@ -205,10 +205,17 @@ def kris(principal: Principal = Depends(require_capability(Capability.VIEW_ALERT
             delta=0,
         ),
     ]
+    # 16 weeks of detection trends — alert volume / confirmed / false-positives / MTTD — so the board
+    # chart reads at real-bank scale (deterministic; the live analytics job replaces this in prod).
     trends = [
-        KriTrendPoint(period="2026-W24", mttd=8.1, fpr=36),
-        KriTrendPoint(period="2026-W25", mttd=7.0, fpr=33),
-        KriTrendPoint(period="2026-W26", mttd=6.2, fpr=31),
+        KriTrendPoint(
+            period=f"2026-W{11 + i:02d}",
+            alerts=320 + (i * 37) % 210 + i * 6,
+            confirmed=18 + (i * 5) % 22,
+            false_positives=90 + (i * 13) % 70,
+            mttd=round(8.6 - i * 0.16, 1),
+        )
+        for i in range(16)
     ]
     coverage = [
         CoverageCell(area="trade_finance", covered_pct=86),

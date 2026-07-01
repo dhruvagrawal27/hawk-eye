@@ -323,6 +323,74 @@ def _seed_bulk_alerts(count: int = 450) -> None:
         ALERTS.add(alert)
 
 
+# ── Regulatory case history (FMR / CFR / CRILC) ──────────────────────────────────────────────────
+# The bulk alerts above are deliberately non-confirmed and < ₹3 cr so they never touch the regulatory
+# returns. A real bank, though, has an accumulated history of human-confirmed frauds and large-credit
+# exposures, so the FMR/CFR/CRILC exports would otherwise read empty. Seed that history: confirmed
+# frauds (→ FMR + CFR, RBI category-tagged) plus large-credit exposures ≥ ₹3 cr (→ CRILC). Gated by
+# HAWKEYE_SEED_BULK like the rest, so the regulatory unit/contract tests (which run with it off and
+# assert on just the demo cases) are unaffected.
+# code → carries an RBI FMR fraud category (see regulatory/fmr.py _CATEGORY).
+_FMR_CODES: tuple[tuple[str, str], ...] = (
+    ("NEW_BENEFICIARY_THEN_HIGHVALUE", "New payee added, then high-value payment routed within minutes"),
+    ("DB_WRITE_WITHOUT_APP_TXN", "Direct core-banking write with no matching application transaction"),
+    ("ENTITLEMENT_SELF_GRANT", "Operator self-granted a maker+checker entitlement (SoD breach)"),
+    ("SWIFT_CBS_MISMATCH", "Outbound SWIFT message with no CBS reconciliation"),
+    ("DORMANT_REACTIVATION_DRAIN", "Dormant account reactivated then drained in a single session"),
+)
+
+
+def _seed_regulatory_alerts(confirmed: int = 60, large_credit: int = 42) -> None:
+    """Seed confirmed-fraud + large-credit exposure history so FMR/CFR/CRILC read at real scale."""
+    now = datetime.now(timezone.utc)
+    # Confirmed frauds → FMR + CFR (and CRILC where exposure ≥ ₹3 cr).
+    for i in range(confirmed):
+        code, detail = _FMR_CODES[i % len(_FMR_CODES)]
+        exposure = 50_00_000 + (i * 53 % 170) * 5_00_000  # ₹50L–₹9 cr, spread deterministically
+        days_ago = 5 + (i * 11) % 150
+        created = (now - timedelta(days=days_ago)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        alert = Alert(
+            alert_id=f"alr_fmr{i:03d}",
+            entity_id=f"EMP-f{i:03d}",
+            risk_score=88 + (i % 12),
+            severity=Severity.HIGH,
+            confidence=round(0.80 + (i % 20) / 100.0, 2),
+            status=AlertStatus.CONFIRMED_FRAUD,
+            created_ts=created,
+            contributing_layers=["L1_rules", "L3_gbdt", "L5_graph"],
+            reason_codes=[{"source": "rule", "code": code, "detail": detail}],
+            exposure_inr=exposure,
+            sla_due_ts=None,
+            pii_tokenized=True,
+        )
+        apply_sla(alert)
+        ALERTS.add(alert)
+    # Large-credit exposures (≥ ₹3 cr) under early-warning watch → CRILC volume (not confirmed).
+    _watch = (AlertStatus.OPEN, AlertStatus.ASSIGNED, AlertStatus.IN_REVIEW)
+    for i in range(large_credit):
+        exposure = 3_00_00_000 + (i * 47 % 220) * 10_00_000  # ₹3 cr–₹25 cr
+        days_ago = 8 + (i * 13) % 160
+        created = (now - timedelta(days=days_ago)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        alert = Alert(
+            alert_id=f"alr_crilc{i:03d}",
+            entity_id=f"EMP-c{i:03d}",
+            risk_score=72 + (i % 25),
+            severity=Severity.HIGH,
+            confidence=round(0.65 + (i % 30) / 100.0, 2),
+            status=_watch[i % len(_watch)],
+            created_ts=created,
+            contributing_layers=["L1_rules", "L2_unsupervised", "L3_gbdt"],
+            reason_codes=[
+                {"source": "rule", "code": "HIGH_VALUE_EXPOSURE", "detail": "Large-credit exposure under early-warning watch"}
+            ],
+            exposure_inr=exposure,
+            sla_due_ts=None,
+            pii_tokenized=True,
+        )
+        apply_sla(alert)
+        ALERTS.add(alert)
+
+
 # ── Bulk WORM audit history (BACKEND-22 / Part 19.3) ─────────────────────────────────────────────
 # The audit store is in-memory and starts empty on every boot — it only fills as console users act,
 # so a fresh deployment shows a near-empty trail. For the demo/MVP we lay down a realistic back-dated
@@ -450,6 +518,8 @@ def seed_demo() -> None:
     # the idempotency guard so it survives restarts.)
     if os.getenv("HAWKEYE_SEED_BULK", "1") != "0":
         _seed_bulk_alerts()
+        # Confirmed-fraud + large-credit history so the FMR/CFR/CRILC exports read at real scale.
+        _seed_regulatory_alerts()
     # Relationship Manager case scope: assign the demo alerts to the seeded RM (need-to-know).
     # EMP-an01 is the legacy analyst→relationship_manager login alias (docs/BANK_ROLES.md).
     USER_STORE.assign_alert("EMP-an01", "alr_demo01")
