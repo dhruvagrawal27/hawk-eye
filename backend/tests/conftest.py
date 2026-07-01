@@ -78,6 +78,9 @@ def _reset_state() -> None:
     AUDIT._events.clear()
     DEDUPE.reset()
     DEGRADATION.recover()
+    from serving.model_state import MODEL_STATE
+
+    MODEL_STATE.reset()
     for u in USER_STORE.list():
         if u.role == Role.RELATIONSHIP_MANAGER:
             u.assigned_alerts.clear()

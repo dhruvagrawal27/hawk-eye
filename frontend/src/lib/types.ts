@@ -288,6 +288,33 @@ export interface ExplanationResponse {
   fusion?: FusionBreakdown
 }
 
+/* ───────────────────────────── Sub-threshold / ambient activity [GET /activity/sub-threshold] ── */
+/**
+ * The 'hidden 95%': every event is scored, but only fused ≥ emit_threshold (70) surfaces as an
+ * alert. This is the scored-but-not-alerted population — the detection funnel + a near-miss watchlist
+ * of elevated-but-below-the-bar entities the alert queue never shows.
+ */
+export interface SubThresholdBand {
+  label: string // watch | elevated | low
+  min: number
+  max: number
+  count: number
+}
+export interface WatchlistItem {
+  entity_id: EntityId
+  score: number // 0–100, in the 40–69 near-miss range
+  top_signal: string
+  ts: IsoTimestamp
+}
+export interface SubThresholdResponse {
+  total_scored: number
+  alerted: number
+  sub_threshold: number
+  emit_threshold: number
+  bands: SubThresholdBand[]
+  watchlist: WatchlistItem[]
+}
+
 /* ───────────────────────────── Score history [FE-proposed: GET /entities/{id}/score-history] ─── */
 /**
  * [FE-proposed] A 0–100 fused-risk-score time series for an entity, so AlertDetail can plot how the

@@ -11,6 +11,7 @@ import { request } from './http'
 import type {
   AdminUser,
   Alert,
+  SubThresholdResponse,
   AlertQuery,
   AssignBody,
   AssignResponse,
@@ -261,6 +262,10 @@ export const apiClient = {
   /** Service map — every platform service, what it's for, where it's used, and live status. */
   getServiceStatus(): Promise<ServiceStatusResponse> {
     return request('/services/status')
+  },
+  /** Sub-threshold ('hidden 95%') activity — detection funnel + near-miss watchlist (scored < 70). */
+  getSubThreshold(limit = 20): Promise<SubThresholdResponse> {
+    return request(`/activity/sub-threshold?limit=${limit}`)
   },
   /** Downloadable, audit-grade explainability report for one alert (SAR/FMR evidence pack). */
   getExplanationReport(alertId: string): Promise<Record<string, unknown>> {

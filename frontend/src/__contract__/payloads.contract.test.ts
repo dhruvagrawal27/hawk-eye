@@ -69,6 +69,16 @@ describe('explanations + narrative (Part 11 / Part 25)', () => {
     expect(exp.graph?.explainer_model).toBe('GNNExplainer')
   })
 
+  it('exposes the sub-threshold detection funnel + near-miss watchlist (Phase 4)', async () => {
+    const st = await apiClient.getSubThreshold()
+    expect(st.emit_threshold).toBe(70)
+    expect(st.sub_threshold).toBe(st.bands.reduce((s, b) => s + b.count, 0))
+    expect(st.total_scored).toBe(st.alerted + st.sub_threshold)
+    expect(st.sub_threshold).toBeGreaterThan(st.alerted) // the silent majority
+    expect(st.watchlist.length).toBeGreaterThan(0)
+    for (const w of st.watchlist) expect(w.score).toBeGreaterThanOrEqual(40)
+  })
+
   it('carries LAXCAT variable×temporal attention + SHAP peer percentiles (Phase 2)', async () => {
     const exp = await apiClient.getExplanation('alr_3d7e22')
     // every attention step now carries the variable axis (the heatmap rows)

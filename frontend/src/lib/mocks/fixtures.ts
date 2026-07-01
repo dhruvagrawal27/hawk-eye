@@ -28,6 +28,7 @@ import type {
   PeerComparisonResponse,
   ReportExport,
   Rule,
+  SubThresholdResponse,
   TimelineResponse,
   UnifiedEvent,
   UnmaskResponse,
@@ -1756,6 +1757,30 @@ export const KRIS: KriResponse = {
     { area: 'Credit / loans', covered_pct: 78 },
     { area: 'Payroll / HR', covered_pct: 74 },
     { area: 'IT / data layer', covered_pct: 85 },
+  ],
+}
+
+/* ─────────────── Sub-threshold / ambient activity ('hidden 95%') [GET /activity/sub-threshold] ── */
+export const SUB_THRESHOLD: SubThresholdResponse = {
+  total_scored: 954,
+  alerted: 4,
+  sub_threshold: 950,
+  emit_threshold: 70,
+  bands: [
+    { label: 'watch', min: 55, max: 70, count: 6 },
+    { label: 'elevated', min: 40, max: 55, count: 4 },
+    { label: 'low', min: 0, max: 40, count: 940 },
+  ],
+  watchlist: [
+    { entity_id: 'EMP-2b14', score: 66, top_signal: 'off_hours_activity_rate_30d', ts: '2026-06-30T01:12:00Z' },
+    { entity_id: 'EMP-9f77', score: 63, top_signal: 'maker_checker_pair_frequency_30d', ts: '2026-06-30T20:41:00Z' },
+    { entity_id: 'EMP-3c55', score: 61, top_signal: 'db_rows_read_zscore_vs_peer', ts: '2026-06-29T22:05:00Z' },
+    { entity_id: 'EMP-7a21', score: 58, top_signal: 'export_volume_vs_baseline', ts: '2026-06-30T02:47:00Z' },
+    { entity_id: 'EMP-5d10', score: 57, top_signal: 'new_beneficiary_to_payment_latency_min', ts: '2026-06-30T19:58:00Z' },
+    { entity_id: 'EMP-8b93', score: 55, top_signal: 'privileged_session_off_hours', ts: '2026-06-29T23:31:00Z' },
+    { entity_id: 'EMP-1a09', score: 52, top_signal: 'amount_zscore_vs_peer', ts: '2026-06-30T13:20:00Z' },
+    { entity_id: 'EMP-4d99', score: 48, top_signal: 'failed_login_burst', ts: '2026-06-30T09:05:00Z' },
+    { entity_id: 'EMP-6e02', score: 44, top_signal: 'role_change_recency', ts: '2026-06-28T16:44:00Z' },
   ],
 }
 

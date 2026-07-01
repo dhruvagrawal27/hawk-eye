@@ -69,6 +69,14 @@ class ModelLoader:
         self._loaded[layer] = model
         return model
 
+    def model_id_for(self, layer: str) -> str | None:
+        """The serving model_id for a layer (loaded champion, else the registry Production)."""
+        m = self._loaded.get(layer)
+        if m is not None:
+            return m.model_id
+        meta = self.registry.production_for(layer)
+        return meta.model_id if meta is not None else None
+
     def load_all(self, layers: list[str]) -> dict[str, LoadedModel]:
         out: dict[str, LoadedModel] = {}
         for layer in layers:

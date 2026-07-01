@@ -40,6 +40,7 @@ import {
   MODEL_QUALITY,
   PEERS,
   RULES,
+  SUB_THRESHOLD,
   TIMELINES,
   USERS,
   findAlert,
@@ -838,6 +839,9 @@ export const handlers = [
     })
     return HttpResponse.json(user, { status: 201 })
   }),
+
+  // Ambient / sub-threshold activity (the 'hidden 95%')
+  http.get(api('/activity/sub-threshold'), () => HttpResponse.json(SUB_THRESHOLD)),
 
   // Health / metrics
   http.get(api('/health'), () => HttpResponse.json(HEALTH)),

@@ -28,4 +28,5 @@ export const queryKeys = {
   crilc: () => ['reports', 'crilc'] as const,
   cases: () => ['cases'] as const,
   case: (id: string) => ['case', id] as const,
+  subThreshold: (limit = 20) => ['activity', 'sub-threshold', limit] as const,
 } as const
