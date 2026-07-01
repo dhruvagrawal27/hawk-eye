@@ -210,6 +210,22 @@ def decide_hold(hold_id: str, body: HoldDecisionBody) -> dict:
     return h
 
 
+@app.get("/api/v1/policies")
+def list_policies() -> list[dict]:
+    """Read-only policy view for the interdiction console (M3.4 'INTERDICTION POLICIES')."""
+    return [
+        {
+            "code": p.code,
+            "name": p.name,
+            "gate": p.gate,
+            "severity": p.severity,
+            "enabled": p.enabled,
+            "verbs": sorted(p.verbs),
+        }
+        for p in GATE.policies()
+    ]
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "action-gate", "policy_version": GATE.fingerprint,
@@ -219,3 +235,39 @@ def health() -> dict:
 @app.get("/metrics")
 def metrics() -> PlainTextResponse:
     return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+def _seed_holds() -> None:
+    """Seed a few pending HOLDs so the console's review queue is populated on a fresh pilot box.
+    Real holds are created live by POST /actions/evaluate (HOLD_FOR_REVIEW). Idempotent."""
+    if HOLDS:
+        return
+    samples = [
+        ("EMP-4d99", "grant_entitlement", "high", "SELF_GRANT_HOLD", "Entitlement self-grant"),
+        ("EMP-2b14", "bulk_export", "high", "BULK_EXPORT_HOLD",
+         "Bulk export from a privileged session (mass volume)"),
+        ("EMP-3c55", "db_write", "medium", "DB_WRITE_STEP_UP", "Direct DB write"),
+        ("EMP-7f3a", "role_assign", "high", "MAKER_CHECKER_SAME_ACTOR_HOLD",
+         "Maker+checker by the same actor"),
+    ]
+    for i, (subject, verb, severity, code, name) in enumerate(samples, 1):
+        hid = f"hold_seed{i}"
+        detail = f"{name} (hard-gate)"
+        HOLDS[hid] = {
+            "hold_id": hid,
+            "request_id": f"req_seed{i}",
+            "subject": subject,
+            "verb": verb,
+            "status": "pending_review",
+            "reason_codes": [{"source": "policy", "code": code, "detail": detail}],
+            "severity": severity,
+            "proportionality": "reversible staff action held pending second-approver review",
+            "explanation": detail,
+            "dpia_binding": True,
+            "decider": None,
+            "justification": None,
+            "ts": _now(),
+        }
+
+
+_seed_holds()

@@ -113,6 +113,10 @@ class ActionGate:
     def known_codes(self) -> set[str]:
         return {p.code for p in self._policies}
 
+    def policies(self) -> tuple[Policy, ...]:
+        """The loaded policy set (for the read-only policy view in the interdiction console)."""
+        return self._policies
+
     def evaluate(
         self,
         verb: str,

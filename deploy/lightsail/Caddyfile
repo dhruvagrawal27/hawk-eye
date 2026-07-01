@@ -20,5 +20,16 @@ hawk-eye.nineagents.in {
 # ---- Backend API ------------------------------------------------------------
 hawk.nineagents.in {
 	encode zstd gzip
-	reverse_proxy backend:8000
+
+	# L6.5 interdiction: the SPA calls /api/v1/action-gate/* but the action-gate service serves
+	# /api/v1/* — strip the "action-gate" segment, then re-add /api/v1, and proxy to :8096.
+	handle_path /api/v1/action-gate/* {
+		rewrite * /api/v1{path}
+		reverse_proxy action-gate:8096
+	}
+
+	# Everything else -> the main FastAPI control plane (REST + /ws/alerts).
+	handle {
+		reverse_proxy backend:8000
+	}
 }
