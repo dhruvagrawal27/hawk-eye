@@ -253,7 +253,9 @@ def test_sod_no_self_review_via_route(client, auth):
 
 def test_sod_investigator_cannot_tune_own_alert_rules():
     """An investigator may not unilaterally tune a rule that generated THEIR alert."""
-    an = _principal("EMP-an01", Role.RELATIONSHIP_MANAGER, assigned_alerts={"alr_demo01"})
+    an = _principal(
+        "EMP-an01", Role.RELATIONSHIP_MANAGER, assigned_alerts={"alr_demo01"}
+    )
     with pytest.raises(sod.SoDError):
         sod.check_rule_tuning(an, generated_alerts={"alr_demo01", "alr_other"})
     # Defence-in-depth at RBAC: branch-line investigators lack tune_rules entirely.
@@ -301,7 +303,9 @@ def test_sod_only_compliance_approves_rule_change_team_lead_propose_only(client,
         headers=auth("lead"),
         json={"change_id": change_id, "approve": True},
     )
-    assert r.status_code == 403, f"AGM Vigilance approved a rule change: {r.status_code}"
+    assert (
+        r.status_code == 403
+    ), f"AGM Vigilance approved a rule change: {r.status_code}"
     # A SECOND, distinct DGM Compliance is the proper four-eyes approver.
     r2 = client.post(
         f"/api/v1/rules/{change_id}/approve",
@@ -425,7 +429,10 @@ def test_audit_entries_are_tamper_evident_or_immutable():
 def test_audit_query_and_all_do_not_let_caller_delete_history():
     """Reading the trail must not expose a handle that deletes/clears prior history."""
     AUDIT.write(
-        actor="EMP-a", actor_role=Role.RELATIONSHIP_MANAGER, action="alert.view", target="E1"
+        actor="EMP-a",
+        actor_role=Role.RELATIONSHIP_MANAGER,
+        action="alert.view",
+        target="E1",
     )
     n = len(AUDIT.all())
     # The public list returned by all()/query() must be a copy: clearing it must NOT
@@ -451,7 +458,10 @@ def test_view_own_audit_scope_enforced_for_senior(client, auth):
     """Branch Manager gets view_own audit only — cannot read others' entries."""
     # Seed an audit entry by a different actor.
     AUDIT.write(
-        actor="EMP-other", actor_role=Role.RELATIONSHIP_MANAGER, action="alert.view", target="E9"
+        actor="EMP-other",
+        actor_role=Role.RELATIONSHIP_MANAGER,
+        action="alert.view",
+        target="E9",
     )
     r = client.get("/api/v1/audit", headers=auth("senior"))
     assert r.status_code == 200, r.text
