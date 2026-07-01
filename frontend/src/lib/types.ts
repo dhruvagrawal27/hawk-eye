@@ -339,6 +339,7 @@ export type GraphEdgeType =
   | 'circular_flow'
   | 'mule'
   | 'transaction'
+  | 'shares_pattern' // actor exhibits a detection rule/pattern (links actors by shared modus operandi)
 
 export interface GraphNode {
   id: string

@@ -81,10 +81,16 @@ def get_graph_overview(
     edges: dict[str, OverviewEdge] = {}
     shared_risk: dict[str, int] = {}  # max seed-actor risk touching each shared node
 
-    def upsert_node(nid: str, ntype: str, risk: int | None = None, is_focus: bool = False) -> None:
+    def upsert_node(
+        nid: str,
+        ntype: str,
+        label: str | None = None,
+        risk: int | None = None,
+        is_focus: bool = False,
+    ) -> None:
         node = nodes.get(nid)
         if node is None:
-            nodes[nid] = OverviewNode(id=nid, type=ntype, label=nid, risk=risk, is_focus=is_focus)
+            nodes[nid] = OverviewNode(id=nid, type=ntype, label=label or nid, risk=risk, is_focus=is_focus)
             return
         if is_focus:
             node.is_focus = True
@@ -101,6 +107,19 @@ def get_graph_overview(
         upsert_node(actor, "employee", risk=alert.risk_score, is_focus=(actor == top_id))
 
         for rc in alert.reason_codes:
+            # Rule/pattern hub: actors that fire the same detection rule share a modus operandi.
+            # This is the main link-density driver — it clusters otherwise-isolated actors.
+            code = rc.code
+            if code:
+                pid = f"RULE-{code}"
+                upsert_node(pid, "system", label=code.replace("_", " ").title())
+                add_edge(
+                    OverviewEdge(
+                        id=f"{actor}=>{pid}", source=actor, target=pid, type="shares_pattern"
+                    )
+                )
+                shared_risk[pid] = max(shared_risk.get(pid, 0), alert.risk_score)
+
             detail = rc.detail or ""
             if not detail:
                 continue
