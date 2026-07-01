@@ -4,16 +4,16 @@ import { useQuery } from '@tanstack/react-query'
 import { Briefcase, FolderOpen, Inbox, Layers } from 'lucide-react'
 import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
-import { formatINRCompact, formatRelative, severityRank, statusLabel } from '@/lib/format'
+import { formatINR, formatRelative, severityRank, statusLabel } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { PageHeader } from '@/components/PageHeader'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { MaskedPII } from '@/components/MaskedPII'
-import { SlaTimer } from '@/components/SlaTimer'
 import { SeverityBadge, StatusBadge } from '@/components/badges'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { Eyebrow } from '@/components/ui/eyebrow'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { AmountFlip, CountUp, RouteTransition, SlaRing, useAutoAnimateList } from '@/ui'
 import type { CaseStatus, CaseSummary } from '@/lib/types'
 
 const STATUS_FILTERS: { value: 'all' | CaseStatus; label: string }[] = [
@@ -105,12 +106,14 @@ export function CaseManagement() {
     })
   }, [allCases, statusFilter])
 
+  const [listRef] = useAutoAnimateList<HTMLTableSectionElement>()
+
   return (
-    <div className="space-y-4">
+    <RouteTransition className="space-y-4">
       <PageHeader
         icon={<Briefcase className="size-5" />}
         title="Case management"
-        description="Investigation cases grouping related alerts. Click a case to triage, note, and disposition."
+        description="Investigation cases grouping related alerts. Click a case to triage, note, and disposition — nothing auto-blocks or auto-closes."
         actions={
           <Select
             value={statusFilter}
@@ -134,21 +137,25 @@ export function CaseManagement() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <SummaryStat
             label="Total cases"
-            value={String(counts.total)}
+            value={<CountUp value={counts.total} />}
             icon={<Layers className="size-4" />}
           />
           <SummaryStat
             label="Active"
-            value={String(counts.openLike)}
+            value={<CountUp value={counts.openLike} />}
             icon={<FolderOpen className="size-4" />}
           />
           <SummaryStat
             label="Escalated"
-            value={String(counts.escalated)}
+            value={<CountUp value={counts.escalated} />}
             icon={<Inbox className="size-4" />}
             tone={counts.escalated > 0 ? 'warn' : undefined}
           />
-          <SummaryStat label="Total exposure" value={formatINRCompact(counts.exposure)} />
+          <SummaryStat
+            label="Total exposure"
+            value={<AmountFlip value={counts.exposure} kind="inr" compact />}
+            title={formatINR(counts.exposure)}
+          />
         </div>
       ) : null}
 
@@ -195,7 +202,7 @@ export function CaseManagement() {
                     <TableHead className="text-right">Updated</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody ref={listRef}>
                   {visible.map((c) => (
                     <CaseRow key={c.case_id} c={c} onOpen={() => navigate(`/cases/${c.case_id}`)} />
                   ))}
@@ -205,7 +212,7 @@ export function CaseManagement() {
           </QueryBoundary>
         </CardContent>
       </Card>
-    </div>
+    </RouteTransition>
   )
 }
 
@@ -214,22 +221,25 @@ function SummaryStat({
   value,
   icon,
   tone,
+  title,
 }: {
   label: string
-  value: string
+  value: React.ReactNode
   icon?: React.ReactNode
   tone?: 'warn'
+  title?: string
 }) {
   return (
     <Card>
       <CardContent className="flex items-center justify-between gap-2 p-3">
         <div>
-          <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">{label}</p>
+          <Eyebrow>{label}</Eyebrow>
           <p
             className={cn(
-              'mt-0.5 text-lg font-semibold tabular-nums',
+              'mt-0.5 font-mono text-lg font-semibold tabular-nums',
               tone === 'warn' && 'text-severity-high',
             )}
+            title={title}
           >
             {value}
           </p>
@@ -263,7 +273,9 @@ function CaseRow({ c, onOpen }: { c: CaseSummary; onOpen: () => void }) {
             >
               {c.title}
             </Link>
-            <span className="font-mono text-[0.7rem] text-muted-foreground">{c.case_id}</span>
+            <span className="font-mono text-[0.7rem] tabular-nums text-muted-foreground">
+              {c.case_id}
+            </span>
           </div>
         </div>
       </TableCell>
@@ -278,8 +290,16 @@ function CaseRow({ c, onOpen }: { c: CaseSummary; onOpen: () => void }) {
           {c.alert_ids.length}
         </Badge>
       </TableCell>
-      <TableCell className="text-right font-medium tabular-nums">
-        {formatINRCompact(c.exposure_inr)}
+      <TableCell
+        className="text-right font-medium tabular-nums"
+        title={formatINR(c.exposure_inr ?? 0)}
+      >
+        <AmountFlip
+          value={c.exposure_inr ?? 0}
+          kind="inr"
+          compact
+          className="text-sm font-medium text-foreground"
+        />
       </TableCell>
       <TableCell>
         {c.assignee ? (
@@ -297,9 +317,9 @@ function CaseRow({ c, onOpen }: { c: CaseSummary; onOpen: () => void }) {
       </TableCell>
       <TableCell>
         {c.sla_due_ts ? (
-          <SlaTimer dueTs={c.sla_due_ts} compact />
+          <SlaRing dueTs={c.sla_due_ts} size={34} />
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
+          <span className="font-mono text-xs text-muted-foreground">—</span>
         )}
       </TableCell>
       <TableCell className="text-right text-xs tabular-nums text-muted-foreground">

@@ -51,6 +51,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { RouteTransition, useAutoAnimateList } from '@/ui'
 
 /* ── sortable columns ─────────────────────────────────────────────────────── */
 type SortKey = 'composite' | 'risk_score' | 'exposure_inr' | 'confidence' | 'sla'
@@ -320,6 +321,11 @@ export function TriageQueue() {
     [bulkAction, selectedAlertIds, user],
   )
 
+  // AutoAnimate the row list so alerts entering/leaving (arrival, claim, disposition, filter) glide
+  // instead of jumping — reduced-motion disables it. Motion stays off the scroll hot path (rows only
+  // animate on add/remove/reorder, never on scroll).
+  const [listRef] = useAutoAnimateList<HTMLDivElement>()
+
   const total = alertsQuery.data?.total ?? allAlerts.length
   const collapsed = allAlerts.length - rows.length
   const filtersActive = Boolean(status || riskGte || assignee || type || search)
@@ -348,7 +354,7 @@ export function TriageQueue() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <RouteTransition className="flex h-full flex-col gap-3">
       <PageHeader
         title="Triage queue"
         description="Open alerts ranked by fused risk × exposure × confidence. Claim to investigate — nothing auto-blocks or auto-closes."
@@ -582,7 +588,7 @@ export function TriageQueue() {
               className="m-3 flex-1"
             />
           ) : (
-            <div className="min-h-0 flex-1 overflow-auto">
+            <div ref={listRef} className="min-h-0 flex-1 overflow-auto">
               {sortedRows.map((row) => (
                 <AlertRow
                   key={row.alert.alert_id}
@@ -601,7 +607,7 @@ export function TriageQueue() {
           )}
         </QueryBoundary>
       </div>
-    </div>
+    </RouteTransition>
   )
 }
 

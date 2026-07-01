@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { CountUp, RouteTransition } from '@/ui'
 import type { AuditQuery } from '@/lib/types'
 
 // Live backend dotted action vocabulary (GET /api/v1/audit). Values are the exact `action` strings
@@ -137,7 +138,7 @@ export function AuditorView() {
     Boolean(applied.to)
 
   return (
-    <div className="space-y-4">
+    <RouteTransition className="space-y-4">
       <PageHeader
         icon={<FileSearch className="size-5" />}
         title="Audit trail"
@@ -242,27 +243,23 @@ export function AuditorView() {
       {/* Highlight counters */}
       {!auditQuery.isLoading && !auditQuery.isError ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Counter
-            icon={<ScrollText className="size-4" />}
-            label="Events shown"
-            value={String(total)}
-          />
+          <Counter icon={<ScrollText className="size-4" />} label="Events shown" value={total} />
           <Counter
             icon={<Eye className="size-4" />}
             label="Employee views"
-            value={String(counts.views)}
+            value={counts.views}
             tone="info"
           />
           <Counter
             icon={<Lock className="size-4" />}
             label="PII unmasks"
-            value={String(counts.unmasks)}
+            value={counts.unmasks}
             tone={counts.unmasks > 0 ? 'warn' : undefined}
           />
           <Counter
             icon={<Gavel className="size-4" />}
             label="Case decisions"
-            value={String(counts.decisions)}
+            value={counts.decisions}
           />
         </div>
       ) : null}
@@ -287,7 +284,7 @@ export function AuditorView() {
           : null}{' '}
         The authoritative WORM store retains the full, hash-chained record server-side.
       </p>
-    </div>
+    </RouteTransition>
   )
 }
 
@@ -299,7 +296,7 @@ function Counter({
 }: {
   icon: React.ReactNode
   label: string
-  value: string
+  value: number
   tone?: 'info' | 'warn'
 }) {
   return (
@@ -307,14 +304,13 @@ function Counter({
       <CardContent className="flex items-center justify-between gap-2 p-3">
         <div>
           <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">{label}</p>
-          <p
+          <CountUp
+            value={value}
             className={[
-              'mt-0.5 text-lg font-semibold tabular-nums',
+              'mt-0.5 block font-mono text-lg font-semibold',
               tone === 'warn' ? 'text-severity-high' : tone === 'info' ? 'text-reason-shap' : '',
             ].join(' ')}
-          >
-            {value}
-          </p>
+          />
         </div>
         <span className="text-muted-foreground">{icon}</span>
       </CardContent>

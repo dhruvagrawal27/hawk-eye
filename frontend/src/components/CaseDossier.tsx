@@ -132,7 +132,7 @@ export function CaseDossier({ detail }: { detail: CaseDetail }) {
                 {n.author_role ? (
                   <span className="text-neutral-600"> ({n.author_role})</span>
                 ) : null}
-                <span className="text-neutral-600"> · {formatIST(n.ts)}</span>
+                <span className="font-mono text-neutral-600"> · {formatIST(n.ts)}</span>
                 <div>{n.body}</div>
               </li>
             ))}
@@ -146,7 +146,7 @@ export function CaseDossier({ detail }: { detail: CaseDetail }) {
           <ul className="space-y-0.5">
             {detail.history.map((h) => (
               <li key={h.id} className="break-inside-avoid">
-                <span className="text-neutral-600">{formatIST(h.ts)}</span> ·{' '}
+                <span className="font-mono text-neutral-600">{formatIST(h.ts)}</span> ·{' '}
                 <span className="font-semibold">{h.actor}</span> · {h.action}
                 {h.detail ? <span className="text-neutral-700"> — {h.detail}</span> : null}
               </li>
@@ -158,8 +158,9 @@ export function CaseDossier({ detail }: { detail: CaseDetail }) {
       {/* Footer */}
       <footer className="mt-5 break-inside-avoid border-t border-black pt-2 text-[9px] text-neutral-700">
         <p>
-          Generated {formatIST(generatedAt)} by {operator}
-          {role ? ` (${role})` : ''} · Case {detail.case_id} · {generatedAt}
+          Generated <span className="font-mono">{formatIST(generatedAt)}</span> by {operator}
+          {role ? ` (${role})` : ''} · Case <span className="font-mono">{detail.case_id}</span> ·{' '}
+          <span className="font-mono">{generatedAt}</span>
         </p>
         <p className="mt-0.5">
           This dossier is a point-in-time export and may not reflect subsequent activity. Source of

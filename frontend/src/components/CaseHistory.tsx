@@ -13,6 +13,7 @@ import { formatIST, formatRelative, humanize } from '@/lib/format'
 import { ROLE_META } from '@/auth/capabilities'
 import { EmptyState } from '@/components/ui/empty-state'
 import { InfoTip } from '@/components/ui/tooltip'
+import { useAutoAnimateList } from '@/ui'
 import type { CaseHistoryEvent } from '@/lib/types'
 
 /** Map a history `action` verb to an icon + accent so the feed scans quickly. */
@@ -37,6 +38,10 @@ function actionMeta(action: string): { icon: LucideIcon; className: string } {
  * "watch-the-watchers" trail for a case. Renders newest-first as a vertical timeline.
  */
 export function CaseHistory({ history }: { history: CaseHistoryEvent[] }) {
+  // Newest-first timeline; AutoAnimate glides new activity in (reduced-motion → instant). Hook runs
+  // before the empty-state early return so hook order stays stable across renders.
+  const [timelineRef] = useAutoAnimateList<HTMLOListElement>()
+
   if (history.length === 0) {
     return (
       <EmptyState
@@ -50,7 +55,7 @@ export function CaseHistory({ history }: { history: CaseHistoryEvent[] }) {
   const ordered = [...history].sort((a, b) => +new Date(b.ts) - +new Date(a.ts))
 
   return (
-    <ol className="space-y-0.5">
+    <ol ref={timelineRef} className="space-y-0.5">
       {ordered.map((event, i) => {
         const meta = actionMeta(event.action)
         const Icon = meta.icon
@@ -78,7 +83,7 @@ export function CaseHistory({ history }: { history: CaseHistoryEvent[] }) {
                 <p className="mt-0.5 break-words text-xs text-muted-foreground">{event.detail}</p>
               ) : null}
               <InfoTip label={formatIST(event.ts)}>
-                <span className="mt-0.5 inline-block text-[0.7rem] tabular-nums text-muted-foreground">
+                <span className="mt-0.5 inline-block font-mono text-[0.7rem] tabular-nums text-muted-foreground">
                   {formatRelative(event.ts)}
                 </span>
               </InfoTip>

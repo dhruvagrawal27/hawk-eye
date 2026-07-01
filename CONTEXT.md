@@ -5,30 +5,36 @@
 ---
 
 ## 1. What we are building (one paragraph)
+
 Hawk-Eye is a real-time insider & privileged-user fraud-detection platform for a public-sector bank. Telemetry → **L0** unified event model → **L1** rules/BRE → **L2** UEBA/unsupervised → **L3** supervised GBDT → **L4** sequence → **L5** graph → **L6** risk fusion → **L7** investigator dashboard + EDD feedback loop. It **scores and explains; it never auto-blocks**. Built on-prem, local-first, on **synthetic data**.
 
 ## 2. Golden rules
+
 1. **Alert-only**, never auto-block. 2. **On-prem + synthetic only** (no real PII/feeds/creds). 3. **Validate every task against the blueprint Part.** 4. **Nothing dropped** — flag missing requirements here. 5. **Stay in your lane** — edit only your owned dirs + your laptop log + append to shared MD.
 
 ## 3. Status legend (use everywhere)
+
 - **REAL** — works as real code on synthetic/mock data, locally.
 - **SCAFFOLD** — code complete, needs a real external resource to go live (bank feed, cloud creds, API key, HSM/TEE, human validator).
 - **MOCK** — hardcoded/simulated stand-in for a human/legal/hardware act (seeded records, generated governance docs, fake attestation service).
 
 ## 4. Workstream → owner → directories
-| Workstream | Owns | Key contracts it publishes |
-|---|---|---|
-| DATA | `data/` | L0 event schema, feature names/keys, synthetic dataset format |
-| ML | `ml/` | model artifact format, score/reason-code payloads, model-serving inputs |
-| BACKEND | `backend/` + **owns `BACKEND.md`** | API routes, alert schema, RBAC, EDD/disposition, tokenization tokens |
-| FRONTEND | `frontend/` | — (consumes BACKEND.md) |
-| DATABASE | `db/` | table DDLs, storage/retention/registry layout |
-| PLATFORM | `platform/`, `infra/`, `.github/`, root compose | runtime, ports, env vars, CI, security/governance mocks |
+
+| Workstream | Owns                                            | Key contracts it publishes                                              |
+| ---------- | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| DATA       | `data/`                                         | L0 event schema, feature names/keys, synthetic dataset format           |
+| ML         | `ml/`                                           | model artifact format, score/reason-code payloads, model-serving inputs |
+| BACKEND    | `backend/` + **owns `BACKEND.md`**              | API routes, alert schema, RBAC, EDD/disposition, tokenization tokens    |
+| FRONTEND   | `frontend/`                                     | — (consumes BACKEND.md)                                                 |
+| DATABASE   | `db/`                                           | table DDLs, storage/retention/registry layout                           |
+| PLATFORM   | `platform/`, `infra/`, `.github/`, root compose | runtime, ports, env vars, CI, security/governance mocks                 |
 
 ## 5. The canonical contracts live in `BACKEND.md`
+
 The L0 event JSON, the L6 alert JSON, the API route table, RBAC roles, and the score/reason-code shapes are defined in **`BACKEND.md`** (owned by BACKEND). If you need a change to a contract, propose it here and tag the BACKEND laptop.
 
 ## 6. Shared conventions
+
 - **Languages/versions:** see `BACKEND.md` §versions (pinned from blueprint Part 24.3).
 - **IDs:** `event_id` `evt_*`, `alert_id` `alr_*`, `entity_id` = `employee_id` (e.g. `EMP-7f3a`), `ring_id` `RNG-*`, `audit_id` `aud_*`.
 - **Time:** UTC ISO-8601 (`...Z`); display in IST on the frontend.
@@ -36,39 +42,41 @@ The L0 event JSON, the L6 alert JSON, the API route table, RBAC roles, and the s
 - **Branch naming:** `hawk-eye/<workstream>` (e.g. `hawk-eye/ml`). **Commit prefix:** `[<WS>] <TASK-ID> message` + blueprint Part cited.
 
 ## 7. Ports / service map (PLATFORM maintains)
-| Service | Port (host) | Compose service | Owner |
-|---|---|---|---|
-| Kafka (broker) | 9092 (ext 29092) | `kafka` | PLATFORM/DATA |
-| Schema Registry (Apicurio) | 8085 | `schema-registry` | PLATFORM (DATA defines schemas) |
-| Flink JobManager UI | 8081 | `flink-jobmanager` | PLATFORM/DATA |
-| ClickHouse | 8123 / 9000 | `clickhouse` | DATABASE |
-| Redis | 6379 | `redis` | DATABASE |
-| Postgres | 5432 | `postgres` | DATABASE |
-| MinIO (API / console) | 9001 / 9002 | `minio` | DATABASE |
-| Backend API (FastAPI) | 8000 | `backend` (stub→real) | BACKEND |
-| Model serving (ONNX/Triton, KServe v2) | 8001 | `serving` (CPU stub→Triton) | ML/BACKEND |
-| Frontend (Vite) | 5173 | `frontend` (stub→real) | FRONTEND |
-| Keycloak | 8080 | `keycloak` | PLATFORM/BACKEND |
-| MLflow | 5000 | `mlflow` | ML |
-| Airflow webserver | 8088 | `airflow` | PLATFORM (ML/DATA use) |
-| Prometheus | 9090 | `prometheus` | PLATFORM |
-| Grafana | 3000 | `grafana` | PLATFORM |
-| Alertmanager | 9093 | `alertmanager` | PLATFORM |
-| OTel Collector (OTLP gRPC/HTTP, prom-exporter) | 4317 / 4318 / 8889 | `otel-collector` | PLATFORM |
-| Vault (dev) | 8200 | `vault` | PLATFORM |
-| TEE-attestation (mock) | 8090 | `tee-attestation` | PLATFORM |
-| PAM shim (mock) | 8091 | `pam-shim` | PLATFORM |
-| Degradation switch | 8092 | `degradation-switch` | PLATFORM |
-| Governance API | 8093 | `governance-api` | PLATFORM |
-| HITL gate | 8094 | `hitl-gate` | PLATFORM |
-| ArgoCD server (local) | 8083 | (k8s/argocd) | PLATFORM |
-| API gateway (Kong, hosts BACKEND `kong.yaml`) | 8002 (proxy) / 8095 (admin) | `api-gateway` | PLATFORM (BACKEND owns config) |
+
+| Service                                        | Port (host)                 | Compose service             | Owner                           |
+| ---------------------------------------------- | --------------------------- | --------------------------- | ------------------------------- |
+| Kafka (broker)                                 | 9092 (ext 29092)            | `kafka`                     | PLATFORM/DATA                   |
+| Schema Registry (Apicurio)                     | 8085                        | `schema-registry`           | PLATFORM (DATA defines schemas) |
+| Flink JobManager UI                            | 8081                        | `flink-jobmanager`          | PLATFORM/DATA                   |
+| ClickHouse                                     | 8123 / 9000                 | `clickhouse`                | DATABASE                        |
+| Redis                                          | 6379                        | `redis`                     | DATABASE                        |
+| Postgres                                       | 5432                        | `postgres`                  | DATABASE                        |
+| MinIO (API / console)                          | 9001 / 9002                 | `minio`                     | DATABASE                        |
+| Backend API (FastAPI)                          | 8000                        | `backend` (stub→real)       | BACKEND                         |
+| Model serving (ONNX/Triton, KServe v2)         | 8001                        | `serving` (CPU stub→Triton) | ML/BACKEND                      |
+| Frontend (Vite)                                | 5173                        | `frontend` (stub→real)      | FRONTEND                        |
+| Keycloak                                       | 8080                        | `keycloak`                  | PLATFORM/BACKEND                |
+| MLflow                                         | 5000                        | `mlflow`                    | ML                              |
+| Airflow webserver                              | 8088                        | `airflow`                   | PLATFORM (ML/DATA use)          |
+| Prometheus                                     | 9090                        | `prometheus`                | PLATFORM                        |
+| Grafana                                        | 3000                        | `grafana`                   | PLATFORM                        |
+| Alertmanager                                   | 9093                        | `alertmanager`              | PLATFORM                        |
+| OTel Collector (OTLP gRPC/HTTP, prom-exporter) | 4317 / 4318 / 8889          | `otel-collector`            | PLATFORM                        |
+| Vault (dev)                                    | 8200                        | `vault`                     | PLATFORM                        |
+| TEE-attestation (mock)                         | 8090                        | `tee-attestation`           | PLATFORM                        |
+| PAM shim (mock)                                | 8091                        | `pam-shim`                  | PLATFORM                        |
+| Degradation switch                             | 8092                        | `degradation-switch`        | PLATFORM                        |
+| Governance API                                 | 8093                        | `governance-api`            | PLATFORM                        |
+| HITL gate                                      | 8094                        | `hitl-gate`                 | PLATFORM                        |
+| ArgoCD server (local)                          | 8083                        | (k8s/argocd)                | PLATFORM                        |
+| API gateway (Kong, hosts BACKEND `kong.yaml`)  | 8002 (proxy) / 8095 (admin) | `api-gateway`               | PLATFORM (BACKEND owns config)  |
 
 > All image tags come from `deploy/versions.bom.yaml` (the BOM, PLATFORM-1). Compose reads `deploy/compose/.env` (generated by `make bom-env`). Kafka advertises `kafka:9092` in-network and `localhost:29092` to the host.
 
 ---
 
 ## 8. INTEGRATION LOG — append below (newest first)
+
 > Format: `### YYYY-MM-DD — [WS] — title` then a short note. Append; never overwrite.
 
 ### 2026-07-01 — [SURFACING] — PHASE 6: Governance & trust — per-layer model lineage on the alert; overhaul COMPLETE
@@ -122,10 +130,13 @@ On branch `hawk-eye/insider-10x-m2`, feeding the upcoming per-user risk index (M
 - **Note:** `data/tests/test_features.py::test_dfs_fallback_generates_aggregates` fails **pre-existing** (featuretools renamed the `COUNT()` primitive to `COUNT(events)`; verified failing with my changes stashed out) — not from this work; flagging for [DATA].
 
 ### 2026-07-01 — [FRONTEND] — FIX: Triage/first-run "frozen screen" (onboarding modal blocked the whole app)
+
 **Symptom:** on login the RM lands on `/triage`, the first-run tour popped, and the screen was stuck — no tab or control clickable. **Root cause (reproduced headless):** `OnboardingOverlay` was a **modal** Radix `Dialog`; the shared `DialogContent` always renders a full-screen `DialogOverlay` (`fixed inset-0 bg-black/60`) that captures every pointer event. The tour is expected UX but the blocking backdrop read as a freeze. **Fix (root):** the tour is now **non-blocking** — `<Dialog modal={false}>` + a new `showOverlay` opt-out on `DialogContent` (defaults true so real modals — EDD confirm, rule changes — keep their backdrop) + `onInteractOutside` guarded. The app behind the tour stays fully interactive; dismiss via Skip/X/Escape still persists `hawkeye:onboarded`. Regression tests: `frontend/e2e/onboarding-nonblocking.e2e.ts` (nav tabs clickable with tour open; dismiss+reload persistence). **Also fixed while here:** (1) `ROLE_META.defaultRoute` typo `'/reports'` → `'/reporting'` for cgm_risk/executive_director/managing_director (they were landing on a 404 after login); (2) `RoleShell` hardened to never redirect to a `home` equal to the current path (loop-proof fallback to `/`). Suites green: frontend tsc + 149 vitest + 5 e2e.
 
 ### 2026-07-01 — [10×] — Insider/Privileged 10× build — Milestone M1 (quick wins), backend suite unblocked
+
 Implementing `docs/INSIDER_10X_IMPLEMENTATION_PLAN.md` (Phase A + full L6.5). Alert-only preserved. Landed with tests green:
+
 - **M1.1 `SUSPENSE_NOSTRO_LAPPING` L1 rule** (`named_rules.py` + `rules.yaml`, hard-hit, consumes the existing `suspense_nostro_aging` feature) + added the code to `regulatory/rfa.py::_RFA_TRIGGER_CODES`.
 - **M1.2 `AUDIT_CONFIG_TAMPERING` L1 rule** (soft, privileged/off-hours-gated, reads `log_tampering_proxy`) + a bounded 24h-decayed tampering counter in `app/clients/feature_client.py`.
 - **M1.3 `GET /reports/cfr`** (clone of `report_fmr`, Compliance-only, `AUDIT.write('report.cfr')`, CFR categories aligned to FMR) + `CfrLineItem`/`CfrReport`; submission stays SCAFFOLD.
@@ -133,7 +144,9 @@ Implementing `docs/INSIDER_10X_IMPLEMENTATION_PLAN.md` (Phase A + full L6.5). Al
 - **[FIX] Backend test suite unblocked:** a circular import (`user_store` → `app.auth.sod` → `app.auth/__init__` → `oidc` → `user_store`) made `constraints_for` unimportable when `user_store` was the entry point (broke ALL backend tests). Made that import lazy inside `to_record`. **@BACKEND please review.**
 
 ### 2026-07-01 — [FRONTEND+ML] — Terminal UX upgrade, bank org-chart roles, real-time stack, REAL NEAR AI TEE, ClickHouse, layer doc
+
 Large multi-phase upgrade (all suites green: backend 139, frontend tsc + 149 tests + build, ML narrative 13):
+
 - **Design study (Phases 0–3)** — shipped the terminal UX: web fonts + tabular-nums + terminal bg + severity-tinted rows + density toggle (`3cda1a4`); realtime core — LiveEventTape, TopStatusBar, Cmd-K palette, ScoreGauge (`183edea`); Graph Explorer (search/center, find-path via Cytoscape aStar, risk-ring) + AlertHeatmap (`10f1504`); explainability + ManagerCenter + onboarding + ReplayStudio + PDF dossier + bulk-select (`374ee07`). New primitives in `components/ui` (RiskBadge/Surface/Eyebrow/Stat/ScoreGauge) + `lib/{risk,density,realtime}.ts`.
 - **Bank org-chart roles (`7ecd8ac`)** — replaced the 8 generic console roles with a **12-role PSB hierarchy** mapped to RBI's Three Lines of Defense (MD→ED→CGM→AGM→Cluster→Branch→RM + Compliance/Audit/DataSci/IT + service). Frozen spec: `docs/BANK_ROLES.md`. Backend `Role` enum + 12×9 matrix (`rbac.py`), frontend `capabilities.ts` (ROLE_META now carries tier/line/reportsTo/dept), new `/org` OrgChart view. Actor/subject roles in `data/sim` untouched. Legacy demo logins kept as aliases.
 - **Make-real** — 6-layer fusion viz (LayerWaterfall + FusionSankey) (`1d52c6f`); **live backend stream** `/ws/alerts` from `ONLINE.process` with inprocess + kafka(guarded) modes, frontend flipped to real WsRealtimeSource (`f741a88`); **durable alert persistence** (sqlite/psycopg, in-memory default) (`5a4c8cf`); deploy-gating `deploy/preflight.py` (`fb7b901`).
@@ -144,7 +157,9 @@ Large multi-phase upgrade (all suites green: backend 139, frontend tsc + 149 tes
 - **Service wiring status (honest):** ClickHouse ✅ wired; NEAR AI TEE ✅ real; `feature_client` (Feast/Redis) + `registry_client` (MLflow) are functional in-process **stubs** (work, not wired to the external service); MinIO/Neo4j/Vault are platform infra not used by the alert-only runtime. Serving runs in-process (`DEFAULT_RUNTIME`) with a real httpx→Triton seam.
 
 ### 2026-07-01 — [10×] — Insider/Privileged 10× build — Milestone M1 (quick wins) in progress
+
 Implementing `docs/INSIDER_10X_IMPLEMENTATION_PLAN.md` (Phase A detection depth + full L6.5 interdiction). Balanced emphasis, synthetic-first (external feeds SCAFFOLD). Alert-only preserved throughout. Landed so far (all with tests green):
+
 - **M1.1 — `SUSPENSE_NOSTRO_LAPPING` L1 rule (REAL).** New predicate in `backend/rules_engine/named_rules.py` (registered in `NAMED_RULES`) + YAML entry in `rules.yaml` (`hard_hit`, severity high). Consumes the existing DATA feature `suspense_nostro_aging` (`same_person_post_and_reconcile` + `max_aging_days`). Added `SUSPENSE_NOSTRO_LAPPING` to `regulatory/rfa.py::_RFA_TRIGGER_CODES` so it EWS→RFA-tags. Tests in `backend/tests/unit/test_rules_engine.py`.
 - **M1.2 — `AUDIT_CONFIG_TAMPERING` L1 rule (REAL).** New soft predicate (feeds L6 fusion, not a short-circuit) firing on audit/config-tampering verbs by a privileged OR off-hours actor; reads `log_tampering_proxy`. Added a bounded (≤100-entity), 24h-decayed tampering counter to `app/clients/feature_client.py::FeatureReader`.
 - **M1.3 — `GET /reports/cfr` (REAL, submission SCAFFOLD).** New route in `app/routes/report_routes.py` (clone of `report_fmr`, DGM-Compliance/AGM-Vigilance only, `AUDIT.write('report.cfr')`) + `CfrLineItem`/`CfrReport` in `app/schemas/reports.py`. CFR categories aligned with FMR via `fmr.fmr_category` (else `others`). Uses the existing `regulatory/cfr.py` generator; `submission_enabled` stays False. Tests in `backend/tests/contract/test_cfr_report.py`.
@@ -152,27 +167,33 @@ Implementing `docs/INSIDER_10X_IMPLEMENTATION_PLAN.md` (Phase A detection depth 
 - **Note:** M1.1's `named_rules.py`/`rules.yaml`/`rfa.py` edits were swept into commit `c404e15` (a parallel [make-real] commit landed mid-session); the rest of M1 is in the working tree.
 
 ### 2026-06-30 — [PLATFORM] — Alignment fixes after DATA/BACKEND merge (network, api-gateway, topics, L6 contract)
+
 Independent verification audit found 4 integration breaks vs current `main`; all now fixed in-lane:
-- **Network name:** the compose network is now created as **`hawk-eye`** (was `hawkeye`) so BACKEND's `backend/deploy/docker-compose.backend.yaml` (external `hawk-eye`) attaches cleanly. Service refs still use the `hawkeye` network *key*; only the docker `name:` changed (core/app/platform compose).
+
+- **Network name:** the compose network is now created as **`hawk-eye`** (was `hawkeye`) so BACKEND's `backend/deploy/docker-compose.backend.yaml` (external `hawk-eye`) attaches cleanly. Service refs still use the `hawkeye` network _key_; only the docker `name:` changed (core/app/platform compose).
 - **API gateway hosting (Part 32.1 / BACKEND-28 seam):** added a **Kong (DB-less)** `api-gateway` service to `docker-compose.platform.yml` that mounts BACKEND's `backend/gateway_config/kong.yaml` read-only. Proxy on host **:8002** (avoids BACKEND :8000), admin **:8095**. Image pinned in the BOM (`kong:3.8`). PLATFORM hosts the runtime; BACKEND owns the config.
 - **Kafka topic convergence:** `create-topics.sh` + `infra/kafka/topics.yaml` now ALSO provision DATA's `events.raw / events.signals / alerts / audit` alongside `hawkeye.*`, so both namespaces work until DATA adopts `hawkeye.*`. **[DATA]** please still confirm the long-term namespace.
 - **L6 alert contract:** the degradation-switch alert now includes **`sla_due_ts`** (created + RBI ≤30-day cap) and emits severity in **low|medium|high only** (dropped the illegal `critical`), matching BACKEND.md §2; contract test tightened to enforce both.
 - **Vault custody:** `bootstrap-secrets.sh` now also loads the **field-encryption key** (`hawk-eye/field`) and **registry signing key** (`hawk-eye/registry`) BACKEND asked for, by reference only.
 
 ### 2026-06-30 — [INTEGRATION] — All workstreams merged to `main`; whole-app validation + red-team (3 cross-cutting fixes)
+
 All six workstreams are unified on `main` (data + ml + backend + frontend + platform). Whole-app validation is green: **DATA 100, ML 250, BACKEND 109, FRONTEND 112 +3 e2e, PLATFORM 73 +4 contract**, compose config validates. Added an adversarial **red-team suite** (`tests/redteam/`) that attacks the blueprint golden rules; it found + **fixed 3 real cross-cutting issues**:
+
 1. **Audit trail was not tamper-evident** (Part 19.3): `AuditEvent` was mutable in place and the `immutable=True` flag was decorative. Fixed → the model is now **frozen** and carries a **hash-chain** (`prev_hash`→`entry_hash`); `AuditWriter.verify_chain()` detects any post-write edit to who-viewed-whom.
 2. **Alerts without reason codes were servable** (Part 29.2 contestability): `Alert` now rejects construction unless it carries ≥1 reason code — no un-contestable accusation can be surfaced.
 3. **reason_codes source drift** at the ML↔BACKEND seam: ML emits `source="attention"` (LAXCAT) but backend's `ReasonSource` only had `sequence`. Added `attention` as an accepted synonym so ML reason codes are never rejected. (BACKEND: consider unifying the term in BACKEND.md §2.)
-Run the red-team: `tests/redteam/` (rbac/sod/audit in `.bevenv`; alert-only/secrets + contract-conformance are static, any venv). DATABASE (`db/`) remains the one workstream not delivered standalone — its storage role is served by PLATFORM (ClickHouse/Postgres/Redis/MinIO in compose) + BACKEND persistence.
+   Run the red-team: `tests/redteam/` (rbac/sod/audit in `.bevenv`; alert-only/secrets + contract-conformance are static, any venv). DATABASE (`db/`) remains the one workstream not delivered standalone — its storage role is served by PLATFORM (ClickHouse/Postgres/Redis/MinIO in compose) + BACKEND persistence.
 
 ### 2026-06-30 — [DATABASE] — DATABASE workstream COMPLETE (DATABASE-1..9, M1–M5) — storage contracts for everyone
+
 > NOTE: supersedes the line above — DATABASE is now delivered standalone (`db/`, `infra/storage/`, `infra/audit/`, `registry/`, `services/audit/`); the DDLs/buckets/WORM/registry/retention below are the real artifacts behind PLATFORM's runtime + BACKEND's persistence shims.
-The full persistence substrate is built on branch `hawk-eye/database` (owned dirs: `db/`, `infra/storage/`, `infra/audit/`, `registry/`, `services/audit/`). All 9 tasks REAL on synthetic data; gates green (ruff/black/mypy/sqlfluff/pytest 60, +10 integration). **ALERT-ONLY** (storage never carries an auto-block decision) · **synthetic/tokenized only**. Contracts other laptops bind to:
+> The full persistence substrate is built on branch `hawk-eye/database` (owned dirs: `db/`, `infra/storage/`, `infra/audit/`, `registry/`, `services/audit/`). All 9 tasks REAL on synthetic data; gates green (ruff/black/mypy/sqlfluff/pytest 60, +10 integration). **ALERT-ONLY** (storage never carries an auto-block decision) · **synthetic/tokenized only**. Contracts other laptops bind to:
+
 - **ClickHouse (`db/clickhouse/`):** db `hawkeye`; tables `events` (mirrors BACKEND.md §1 L0 Actor/Action/Object/Context/Linkage, field-for-field), `scores` (per-layer L1..L6 + fused, `model_version` on EVERY row), `alerts` (§2 L6), `dispositions` (§5 EDD→label, carries `audit_id`), `feature_backfill` (offline, identical defs to online — no skew), `report_outputs` (reporting seam). `PARTITION BY toYYYYMM(ts)`, `ReplacingMergeTree(ingested_at)` (idempotent on `event_id`), hot→cold→archive via `storage_policy='tiered'` + `TTL … TO VOLUME`. Inverted full-text + tokenbf/ngrambf/minmax skip indices; parameterized search views (`search_helpers.sql`: by employee/IP/device/beneficiary/free-text + `entity_360_timeline`). Apply: `db/clickhouse/apply_ddl.sh [--materialize]` (single-node; `CH_ENGINE_MODE=replicated` for the 2×2 cluster in `cluster.xml`). **[DATA]** reconcile `events`/`feature_backfill` with your finalized `l0_event` `.avsc`/`.proto` (currently field-for-field with BACKEND.md §1).
 - **Postgres (`db/postgres/`):** schema `hawkeye`; tables `users`, `cases`(+`case_notes`,`case_history`), `alerts_metadata` (relational mirror of CH `alerts`), `model_governance`+`approvals` (four-eyes/SoD), `pii_vault` (re-id vault INSTANCE — **ciphertext only**; **BACKEND owns the write path + HMAC/field key**). Alembic is the DDL system-of-record (`alembic upgrade head`/`downgrade base`, reversible, single head). Least-priv roles `hawkeye_migrate`/`hawkeye_app`/`hawkeye_ro`; **`pii_vault` SELECT REVOKED from `hawkeye_ro`** (unmask is a separate audited capability sealed to WORM).
 - **Redis (`infra/storage/redis/`):** **DB0 = Feast online** (key `"<entity>:<feature>:<window>"`, DATA's convention), **DB1 = cache**; `volatile-lru` so untimed online features are never evicted; AOF+RDB; at-rest on encrypted volume.
-- **MinIO (`infra/storage/minio/`):** buckets `models`*, `datasets`, `feature-snapshots`, `audit-archive`* (*=object-lock+versioned), SSE-S3 at rest (local KMS key → SSE-KMS swap documented), 5 least-privilege policies (no `*`). Dataset layout `datasets/{name}/dt=YYYY-MM-DD/source={src}/part-*.parquet` (+ content-hash sidecar; DVC remote `s3://datasets`). (+ `clickhouse-cold`/`clickhouse-archive` for CH tiering.)
+- **MinIO (`infra/storage/minio/`):** buckets `models`_, `datasets`, `feature-snapshots`, `audit-archive`_ (*=object-lock+versioned), SSE-S3 at rest (local KMS key → SSE-KMS swap documented), 5 least-privilege policies (no `*`). Dataset layout `datasets/{name}/dt=YYYY-MM-DD/source={src}/part-*.parquet` (+ content-hash sidecar; DVC remote `s3://datasets`). (+ `clickhouse-cold`/`clickhouse-archive` for CH tiering.)
 - **Model registry (`registry/`):** path `models/{layer}/{model}/{version}/` with `model.onnx` + native booster + `transform_chain/` + `calibrator.joblib` (+`checkpoint.pt` nets) + `metadata.json` (six fields: dataset_hash/params/metrics/training_code_commit/approver/signature) + `signature.sig` (Ed25519 detached over the bundle). Stages Staging→Production→Archived; **signature verified on load (tampered = REJECTED)**; every read/load/promote/register **access-logged** to the audit topic. **[ML]** package into this exact layout; **[BACKEND]** serving loader calls `registry.mlflow.load_verify.secure_load`.
 - **WORM audit (`infra/audit/` + `services/audit/`):** append-only topic **`hawkeye.audit`** (`cleanup.policy=delete`, `retention.ms=-1`, compaction off; key=`target.id`), producer Avro `audit_event.avsc` (envelope: audit_id/ts/actor/action/target/details/pii_tokenized; `prev_hash`/`record_hash` left empty by producer). **[BACKEND]** produce here (who-viewed-whom, alert closes, rule/threshold change, PII unmask, narrative memo — all action types in the enum). The WORM writer drains it → hash-chains (`record_hash=H(content‖prev_hash)`) + daily Merkle root → seals to object-lock `audit-archive`. Verify: `python -m services.audit.verify_cli` (PASS/FAIL).
 - **Retention (`db/retention/`):** DPDP/RBI windows, classification-aware (pii/sensitive vs operational), **fraud carve-out** (confirmed-fraud held 15y), hot→cold→archive→expire (evidence never auto-deleted). **Hard invariant: never expire/shorten an object-lock object below its lock** (job refuses+logs). `python -m db.retention.retention_job [--apply]`.
@@ -180,7 +201,9 @@ The full persistence substrate is built on branch `hawk-eye/database` (owned dir
 - **Standalone bring-up:** `docker compose -f infra/storage/docker-compose.storage.yml up -d` (runs the minio/pg/ch bootstrap one-shots); `--profile audit` adds the audit topic. PLATFORM: include these storage modules; do not double-run with `make up`.
 
 ### 2026-06-30 — [PLATFORM] — PLATFORM workstream COMPLETE (all 41 tasks, M1–M5) — integration points for everyone
+
 The full platform substrate + enterprise wrapper is built on branch `hawk-eye/platform`. Key things other laptops integrate against:
+
 - **Runtime:** `make up` brings the 26-service stack (core+app+platform). Ports/service-names in §7. Stubs (`backend`,`serving`,`frontend`) are labelled `# STUB` — swap your real images via the BOM/compose. Topics: `infra/kafka/topics.yaml` (`hawkeye.events.l0/enriched/scores/alerts/audit/feedback/rescore/dlq`).
 - **Degradation switch** (`services/degradation-switch`, :8092): when ML serving is unhealthy it routes to **L1-rules-only** and marks events to `hawkeye.rescore`. BACKEND's real BRE/fusion replaces the labelled fallback subset; the switch deploys yours.
 - **Governance API** (:8093) serves the governance DB to the dashboard — `GET /api/v1/governance/{policies|committees|vendors|validations|dpia|security-reports|approvals|incidents|operating-metrics|staffing|uat}`, `/approval-queue`, `/board-pack`, `/api/v1/go-live`. FRONTEND: consume these for the governance view.
@@ -192,25 +215,32 @@ The full platform substrate + enterprise wrapper is built on branch `hawk-eye/pl
 - **Go-live:** `make seed-governance && make go-live` → GATE: GO when all evidence present; the checklist also reads cross-workstream evidence (sources onboarded, ML green, etc.) — those rows are MOCK-seeded now, replace with real evidence as you ship. Threat-intel hand-off routes new typologies to [BACKEND]/[DATA].
 
 ### 2026-06-30 — [PLATFORM] — Deployment target changed to AWS Lightsail (deviation from Part 26 EC2-in-VPC)
+
 Per program direction, the **pilot/demo deployment target is AWS Lightsail** (cost-fixed, simple, container-service or instance + docker-compose). This is a **deliberate, documented deviation** from blueprint Part 26.1/26.4, which recommends EC2-in-VPC for a production-shaped pilot (Lightsail = "pure demo only"). Rationale: Hawk-Eye is **synthetic-data, alert-only, single-tenant demo** — Lightsail's fixed pricing + simplicity fit it; the production target remains **on-prem in-India** (Part 9.3, Part 16). Recorded in `docs/adr/ADR-0001-ec2-in-vpc.md`. Terraform now exposes `target = aws | onprem | lightsail`; `infra/terraform/envs/lightsail` + `deploy/lightsail/` carry the Lightsail path. EC2-in-VPC path is **retained, not deleted** (the "scale-up pilot" story). No golden rule is affected (still on-prem-capable, synthetic, alert-only).
 
 ### 2026-06-30 — [PLATFORM] — Version BOM, compose env wiring, and new service ports
+
 - **BOM** is now `deploy/versions.bom.yaml` (every Part 24.3 pin + platform tooling). It is the single source of truth; compose reads `deploy/compose/.env` generated by `tools/bom_to_env.py` (`make bom-env`). CI gate `bom-drift` fails on mismatch. **Match these pins** (BACKEND.md §0 mirrors them).
 - **New platform service ports** added to §7 (all callers please use these): schema-registry **8085**, Flink UI **8081**, Airflow **8088**, Alertmanager **9093**, OTel **4317/4318/8889**, Vault **8200**, TEE-attestation **8090**, PAM-shim **8091**, degradation-switch **8092**, governance-api **8093**, hitl-gate **8094**, ArgoCD **8083**.
 - **Compose service names** are fixed (see §7 "Compose service" column). Other laptops: reference these names for inter-service URLs (e.g. `http://serving:8001`, `kafka:9092`, `postgres:5432`). Stubs (`backend`, `serving`, `frontend`) are placeholder images labelled `# STUB: replaced by <WS> image` until you ship yours.
 - **Governance DB**: PLATFORM owns a separate logical DB `governance` on the same Postgres (`POSTGRES_DB=hawkeye` for app, `GOVERNANCE_DB=governance`). Schema in `governance/db/schema.sql`; served read-only to the dashboard via `governance-api` (:8093). FRONTEND consumes it; routes proposed to [BACKEND] below.
 
 ### 2026-06-30 — [PLATFORM→BACKEND] — Proposed contract additions for the governance UI + HITL + attestation
+
 Proposing (do NOT block on these; PLATFORM serves them via `governance-api`/`hitl-gate` independently): (1) `GET /api/v1/governance/{artifact_type}` + `GET /api/v1/go-live` for the dashboard governance view; (2) `POST /api/v1/alerts/{id}/hitl-decision` for the natural-justice gate (approve/reject pending_review); (3) audit-memo fields from PLATFORM-14 TEE mock (`provider`,`tee_attested`,`attestation_id`,`model`,`prompt_hash`,`ts`) already match BACKEND.md §7 — confirming alignment, no change needed there. If BACKEND prefers to proxy these through the main API, tag back here.
 
 ### 2026-06-30 — [PLATFORM→DATA] — DATA's PLATFORM-1 stub is now satisfied; topic-name reconciliation
+
 DATA's "stub awaiting PLATFORM-1 (Kafka/Redis/MinIO runtime)" is **resolved**: `make core-up` brings real Kafka (:9092/29092), Redis (:6379), MinIO (:9001/9002), Postgres, ClickHouse, Flink, schema-registry. DATA can swap its in-memory fallbacks for the live infra (config change). **Topic-naming note:** PLATFORM provisions `hawkeye.events.l0/enriched/scores/alerts/audit/feedback/rescore/dlq` (`infra/kafka/topics.yaml`); DATA's `data/config.py` uses `events.raw/events.signals/alerts/audit`. These need to converge — proposing we adopt the `hawkeye.*` namespace OR add DATA's names as aliases in `create-topics.sh`. **[DATA] please confirm**; until then both can be created. No L0 schema change (DATA owns it, matches BACKEND.md §1).
 
 ### 2026-06-30 — [BACKEND] — Validation pass: RBAC conditional cells now enforced + lint/type green
+
 Adversarial audit closed all gaps. Changes others should note: rule-change **approval is Compliance-only** (Team Lead proposes), there is now a **`PUT /rules/{code}`** verb and a **`POST /alerts/{id}/block-request/approve`** (Team Lead) endpoint, model **promotion is Model-Engineer-only**, `view_audit` is **view-own** for Senior/Model-Eng, and **service-account scoped tokens cannot read** alerts/audit. A 2nd Compliance officer (`EMP-co02`) was seeded so four-eyes works within Compliance. Full §8 checks green: ruff + black + mypy clean, 109 pytest. `BACKEND.md §3/§4` updated. (`cargo` checks for `gateway/` deferred to PLATFORM CI — Rust toolchain not local.)
 
 ### 2026-06-30 — [BACKEND] — Full backend workstream landed (BACKEND-1..29); BACKEND.md synced
+
 The `backend/` control plane + Rust hot-path tier is complete on synthetic data; **`BACKEND.md` is the live contract — integrate against it, don't guess.** Key seams for the other laptops:
+
 - **DATA:** I consume the L0 event (`BACKEND.md §1`) and read online features by the Feast keys listed in **§1a** (e.g. `minutes_since_new_beneficiary`, `maker_checker_same_actor`, `held_entitlements[]`). I stub these until your Feast/Redis is live — please materialize those keys. The EDD disposition writes labels for your **label-source-4** (`POST /alerts/{id}/disposition`).
 - **ML:** model-serving contract in **§6a** (`POST /score` on :8001 → per-layer 0–1 + `model_version`); L6 fusion + plain inline TreeSHAP are mine. Deliver signed ONNX L2/L3/L4 + the L6 meta-model + calibrator; I verify signatures via the registry (DATABASE owns layout). `narrate()` gateway contract in **§7** — I pass tokenized context and persist the audit memo; your route owns NEAR AI→Groq→template failover.
 - **DATABASE:** I write every action to your **WORM audit store** (stubbed `app/audit/writer.py`) and read the **model registry** (stubbed `serving/registry.py`); own the Postgres (cases/users/rules/re-id vault) + ClickHouse DDL behind my repository shims.
@@ -218,34 +248,46 @@ The `backend/` control plane + Rust hot-path tier is complete on synthetic data;
 - **PLATFORM:** I need Keycloak (OIDC, **§3** auth routes), Vault custody of `PII_HMAC_KEY` + field key + registry signing key, the Kong/APISIX runtime for `backend/gateway_config/kong.yaml`, and mTLS-internal termination. `backend/deploy/docker-compose.backend.yaml` attaches to your external `hawk-eye` network.
 - **Invariants enforced everywhere:** ALERT-ONLY (no auto-block, no auto-classify; `block-request` is Analyst→Lead), SoD (deployer can't label/close; four-eyes rule changes; promotion sign-off), audit-write of every action incl. who-viewed-whom. SCAFFOLD only: RBI submission channel (CRILC/FMR), live SIEM, TEE hardware + DPDP jurisdiction confirmation.
 - **[BACKEND→DATA] EDD label-source-4 is now LIVE:** `POST /api/v1/alerts/{id}/disposition` returns `{label_written, feedback_queued_for_retraining, audit_id}` (BACKEND.md §5) and queues the label — your DATA-23 stub can bind to it. I import nothing from `data/` directly (I consume the L0 shape via `BACKEND.md §1`, which matches `data/schemas/l0_event.py` field-for-field).
+
 ### 2026-06-30 — [ML] — ML workstream COMPLETE (all 29 tasks, 250 tests green) — integration handoff
+
 All ML-1..ML-29 done on `hawk-eye/ml`; **250 tests pass / 0 fail** via `python -m ml.tests.run`; end-to-end walking skeleton runs via `python -m ml.demo` (L0→L1/L2/L3/L5→L6 calibrated alert→grounded narrative→contestable + reproducible). **Handoff to consumers:**
+
 - **BACKEND:** mount `ml.narrative.api.get_router()` for `POST /narratives/{alert_id}` (response `{narrative,provider,tee_attested,attestation_id,model}`). L6 artifact = `ml.layers.l6.L6Fusion` (stacked meta + isotonic calibrator) consuming per-layer scores `{L1_rule,L2_unsupervised,L3_gbdt,L4_sequence,L5_graph}` → `Alert` (BACKEND.md §2). Per-layer scorers expose `predict_proba`/`score_samples` in [0,1] + `reason_codes()`. Offline reason-code assembler = `ml.layers.l6.assemble_reason_codes`.
 - **DATABASE:** MLflow-or-local registry conventions in `ml.mlops.registry` + model inventory `ml.mlops.inventory`; writes into the `models` bucket layout via `ml.adapters.ModelStore` (stub until MinIO lands). Score provenance via `ml.pipelines.repro` ScoreLedger.
 - **PLATFORM:** inject `NEAR_AI_API_KEY`/`GROQ_API_KEY`/`PII_HMAC_KEY` (SCAFFOLD providers fail-soft to template); TEE-attestation MOCK service consumed by `ml.narrative.attestation`; Airflow factory `ml.pipelines.train_dag.make_airflow_dag` (SCAFFOLD; plain-python DAG is REAL). **Run ML tests per-file** (see libomp note below).
 - **FRONTEND (via BACKEND):** SHAP/attention/graph reason codes, drift/model-quality (`ml.mlops.drift`), TEE-LLM narratives.
 
 ### 2026-06-30 — [ML] — ML stack landed (L2–L6 + narrative); run ML tests per-file (macOS libomp)
+
 ML workstream `ml/` is live on branch `hawk-eye/ml`: foundation (interfaces/adapters/honest-eval), L2 unsupervised, L3 GBDT, L4 sequence, L5 graph, L6 fusion, shared strategies, design, and the TEE-LLM narrative gateway — **100+ tests green**. Heads-up for **PLATFORM (CI harness)**: torch and LightGBM each ship their own `libomp`; co-loading both into one long-lived process **segfaults** on macOS. **Run ML tests per-file in separate processes** — the canonical runner is `python -m ml.tests.run` (each `tests/ml/test_*.py` in its own subprocess). A single `pytest tests/ml/` process will crash once both torch and LightGBM are exercised. `KMP_DUPLICATE_LIB_OK=TRUE` is set in `ml/_optional.py`. **Consumers:** ML produces per-layer scores in [0,1] + reason codes (BACKEND.md §2 shape), an L6 `Alert`, and `POST /narratives/{alert_id}` (`ml.narrative.api.get_router()` for BACKEND to mount). ML venv is py3.13 at `.mlvenv`; ML code is pandas-3.0-safe (`pd.api.types`).
 
 ### 2026-06-30 — [DATA] — pandas 3.0 compatibility (affects all laptops using pandas)
+
 DATA tests now pass on **both pandas 2.2.1 and 3.0.3** (100/100). Heads-up for everyone: pandas 3.0 makes string columns the extension `StringDtype`, so **`np.issubdtype(series.dtype, np.number)` raises `TypeError`** — use **`pd.api.types.is_numeric_dtype(series)`** instead. (Fixed in `data/datasets/splits.py`; regression test in `data/tests/test_pandas3_compat.py`.)
+
 ### 2026-06-30 — [FRONTEND] — FRONTEND workstream M1–M4 landed on `hawk-eye/frontend` (all 13 tasks REAL, all gates green)
+
 The React/TS investigator console is live in `frontend/` (Vite on **:5173**). It is a **thin client** over `BACKEND.md` — the single seam is `frontend/src/lib/apiClient.ts` (one typed method per §3 route); components never call `fetch`. Runs end-to-end on **MSW mocks** (`VITE_USE_MOCKS=true`) with no backend, rendering the Part 24.5 worked burst (`alr_3d7e22`/`EMP-7f3a`/ring `RNG-12`/₹48,00,000). Gates: `tsc` 0 errs · `eslint --max-warnings=0` clean · `prettier` clean · `vitest` 112 (RBAC 8×9 matrix, format/SLA/priority, MaskedPII, payload+render contract) · Playwright e2e 3 (worked burst + RBAC + alert-only) · `vite build` ok.
+
 - **Conventions honoured:** times display **IST** (stored UTC), money **INR** (`₹48,00,000` / lakh-crore), IDs `evt_/alr_/EMP-/RNG-/aud_`. Tokenized PII by default; unmask via `<MaskedPII>` is audited (surfaces `audit_id`). RBAC = Part 24.1 matrix exactly; **alert-only** (request-block routes to Lead, never auto-blocks).
 - **@BACKEND — contract gaps (no fields invented; I render `[FE-proposed]` shapes via MSW, please finalise bodies):** response bodies for `GET /explanations/{id}`, `GET /entities/{id}` + `/timeline` + `/graph` + `/peers`, `GET/POST/PUT /rules`, `GET /models` + `/drift` + `/metrics/model`, `GET /audit`, `GET /admin/users`, `GET /reports/{fmr,crilc}`. **New routes I need:** `GET /cases`, `GET /cases/{id}`, `POST /cases/{id}/{status,assign,notes}` (case management, screen 4); `GET /reports/ews-coverage` (EWS/RFA coverage, screen 5); `GET /reports/kris` (board/SCBMF KRIs). Shapes are in `frontend/src/lib/types.ts` (marked `[FE-proposed]`) — adopt or amend and I reconcile.
 - **Conventions I introduced:** `tee_attested` badge + `provider` label on every AI narrative (Part 25), and the "unmask is audited" UI contract (re-identification shows the returned `audit_id`). Narrative degradation handled: `provider=template`/`tee_attested=false` renders honestly, UI never breaks.
 - **Deviation (versions):** pinned **Vite 8 / @vitejs/plugin-react 6 / Tailwind 3.4 / Vitest 4 / ESLint 10 (flat) / React Router 7** rather than the prompt's literal "Vite 5.x" — plugin-react 6 requires Vite 8 and Node 22/26 needs a modern Vite (Part 24.3 BOM = "verify latest… not gospel"). React 19.2 / TS 5.6 as specified. Rationale + full pin list in `docs/laptops/04-frontend.md`.
 
 ### 2026-06-30 — [DATA] — DATA verified 28/28 tasks; proto + parity added
+
 Task-by-task acceptance verification passed; suite 97/97. Added `data/schemas/l0_event.proto` (Kafka/Flink serdes mirror of the L0 dataclass — consumers can codegen from it) and a proven **online==offline feature parity** test (no train/serve skew). Source-onboarding playbook + status tracker added (`data/docs/source_onboarding_playbook.md`, `data/ingest/onboarding_status.py`). No contract changes — L0 fields unchanged.
 
 ### 2026-06-30 — [DATA] — DATA workstream M1–M5 landed on `hawk-eye/data`
+
 L0 event model is live in `data/schemas/l0_event.py` (+ `.avsc`, `sample_event.json`) and matches `BACKEND.md` §1 field-for-field (groups Actor/Action/Object/Context/Linkage). **Consumers (BACKEND/ML/DATABASE/FRONTEND): import from `data.schemas`.** Conventions in `data/config.py`: IDs via `make_id`, topics `events.raw`/`events.signals`/`alerts`/`audit` (partition by `employee_id`), **feature-key format `<entity>:<feature>:<window>`**, lanes `fast|slow`.
+
 - **Synthetic data:** `python -m data.sim.cli --employees N --days D` → `data/out/<run>/{events,labels}.{parquet,jsonl}`. Events carry **no label** (leakage-safe); labels are separate, keyed by `event_id`. All 12 typologies (8 fast + 4 slow) emitted; worked burst = `approve_payment` amount **4800000** INR.
 - **Feature store (ML/BACKEND read):** `data/features/*` implements every Part-6 feature + slow-lane; `data/feature_store/` exposes a pure-python online store (Redis optional, port 6379).
 - **Recon signal:** SWIFT↔CBS mismatch emits `recon_mismatch` on `events.signals` (`data/ingest/recon/swift_cbs_join.py`) — BACKEND L1 turns it into a rule.
 - **Runtime:** only numpy/pandas/pyarrow are hard deps; Kafka/Flink/Feast/Redis/ClickHouse/MinIO are guarded with local fallbacks → swap to real infra is a config change. **Stubs awaiting:** PLATFORM-1 (Kafka/Redis/MinIO runtime), DATABASE (ClickHouse DDL + buckets + retention), BACKEND (`POST /alerts/{id}/disposition` for EDD label-source-4). Tests: `python -m data.tests.run` (90 passing; pytest unavailable in env).
 
 ### (seed) — [ALL] — Coordination files created
+
 CONTEXT.md, BACKEND.md, TODO.md, and `docs/laptops/*` are live. Read all three shared files before starting. Validate everything against the blueprint.

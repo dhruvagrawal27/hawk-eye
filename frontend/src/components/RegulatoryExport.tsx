@@ -94,7 +94,7 @@ function LineItemsTable({ items }: { items: ReportLineItem[] }) {
             <TableCell className="max-w-[22rem] text-xs text-muted-foreground">
               <span className="line-clamp-2">{item.detail ?? '—'}</span>
             </TableCell>
-            <TableCell className="text-right font-medium tabular-nums">
+            <TableCell className="text-right font-mono font-medium tabular-nums">
               {item.amount_inr != null ? formatINR(item.amount_inr) : '—'}
             </TableCell>
           </TableRow>
@@ -139,14 +139,24 @@ function ReportPreview({ report }: { report: ReportExport }) {
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-[0.7rem] text-muted-foreground">
         {report.period ? (
           <span>
-            Period {formatISTDate(report.period.from)} – {formatISTDate(report.period.to)}
+            Period{' '}
+            <span className="font-mono tabular-nums">
+              {formatISTDate(report.period.from)} – {formatISTDate(report.period.to)}
+            </span>
           </span>
         ) : null}
-        <span>Generated {formatIST(report.generated_ts)}</span>
+        <span>
+          Generated <span className="font-mono tabular-nums">{formatIST(report.generated_ts)}</span>
+        </span>
         <span className="tabular-nums">
           {report.line_items.length} line item{report.line_items.length === 1 ? '' : 's'}
         </span>
-        <span className="tabular-nums">Total exposure {formatINR(total)}</span>
+        <span>
+          Total exposure{' '}
+          <span className="font-mono font-medium tabular-nums text-foreground">
+            {formatINR(total)}
+          </span>
+        </span>
       </div>
 
       <Separator />

@@ -350,11 +350,19 @@ export function EddActionPanel({ alert }: { alert: Alert }) {
               ) : null}
             </div>
 
-            {/* Disposition actions — gated by RBAC + SoD. */}
+            {/* Disposition actions — gated by RBAC + SoD.
+                ALERT-ONLY: the human verdict below IS the classification. There is no separate
+                classify step and nothing classifies on its own — the investigator's click is the
+                label. (Containment is a distinct request; see the section below.) */}
             {showDisposition ? (
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Decision (human-in-the-loop)
+                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Scale className="size-3.5 text-primary" aria-hidden />
+                  Human verdict — this is the classification
+                </p>
+                <p className="text-2xs text-muted-foreground">
+                  Your call — fraud, false-positive, or inconclusive — is the label. Nothing
+                  classifies on its own.
                 </p>
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                   <ActionButton
@@ -389,10 +397,10 @@ export function EddActionPanel({ alert }: { alert: Alert }) {
           </>
         )}
 
-        {/* Request block — a REQUEST routed to a Lead, never an auto-block. */}
+        {/* Request block — a REQUEST routed to a Lead, never an auto-block. Set apart from the
+            disposition above so the verdict-vs-request distinction is unmistakable. */}
         {canRequestBlock ? (
-          <>
-            <Separator />
+          <div className="rounded-md border border-severity-high/25 bg-severity-high/5 p-3">
             <RequestBlockSection
               open={blockOpen}
               onOpenChange={setBlockOpen}
@@ -404,7 +412,7 @@ export function EddActionPanel({ alert }: { alert: Alert }) {
               entityId={alert.entity_id}
               alertId={alert.alert_id}
             />
-          </>
+          </div>
         ) : null}
 
         <Separator />
@@ -524,9 +532,16 @@ function RequestBlockSection({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Containment
-      </p>
+      <div className="space-y-0.5">
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <ShieldQuestion className="size-3.5 text-severity-high" aria-hidden />
+          Containment — a request, not a verdict
+        </p>
+        <p className="text-2xs text-muted-foreground">
+          Separate from the classification above: a block is a request routed to a Team Lead for
+          approval. Nothing here blocks on its own.
+        </p>
+      </div>
 
       {result ? (
         <div

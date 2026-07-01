@@ -13,7 +13,9 @@
  */
 import { useEffect, useState } from 'react'
 import { Activity, Play, Radio, Siren, Square, Zap } from 'lucide-react'
-import { realtime, type RealtimeStatus } from '@/lib/realtime'
+import { realtime, type RealtimeStatus, type RealtimeTick } from '@/lib/realtime'
+import { useRealtimeSubscription } from '@/hooks/useRealtime'
+import { formatINRCompact, formatISTTime } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
 import { LiveEventTape } from '@/components/realtime/LiveEventTape'
 import { EventRateChart } from '@/components/charts/EventRateChart'
@@ -21,8 +23,36 @@ import { Surface } from '@/components/ui/surface'
 import { Stat } from '@/components/ui/stat'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { EventTicker, RouteTransition, type TickerItem } from '@/ui'
 
 const POLL_MS = 1500
+/** Calm split-flap tape holds only a shallow window — it's ambient context, not the main tape. */
+const TICKER_CAP = 12
+
+/** Keep the tokenized prefix + last 2 chars, dot out the middle — never surfaces a raw id. */
+function maskEmployee(id: string): string {
+  const dash = id.indexOf('-')
+  if (dash < 0 || dash >= id.length - 1) return id
+  const prefix = id.slice(0, dash + 1)
+  const body = id.slice(dash + 1)
+  if (body.length <= 2) return `${prefix}${body}`
+  return `${prefix}••${body.slice(-2)}`
+}
+
+/** Map a scored realtime tick to the EventTicker's presentational TickerItem shape. */
+function tickToTickerItem(tick: RealtimeTick): TickerItem {
+  const text = tick.top_signal
+    ? tick.top_signal.replace(/_/g, ' ').toLowerCase()
+    : `${tick.txn_type} · ${tick.channel}`
+  return {
+    id: String(tick.tick_id),
+    ts: formatISTTime(tick.ts),
+    actor: maskEmployee(tick.employee_id),
+    text: tick.is_after_hours ? `${text} · off-hours` : text,
+    level: tick.risk_level,
+    amount: formatINRCompact(tick.amount),
+  }
+}
 
 /** Humanize the source mode for the status pill (idle / steady / mule_burst / ws). */
 function modeLabel(mode: string): string {
@@ -49,13 +79,21 @@ export function ReplayStudio() {
     return () => clearInterval(id)
   }, [])
 
+  // Calm split-flap tape — a shallow, newest-first window off the same singleton stream. State stays
+  // LOCAL to this view (one subscription) so a tick re-renders only the tape, never the tree.
+  const [ticker, setTicker] = useState<TickerItem[]>([])
+  useRealtimeSubscription((m) => {
+    if (m.type !== 'event.scored') return
+    setTicker((prev) => [tickToTickerItem(m), ...prev].slice(0, TICKER_CAP))
+  })
+
   // Reflect a control action immediately rather than waiting up to POLL_MS for the next tick.
   const sync = () => setStatus(realtime.status())
 
   const running = status.running
 
   return (
-    <div className="space-y-4">
+    <RouteTransition className="space-y-4">
       <PageHeader
         icon={<Radio className="size-5" />}
         title="Replay studio"
@@ -163,10 +201,20 @@ export function ReplayStudio() {
         <div className="lg:col-span-2">
           <LiveEventTape height={420} />
         </div>
-        <Surface pad="md" className="flex flex-col justify-center">
-          <EventRateChart height={160} />
-        </Surface>
+        <div className="flex flex-col gap-3">
+          <Surface pad="md" className="flex flex-col justify-center">
+            <EventRateChart height={160} />
+          </Surface>
+          {/* Calm split-flap tape — a low-key ambient read of the same stream. */}
+          <EventTicker
+            items={ticker}
+            live={running}
+            title="Split-flap tape"
+            max={TICKER_CAP}
+            className="min-h-[13rem] flex-1"
+          />
+        </div>
       </div>
-    </div>
+    </RouteTransition>
   )
 }

@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { EmptyState } from '@/components/ui/empty-state'
 import { InfoTip } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/toaster'
+import { useAutoAnimateList } from '@/ui'
 import type { CaseNote } from '@/lib/types'
 
 /** Initials for an actor token / username, capped at two glyphs. */
@@ -51,6 +52,8 @@ export function CaseNotes({ caseId, notes }: { caseId: string; notes: CaseNote[]
 
   const ordered = [...notes].sort((a, b) => +new Date(b.ts) - +new Date(a.ts))
   const trimmed = draft.trim()
+  // Newest-first thread; AutoAnimate glides a freshly posted note in (reduced-motion → instant).
+  const [threadRef] = useAutoAnimateList<HTMLOListElement>()
 
   function submit() {
     if (!trimmed || addNote.isPending) return
@@ -102,7 +105,7 @@ export function CaseNotes({ caseId, notes }: { caseId: string; notes: CaseNote[]
           }
         />
       ) : (
-        <ol className="space-y-2.5">
+        <ol ref={threadRef} className="space-y-2.5">
           {ordered.map((note, i) => (
             <li key={note.id} className="flex gap-2.5">
               <div className="flex flex-col items-center">
@@ -125,7 +128,7 @@ export function CaseNotes({ caseId, notes }: { caseId: string; notes: CaseNote[]
                   ) : null}
                   <Separator orientation="vertical" className="h-3" />
                   <InfoTip label={formatIST(note.ts)}>
-                    <span className="text-[0.7rem] tabular-nums text-muted-foreground">
+                    <span className="font-mono text-[0.7rem] tabular-nums text-muted-foreground">
                       {formatRelative(note.ts)}
                     </span>
                   </InfoTip>

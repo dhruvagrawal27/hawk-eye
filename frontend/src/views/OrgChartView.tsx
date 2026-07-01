@@ -19,6 +19,7 @@ import { Surface } from '@/components/ui/surface'
 import { Eyebrow } from '@/components/ui/eyebrow'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { RouteTransition, m, staggerParent, staggerItem } from '@/ui'
 
 /**
  * The chart sections, top-to-bottom. The three Lines of Defense come first (1st = ownership /
@@ -96,8 +97,15 @@ function capabilitySummary(role: Role): string {
 }
 
 export function OrgChartView() {
+  // Sections that actually render (non-empty), so the staggered reveal cascades over them.
+  const sections = SECTIONS.map((section) => ({
+    section,
+    // Preserve HUMAN_ROLES ordering (top-of-chart first) within each section.
+    roles: HUMAN_ROLES.filter(section.match),
+  })).filter(({ roles }) => roles.length > 0)
+
   return (
-    <div className="space-y-4">
+    <RouteTransition className="space-y-4">
       <PageHeader
         icon={<Network className="size-5" />}
         title="Org chart"
@@ -109,26 +117,28 @@ export function OrgChartView() {
         }
       />
 
-      {SECTIONS.map((section) => {
-        // Preserve HUMAN_ROLES ordering (top-of-chart first) within each section.
-        const roles = HUMAN_ROLES.filter(section.match)
-        if (roles.length === 0) return null
-        return (
-          <Surface key={section.key} tone="reference" pad="md" className="space-y-3">
-            <div>
-              <Eyebrow>{section.eyebrow}</Eyebrow>
-              <h2 className="mt-1 text-base font-semibold tracking-tight">{section.title}</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">{section.description}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {roles.map((role) => (
-                <RoleCard key={role} role={role} />
-              ))}
-            </div>
-          </Surface>
-        )
-      })}
-    </div>
+      {/* Staggered reveal — each Line-of-Defense tier cascades in; reduced-motion shows all at once. */}
+      <m.div className="space-y-4" variants={staggerParent} initial="hidden" animate="show">
+        {sections.map(({ section, roles }) => (
+          <m.div key={section.key} variants={staggerItem}>
+            <Surface tone="reference" pad="md" className="space-y-3">
+              <div>
+                <Eyebrow>{section.eyebrow}</Eyebrow>
+                <h2 className="mt-1 font-display text-base font-semibold tracking-tight">
+                  {section.title}
+                </h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">{section.description}</p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {roles.map((role) => (
+                  <RoleCard key={role} role={role} />
+                ))}
+              </div>
+            </Surface>
+          </m.div>
+        ))}
+      </m.div>
+    </RouteTransition>
   )
 }
 
@@ -139,7 +149,7 @@ function RoleCard({ role }: { role: Role }) {
     <Card className="flex flex-col gap-2 p-3.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold leading-tight">{meta.label}</p>
+          <p className="truncate font-display text-sm font-semibold leading-tight">{meta.label}</p>
           <p className="mt-0.5 text-2xs text-muted-foreground">{meta.dept}</p>
         </div>
         <Badge variant="secondary" className="shrink-0 font-mono">

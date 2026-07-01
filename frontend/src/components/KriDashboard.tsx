@@ -28,6 +28,7 @@ import { cn } from '@/lib/cn'
 import { formatNumber } from '@/lib/format'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { AmountFlip, CountUp, Sparkline, m, staggerParent, staggerItem } from '@/ui'
 import type { KriCard, KriResponse, KriTrendPoint } from '@/lib/types'
 
 const STATUS_RING: Record<NonNullable<KriCard['status']>, string> = {
@@ -45,11 +46,50 @@ const STATUS_LABEL: Record<NonNullable<KriCard['status']>, string> = {
   warning: 'Watch',
   breach: 'Breach',
 }
+/** CSS var name driving the per-card sparkline stroke — matches the RAG status dot. */
+const STATUS_STROKE: Record<NonNullable<KriCard['status']>, string> = {
+  ok: 'sla-ok',
+  warning: 'sla-warn',
+  breach: 'severity-critical',
+}
 
-function formatKri(card: KriCard): string {
+/** Suffix the unit onto a formatted numeral, matching the static form ("42%", "3.1 d", "128"). */
+function withUnit(text: string, unit?: string): string {
+  if (!unit) return text
+  return unit === '%' ? `${text}%` : `${text} ${unit}`
+}
+
+/**
+ * Format a card value the way the static dashboard did — integers grouped, decimals to 1dp — so the
+ * animated roll-up lands on exactly the figure a board pack would print. Used as the CountUp/AmountFlip
+ * `aria-label` value + in-flight formatter, so screen readers only ever hear the final number.
+ */
+function formatKriValue(value: number, unit?: string): string {
+  const num = Number.isInteger(value) ? formatNumber(value) : value.toFixed(1)
+  return withUnit(num, unit)
+}
+
+/**
+ * The animated headline figure for a KRI card. Plain counts (no unit / a `%`) roll up with the generic
+ * CountUp; anything the board reads as money (₹/INR unit) uses the INR-grouped AmountFlip. Both degrade
+ * to the final value instantly under reduced motion.
+ */
+function KriValue({ card }: { card: KriCard }) {
   const unit = card.unit ?? ''
-  const value = Number.isInteger(card.value) ? formatNumber(card.value) : card.value.toFixed(1)
-  return unit === '%' ? `${value}%` : unit ? `${value} ${unit}` : value
+  const isMoney = unit === '₹' || /inr/i.test(unit)
+  const className = 'mt-1 block font-mono text-2xl font-semibold tabular-nums text-foreground'
+
+  if (isMoney) {
+    return <AmountFlip value={card.value} kind="inr" compact className={className} />
+  }
+  return (
+    <CountUp
+      value={card.value}
+      decimals={Number.isInteger(card.value) ? 0 : 1}
+      className={className}
+      format={(n) => formatKriValue(n, unit)}
+    />
+  )
 }
 
 /** A delta is "good" when it moves in the card's preferred direction. */
@@ -60,7 +100,7 @@ function deltaTone(card: KriCard): 'good' | 'bad' | 'flat' {
   return improving ? 'good' : 'bad'
 }
 
-function KriCardView({ card }: { card: KriCard }) {
+function KriCardView({ card, trend }: { card: KriCard; trend?: number[] }) {
   const status = card.status ?? 'ok'
   const tone = deltaTone(card)
   const DeltaIcon =
@@ -78,13 +118,26 @@ function KriCardView({ card }: { card: KriCard }) {
             {STATUS_LABEL[status]}
           </span>
         </div>
-        <p className="mt-1 text-2xl font-semibold tabular-nums">{formatKri(card)}</p>
+        <div className="mt-1 flex items-end justify-between gap-2">
+          <KriValue card={card} />
+          {trend && trend.length >= 2 ? (
+            <Sparkline
+              points={trend}
+              width={64}
+              height={22}
+              stroke={`hsl(var(--${STATUS_STROKE[status]}))`}
+              area
+              className="mb-1 shrink-0"
+              aria-label={`${card.label} trend`}
+            />
+          ) : null}
+        </div>
         <div className="mt-1.5 flex items-center justify-between text-[0.7rem]">
           <span className="text-muted-foreground">
             {card.target != null ? (
               <>
                 target{' '}
-                <span className="tabular-nums text-foreground">
+                <span className="font-mono tabular-nums text-foreground">
                   {card.unit === '%' ? `${card.target}%` : formatNumber(card.target)}
                 </span>
               </>
@@ -95,7 +148,7 @@ function KriCardView({ card }: { card: KriCard }) {
           {card.delta != null ? (
             <span
               className={cn(
-                'inline-flex items-center gap-0.5 tabular-nums',
+                'inline-flex items-center gap-0.5 font-mono tabular-nums',
                 tone === 'good' && 'text-sla-ok',
                 tone === 'bad' && 'text-severity-high',
                 tone === 'flat' && 'text-muted-foreground',
@@ -112,6 +165,20 @@ function KriCardView({ card }: { card: KriCard }) {
       </CardContent>
     </Card>
   )
+}
+
+/**
+ * Extract a card's own history from the weekly trend rows for its inline sparkline: the numeric series
+ * whose key matches the card `key` (chronological, oldest→newest). Returns `undefined` when the KRI has
+ * no matching series so the card simply omits its sparkline (honest — never a fabricated line).
+ */
+function trendForCard(card: KriCard, trends: KriTrendPoint[]): number[] | undefined {
+  const series: number[] = []
+  for (const row of trends) {
+    const v = row[card.key]
+    if (typeof v === 'number') series.push(v)
+  }
+  return series.length >= 2 ? series : undefined
 }
 
 /** Pick numeric series keys present on the trend rows (excludes the `period` label). */
@@ -155,25 +222,33 @@ export function KriDashboard({ data }: { data: KriResponse }) {
 
   return (
     <div className="space-y-4">
-      {/* KRI cards */}
+      {/* KRI cards — a tasteful reveal-on-load stagger cascades the board figures in (reduced-motion
+          shows them all at once; the numbers themselves roll up via CountUp/AmountFlip). */}
       {data.cards.length === 0 ? (
         <EmptyState
           title="No KRIs published"
           description="The reporting service returned no KRI cards for this period."
         />
       ) : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        <m.div
+          className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6"
+          variants={staggerParent}
+          initial="hidden"
+          animate="show"
+        >
           {data.cards.map((card) => (
-            <KriCardView key={card.key} card={card} />
+            <m.div key={card.key} variants={staggerItem}>
+              <KriCardView card={card} trend={trendForCard(card, data.trends)} />
+            </m.div>
           ))}
-        </div>
+        </m.div>
       )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Trends */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle>Detection trends</CardTitle>
+            <CardTitle className="font-display">Detection trends</CardTitle>
             <CardDescription>
               Weekly alert volume, confirmed fraud, false positives, and mean-time-to-detect.
             </CardDescription>
@@ -269,7 +344,7 @@ export function KriDashboard({ data }: { data: KriResponse }) {
         {/* Coverage map */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle>Coverage by area</CardTitle>
+            <CardTitle className="font-display">Coverage by area</CardTitle>
             <CardDescription>Typology / unit coverage of the detection estate.</CardDescription>
           </CardHeader>
           <CardContent>
