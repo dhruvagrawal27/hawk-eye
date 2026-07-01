@@ -26,10 +26,14 @@ describe('RiskIndexGauge', () => {
         <RiskIndexGauge entityId="EMP-7f3a" />
       </QueryClientProvider>,
     )
-    await waitFor(() => expect(screen.getByText('78')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByLabelText(/insider risk 78 of 100/i)).toBeInTheDocument(),
+    )
     expect(screen.getByText(/insider-risk index/i)).toBeInTheDocument()
     expect(screen.getByText(/uncalibrated/i)).toBeInTheDocument()
     expect(screen.getByText(/alert-only/i)).toBeInTheDocument()
+    // the "how this score was computed" breakdown is present
+    expect(screen.getByText(/how this 78 was computed/i)).toBeInTheDocument()
   })
 
   it('renders nothing when the entity has no index (404)', async () => {

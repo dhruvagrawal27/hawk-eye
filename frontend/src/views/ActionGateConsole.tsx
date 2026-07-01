@@ -5,11 +5,12 @@
  * mandatory justification, no self-review) + the read-only policy list. ALERT-ONLY: approving a hold
  * only PERMITS human-initiated execution — nothing auto-executes, and the gate never touches money.
  */
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ShieldAlert, ScaleIcon, Check, X, ListChecks } from 'lucide-react'
+import { ShieldAlert, ScaleIcon, Check, X, ListChecks, ChevronDown, History } from 'lucide-react'
 import { apiClient } from '@/lib/apiClient'
 import { ApiError } from '@/lib/http'
+import { cn } from '@/lib/cn'
 import type { ActionHold } from '@/lib/types'
 import { useAuth } from '@/auth/rbac'
 import { PageHeader } from '@/components/PageHeader'
@@ -19,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Eyebrow } from '@/components/ui/eyebrow'
 import { EmptyState } from '@/components/ui/empty-state'
+import { EmployeeActivitySummary } from '@/components/EmployeeActivitySummary'
 import { toast } from '@/components/ui/toaster'
 
 export function ActionGateConsole() {
@@ -89,50 +91,13 @@ export function ActionGateConsole() {
         ) : (
           <div className="space-y-3">
             {holds.map((h) => (
-              <Card key={h.hold_id}>
-                <CardContent className="space-y-3 p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="destructive" className="uppercase">
-                      {h.severity}
-                    </Badge>
-                    <span className="font-mono text-sm text-foreground">{h.subject}</span>
-                    <span className="text-xs text-muted-foreground">·</span>
-                    <span className="font-mono text-xs text-muted-foreground">{h.verb}</span>
-                    {h.dpia_binding ? (
-                      <Badge variant="muted" className="ml-auto text-2xs">
-                        DPIA-bound · natural justice
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{h.explanation}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {h.reason_codes.map((rc) => (
-                      <Badge key={rc.code} variant="secondary" className="text-2xs">
-                        {rc.code}
-                      </Badge>
-                    ))}
-                  </div>
-                  <p className="text-2xs text-muted-foreground">{h.proportionality}</p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="default"
-                      disabled={decide.isPending}
-                      onClick={() => act(h, true)}
-                    >
-                      <Check className="size-3.5" /> Approve (permit)
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={decide.isPending}
-                      onClick={() => act(h, false)}
-                    >
-                      <X className="size-3.5" /> Reject
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <HeldActionCard
+                key={h.hold_id}
+                hold={h}
+                busy={decide.isPending}
+                onApprove={() => act(h, true)}
+                onReject={() => act(h, false)}
+              />
             ))}
           </div>
         )}
@@ -158,5 +123,76 @@ export function ActionGateConsole() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/** One held privileged action: the request + a collapsible activity log so a senior approver sees
+ * what this employee has been doing (and who has already looked) before permitting execution. */
+function HeldActionCard({
+  hold,
+  busy,
+  onApprove,
+  onReject,
+}: {
+  hold: ActionHold
+  busy: boolean
+  onApprove: () => void
+  onReject: () => void
+}) {
+  const [showHistory, setShowHistory] = useState(false)
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="destructive" className="uppercase">
+            {hold.severity}
+          </Badge>
+          <span className="font-mono text-sm text-foreground">{hold.subject}</span>
+          <span className="text-xs text-muted-foreground">·</span>
+          <span className="font-mono text-xs text-muted-foreground">{hold.verb}</span>
+          {hold.dpia_binding ? (
+            <Badge variant="muted" className="ml-auto text-2xs">
+              DPIA-bound · natural justice
+            </Badge>
+          ) : null}
+        </div>
+        <p className="text-sm text-muted-foreground">{hold.explanation}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {hold.reason_codes.map((rc) => (
+            <Badge key={rc.code} variant="secondary" className="text-2xs">
+              {rc.code}
+            </Badge>
+          ))}
+        </div>
+        <p className="text-2xs text-muted-foreground">{hold.proportionality}</p>
+
+        {/* Activity log — context on this employee before you permit the action. */}
+        <div className="border-t border-border/50 pt-2">
+          <button
+            type="button"
+            className="focus-ring flex w-full items-center justify-between rounded text-2xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+            aria-expanded={showHistory}
+            onClick={() => setShowHistory((s) => !s)}
+          >
+            <span className="flex items-center gap-1.5">
+              <History className="size-3" /> Activity history for {hold.subject}
+            </span>
+            <ChevronDown className={cn('size-3.5 transition-transform', showHistory && 'rotate-180')} />
+          </button>
+          {showHistory ? (
+            <EmployeeActivitySummary entityId={hold.subject} enabled={showHistory} className="mt-2" />
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="default" disabled={busy} onClick={onApprove}>
+            <Check className="size-3.5" /> Approve (permit)
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onReject}>
+            <X className="size-3.5" /> Reject
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

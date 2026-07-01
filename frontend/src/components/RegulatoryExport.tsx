@@ -122,6 +122,11 @@ function ReportPreview({ report }: { report: ReportExport }) {
           type="button"
           size="sm"
           disabled={report.status !== 'ready' || !report.download_content}
+          title={
+            report.status !== 'ready'
+              ? 'The draft is still generating — download will enable when it is Ready.'
+              : 'Download the draft CSV for review (tokenized PII; not a regulator filing).'
+          }
           onClick={() => downloadReport(report)}
         >
           <Download className="size-3.5" />
