@@ -236,9 +236,40 @@ function FusedMeter({ fused, threshold }: { fused: number; threshold: number }) 
   )
 }
 
+/** Cross-layer agreement bar — a tight spread across layers is a stronger, more trustworthy signal. */
+function AgreementReadout({ agreement }: { agreement: number }) {
+  const pct = Math.round(agreement * 100)
+  const label = agreement >= 0.75 ? 'strong concurrence' : agreement >= 0.45 ? 'partial' : 'divergent'
+  const tone =
+    agreement >= 0.75
+      ? 'var(--severity-high)'
+      : agreement >= 0.45
+        ? 'var(--severity-medium)'
+        : 'var(--muted-foreground)'
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+          Cross-layer agreement
+        </span>
+        <span className="tabular-nums text-muted-foreground">
+          <span className="text-foreground">{pct}</span> · {label}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full transition-[width]"
+          style={{ width: `${Math.max(2, pct)}%`, backgroundColor: `hsl(${tone})` }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export function ScoreComposition({ fusion }: { fusion: FusionBreakdown }) {
   const rescued = computeRescued(fusion)
   const gbdt = fusion.components.find((c) => c.layer === 'L3_gbdt')
+  const decisive = decisiveComponent(fusion)
   const maxWeighted = Math.max(
     ...fusion.components.map((c) => (c.proba != null ? c.weight * c.proba : 0)),
     0.0001,
@@ -247,6 +278,8 @@ export function ScoreComposition({ fusion }: { fusion: FusionBreakdown }) {
   return (
     <div className="space-y-4">
       <FusedMeter fused={fusion.fused} threshold={fusion.threshold} />
+
+      {typeof fusion.agreement === 'number' && <AgreementReadout agreement={fusion.agreement} />}
 
       <div className="space-y-2.5">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -257,19 +290,27 @@ export function ScoreComposition({ fusion }: { fusion: FusionBreakdown }) {
         ))}
       </div>
 
-      {rescued && gbdt?.proba != null ? (
-        <InsightCallout icon={ShieldCheck} title="Rescued by graph fusion">
+      {rescued && gbdt?.proba != null && decisive ? (
+        <InsightCallout icon={ShieldCheck} title={`Rescued by ${decisive.label}`}>
           The supervised model (GBDT) scored{' '}
           <span className="font-mono tabular-nums">{Math.round(gbdt.proba * 100)}</span> — below the
           decision threshold of{' '}
           <span className="font-mono tabular-nums">{Math.round(fusion.threshold * 100)}</span> — and
-          on its own would have missed this. The graph layer (L5) carried the fused score over the
-          line. This is exactly the cross-layer signal a single tabular model cannot see.
+          on its own would have missed this. {decisive.label} ({String(decisive.layer)}) carried the
+          fused score over the line. This is exactly the cross-layer signal a single tabular model
+          cannot see.
         </InsightCallout>
       ) : (
         <InsightCallout icon={Info} title="How to read this" tone="info">
           Bars show each layer&apos;s weighted pull (its output × the fusion coefficient) on the
           final score. The fused L6 score — not any single layer — is what crossed the threshold.
+          {decisive && (
+            <>
+              {' '}
+              Strongest driver: <span className="font-medium text-foreground">{decisive.label}</span>
+              .
+            </>
+          )}
         </InsightCallout>
       )}
     </div>

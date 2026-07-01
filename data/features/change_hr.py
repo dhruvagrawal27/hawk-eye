@@ -100,7 +100,8 @@ def role_change_recency(df: pd.DataFrame) -> pd.DataFrame:
     for ent, grp in d.groupby(E):
         rc = grp[grp[VERB] == "role_change"]["_t"]
         recency = (ref - rc.max()).total_seconds() / 86400.0 if len(rc) else np.nan
-        tenure = pd.to_numeric(grp.get(TENURE), errors="coerce").dropna()
+        tcol = grp[TENURE] if TENURE in grp.columns else pd.Series(dtype=float)
+        tenure = pd.to_numeric(tcol, errors="coerce").dropna()
         leaver = bool(grp.get(LEAVER, pd.Series(False)).fillna(False).astype(bool).any())
         notice = bool(grp.get(NOTICE, pd.Series(False)).fillna(False).astype(bool).any())
         out[str(ent)] = {

@@ -9,6 +9,7 @@ import { cn } from '@/lib/cn'
 import { humanize, formatISTTime, formatPercent } from '@/lib/format'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { EmptyState } from '@/components/ui/empty-state'
+import { AttentionHeatmap, hasVariableAttention } from '@/components/AttentionHeatmap'
 import type { AttentionSession, AttentionStep } from '@/lib/types'
 
 function stepLabel(step: AttentionStep): string {
@@ -104,6 +105,12 @@ export function AttentionView({ sessions }: { sessions: AttentionSession[] }) {
         description="The sequence model (L4) did not contribute attributable steps for this alert."
       />
     )
+  }
+
+  // When the sequence model exposes per-variable attention, render the full LAXCAT variable×temporal
+  // heatmap (which variable, at which step) rather than the temporal-only bar timeline.
+  if (hasVariableAttention(withSteps)) {
+    return <AttentionHeatmap sessions={withSteps} />
   }
 
   return (

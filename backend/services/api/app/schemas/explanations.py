@@ -11,6 +11,7 @@ class ShapFeature(BaseModel):
     feature: str
     contribution: float
     value: float | str | None = None
+    percentile: float | None = None  # 0–1 peer percentile of this feature's value
 
 
 class RuleProvenance(BaseModel):
@@ -20,13 +21,21 @@ class RuleProvenance(BaseModel):
     severity_hint: str | None = None
 
 
+class AttentionVariable(BaseModel):
+    """One variable's attention weight at a step — the *variable* axis of LAXCAT variable×temporal."""
+
+    name: str
+    weight: float
+
+
 class AttentionStep(BaseModel):
     """One step of L4 sequence attention (LAXCAT-style)."""
 
     step: int
     verb: str
     ts: str | None = None
-    weight: float
+    weight: float  # temporal attention (time axis)
+    variables: list[AttentionVariable] = Field(default_factory=list)  # variable axis
 
 
 class FusionComponent(BaseModel):

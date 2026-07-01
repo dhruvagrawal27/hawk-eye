@@ -23,6 +23,7 @@ from app.schemas.entities import (
     UnmaskRequest,
     UnmaskResponse,
 )
+from app.schemas.risk_index import RiskIndexResponse
 from app.store.entity_store import ENTITIES
 
 router = APIRouter(tags=["entities"])
@@ -47,6 +48,20 @@ def get_entity(
         raise HTTPException(status_code=404, detail="entity not found")
     _view_audit(principal, entity_id, "view")
     return profile
+
+
+@router.get("/entities/{entity_id}/risk-index", response_model=RiskIndexResponse)
+def get_risk_index(
+    entity_id: str,
+    principal: Principal = Depends(require_capability(Capability.VIEW_ALERTS)),
+) -> RiskIndexResponse:
+    """Continuous per-user insider-risk index (M2.1) — computed by the ML batch job, read here.
+    Alert-only: a displayed, explained score for a human; never an automated action."""
+    idx = ENTITIES.get_risk_index(entity_id)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="no risk index for this entity")
+    _view_audit(principal, entity_id, "risk-index")
+    return idx
 
 
 @router.get("/entities/{entity_id}/timeline", response_model=EntityTimeline)

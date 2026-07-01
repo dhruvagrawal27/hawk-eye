@@ -52,7 +52,9 @@ function useReachable(url: string, nonce: number): Reach {
 }
 
 export function GrafanaEmbed({
-  path = '/d/hawk-eye-ops?kiosk',
+  // Pin a recent window + auto-refresh so the embed always shows live data — without `from/to`
+  // Grafana can fall back to a persisted range (e.g. "Previous year") and render "No data".
+  path = '/d/hawk-eye-ops?kiosk&from=now-30m&to=now&refresh=10s',
   title = 'System health (Grafana)',
 }: {
   path?: string

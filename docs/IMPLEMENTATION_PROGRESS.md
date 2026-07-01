@@ -19,7 +19,7 @@ The 8-layer engine (L0–L7) computes far more than reaches a screen. The "~5% d
 ## Phase roadmap
 | Phase | Theme | Boundary | Persona | Status |
 |---|---|---|---|---|
-| 1 | Detection Transparency — real 5-layer fusion decomposition (raw scores, SoD, agreement, rescued-by) | 1 | Investigator / model-eng | 🔧 in progress |
+| 1 | Detection Transparency — real 5-layer fusion decomposition (raw scores, SoD, agreement, rescued-by) | 1 | Investigator / model-eng | ✅ **done** (all gates green) |
 | 2 | Rich explainability — structured L5 graph render, L4 attention heatmap, SHAP value/percentile | 1+3 | Investigator | ⏳ pending |
 | 3 | Entity-360 deep dive — off-hours heatmap, peer deep stats, per-layer score timeline | 2+3 | Investigator | ⏳ pending |
 | 4 | Sub-threshold / ambient activity — the literal <70 "95%" recorded-not-alerted feed | 2 | Management / investigator | ⏳ pending |
@@ -32,19 +32,21 @@ The 8-layer engine (L0–L7) computes far more than reaches a screen. The "~5% d
 **Goal:** turn the client-side fusion *fiction* (hardcoded 3-layer weights, no backend source) into the **real 5-layer fusion arithmetic** delivered by the backend: each layer's raw 0–1 score, the meta-learner coefficient, weighted contribution, the SoD component, the fused probability vs the decision threshold, cross-layer **agreement**, and an honest **decisive-layer / "rescued-by"** counterfactual.
 
 ### Task ledger
-- [ ] `backend/fusion/calibration.py` — expose `agreement_from(layer_scores)` (factor out of `confidence_from`).
-- [ ] `backend/fusion/service.py` — enrich `FusionOutput` (`layer_scores`, `layer_weights`, `sod`, `agreement`, `threshold`, `decisive_layer`, `rescued`); add `build_breakdown(...)`; populate in `fuse()`.
-- [ ] `backend/services/api/app/schemas/alerts.py` — internal `fusion_breakdown` field (excluded from wire).
-- [ ] `backend/services/api/app/pipeline/online.py` — attach breakdown on **all three** emit paths (fused / L1 short-circuit / degraded).
-- [ ] `backend/services/api/app/schemas/explanations.py` — `FusionComponent` + `FusionBreakdown`; add `fusion` to `Explanation`.
-- [ ] `backend/services/api/app/routes/explanation_routes.py` — return `fusion` (stored breakdown, else honest fallback synthesis).
-- [ ] `backend/tests/...` — fusion-breakdown + explanation-contract test.
-- [ ] `frontend/src/lib/types.ts` — extend `FusionComponent`/`FusionBreakdown`/`FusionLayer` (additive).
-- [ ] `frontend/src/components/ScoreComposition.tsx` — 5-layer meta, agreement readout, backend-sourced.
-- [ ] `frontend/src/lib/layerFusion.ts` — `normLayer` L1_rule↔L1_rules; consume backend agreement.
-- [ ] `frontend/src/lib/mocks/handlers.ts` — `buildFusion` → 5-layer breakdown + agreement (keep worked-burst rescue story).
-- [ ] Gates: `tsc`, `eslint --max-warnings=0`, `vitest`, backend tests.
-- [ ] CONTEXT.md entry + this file.
+- [x] `backend/fusion/calibration.py` — exposed `agreement_from(layer_scores)` (factored out of `confidence_from`).
+- [x] `backend/fusion/service.py` — enriched `FusionOutput` (`layer_scores`, `sod`, `agreement`, `breakdown`); added `LAYER_META_WEIGHTS`, `DECISION_THRESHOLD_PROB`, `build_breakdown(...)`; populated in `fuse()`.
+- [x] `backend/services/api/app/schemas/alerts.py` — internal `fusion_breakdown` field (excluded from wire).
+- [x] `backend/services/api/app/pipeline/online.py` — breakdown attached on **all three** emit paths (fused / L1 short-circuit / degraded).
+- [x] `backend/services/api/app/schemas/explanations.py` — `FusionComponent` + `FusionBreakdown`; `fusion` added to `Explanation`.
+- [x] `backend/services/api/app/routes/explanation_routes.py` — returns `fusion` (stored breakdown, else honest fallback synthesis).
+- [x] `backend/tests/unit/test_fusion_breakdown.py` — builder math, rescue logic, `fuse()`, endpoint contract (6 tests).
+- [x] `frontend/src/lib/types.ts` — extended `FusionComponent`/`FusionBreakdown`/`FusionLayer` (additive).
+- [x] `frontend/src/components/ScoreComposition.tsx` — 5-layer meta, agreement readout, decisive-layer rescue callout, backend-sourced.
+- [x] `frontend/src/lib/layerFusion.ts` — `normLayer` L1_rule↔L1_rules; consumes backend threshold/rescued/decisive/agreement.
+- [x] `frontend/src/lib/mocks/handlers.ts` — `buildFusion` → 5-layer breakdown + agreement (worked-burst rescue story preserved).
+- [x] `frontend/src/components/ScoreComposition.test.tsx` + fusion assertion in `payloads.contract.test.ts`.
+- [x] Gates: backend **153 pytest** · FE **157 vitest** · `tsc` clean · `eslint` 0 warnings · `vite build` ok.
+- [x] CONTEXT.md entry + this file.
 
 _Status log (newest first):_
-- 2026-07-01 — Phase 1 kicked off; seam mapped (fusion computes per-layer scores/SoD/agreement then discards them; FE `FusionBreakdown` is a 3-layer client-side synthesis). Tracker created.
+- 2026-07-01 — **Phase 1 DONE.** Real 5-layer fusion decomposition now flows ML→L6→API→UI. Every alert carries the per-layer raw scores + meta weights + weighted contributions + cross-layer agreement + decisive-layer/rescued-by, served on `GET /explanations/{id}.fusion` and rendered in `ScoreComposition`. All gates green.
+- 2026-07-01 — Phase 1 kicked off; seam mapped (fusion computes per-layer scores/SoD/agreement then discards them; FE `FusionBreakdown` was a 3-layer client-side synthesis). Tracker created.

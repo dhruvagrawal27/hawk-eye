@@ -73,6 +73,7 @@ def _reset_state() -> None:
     ENTITIES._timelines.clear()
     ENTITIES._graphs.clear()
     ENTITIES._peers.clear()
+    ENTITIES._risk_index.clear()
     RULE_CHANGES._proposals.clear()
     AUDIT._events.clear()
     DEDUPE.reset()

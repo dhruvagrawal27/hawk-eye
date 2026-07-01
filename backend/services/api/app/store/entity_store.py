@@ -13,6 +13,7 @@ from app.schemas.entities import (
     PeerComparison,
     TimelineEvent,
 )
+from app.schemas.risk_index import RiskIndexResponse
 
 
 class EntityStore:
@@ -21,6 +22,7 @@ class EntityStore:
         self._timelines: dict[str, list[TimelineEvent]] = {}
         self._graphs: dict[str, EntityGraph] = {}
         self._peers: dict[str, list[PeerComparison]] = {}
+        self._risk_index: dict[str, RiskIndexResponse] = {}  # M2.1: written by the ML batch job
 
     def put_profile(self, profile: EntityProfile) -> None:
         self._profiles[profile.entity_id] = profile
@@ -45,6 +47,12 @@ class EntityStore:
 
     def get_peers(self, entity_id: str) -> list[PeerComparison]:
         return self._peers.get(entity_id, [])
+
+    def put_risk_index(self, idx: RiskIndexResponse) -> None:
+        self._risk_index[idx.employee_id] = idx
+
+    def get_risk_index(self, entity_id: str) -> RiskIndexResponse | None:
+        return self._risk_index.get(entity_id)
 
 
 ENTITIES = EntityStore()

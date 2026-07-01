@@ -69,6 +69,41 @@ describe('explanations + narrative (Part 11 / Part 25)', () => {
     expect(exp.graph?.explainer_model).toBe('GNNExplainer')
   })
 
+  it('carries LAXCAT variable×temporal attention + SHAP peer percentiles (Phase 2)', async () => {
+    const exp = await apiClient.getExplanation('alr_3d7e22')
+    // every attention step now carries the variable axis (the heatmap rows)
+    const step = exp.attention[0]?.steps[0]
+    expect(step?.variables?.length).toBeGreaterThan(0)
+    expect(step?.variables?.some((v) => v.name === 'off_hours')).toBe(true)
+    // every SHAP feature carries a peer percentile (the "vs baseline" depth)
+    expect(exp.shap.every((f) => typeof f.percentile === 'number')).toBe(true)
+  })
+
+  it('carries the full 5-layer L6 fusion decomposition (Phase 1 — Detection Transparency)', async () => {
+    const exp = await apiClient.getExplanation('alr_3d7e22')
+    const f = exp.fusion
+    expect(f).toBeDefined()
+    // all five detection layers are decomposed (incl. the L1 rule floor + L4 sequence)
+    expect(f!.components.map((c) => c.layer)).toEqual([
+      'L1_rule',
+      'L2_unsupervised',
+      'L3_gbdt',
+      'L4_sequence',
+      'L5_graph',
+    ])
+    expect(typeof f!.agreement).toBe('number')
+    expect(f!.calibrated_score).toBe(Math.round(f!.fused * 100))
+    // contribution = weight × proba for every layer that ran (auditable arithmetic)
+    for (const c of f!.components) {
+      if (c.proba != null) {
+        expect(Math.abs((c.contribution ?? 0) - c.weight * c.proba)).toBeLessThan(1e-3)
+      }
+    }
+    // worked burst is the canonical "rescued by graph fusion" story
+    expect(f!.rescued).toBe(true)
+    expect(f!.decisive_layer).toBe('L5_graph')
+  })
+
   it('TEE-attested narrative for the worked burst', async () => {
     const memo = await apiClient.getNarrative('alr_3d7e22')
     expect(memo.provider).toBe('near_ai')

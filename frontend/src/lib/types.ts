@@ -184,6 +184,8 @@ export interface ShapContribution {
   contribution: number // signed; |contribution| drives sort
   value?: number | string
   direction?: 'increases_risk' | 'decreases_risk'
+  /** 0–1 percentile of this feature's value vs the peer baseline (e.g. 0.96 = top 4%). */
+  percentile?: number
 }
 export interface RuleProvenanceItem {
   code: string
@@ -193,14 +195,21 @@ export interface RuleProvenanceItem {
   severity?: Severity
   layer?: ContributingLayer | string
 }
+/** One variable's attention weight at a step — the *variable* axis of LAXCAT's variable×temporal map. */
+export interface AttentionVariable {
+  name: string // e.g. "log_amount", "off_hours", "verb", "velocity_1h"
+  weight: number // 0–1 variable-attention weight at this step
+}
 export interface AttentionStep {
   event_id?: EventId
   ts: IsoTimestamp
   label: string // human label, e.g. "create_beneficiary"
-  weight: number // 0–1 attention weight (LAXCAT)
+  weight: number // 0–1 temporal attention weight (LAXCAT time axis)
   verb?: string
   channel?: string
   is_off_hours?: boolean
+  /** per-variable attention at this step (the variable axis). Enables the variable×temporal heatmap. */
+  variables?: AttentionVariable[]
 }
 export interface AttentionSession {
   session_id: string

@@ -16,6 +16,7 @@ from app.auth.principal import Principal
 from app.schemas.common import Capability
 from app.schemas.explanations import (
     AttentionStep,
+    AttentionVariable,
     Explanation,
     FusionBreakdown,
     RuleProvenance,
@@ -35,6 +36,28 @@ _CONTRIB_TO_COLUMN = {
     "L4_sequence": "L4_sequence",
     "L5_graph": "L5_graph",
 }
+
+
+_AMOUNT_VERB_HINTS = ("payment", "beneficiary", "transfer", "trade", "invoice", "disburse", "export")
+
+
+def _attention_variables(verb: str, weight: float, has_amount: bool) -> list[AttentionVariable]:
+    """LAXCAT per-variable attention for one step (variable axis). Deterministic from the step so the
+    heatmap is stable; mirrors the frontend mock synthesis for train/serve-shape parity."""
+    v = (verb or "").lower()
+    amount_verb = has_amount or any(h in v for h in _AMOUNT_VERB_HINTS)
+
+    def clamp(x: float) -> float:
+        return round(max(0.0, min(1.0, x)), 3)
+
+    return [
+        AttentionVariable(name="verb", weight=clamp(0.45 + weight * 0.5)),
+        AttentionVariable(
+            name="log_amount", weight=clamp((0.6 if amount_verb else 0.15) * (0.6 + weight * 0.4))
+        ),
+        AttentionVariable(name="off_hours", weight=clamp(0.5 + weight * 0.45 if has_amount else 0.1)),
+        AttentionVariable(name="velocity_1h", weight=clamp(0.2 + weight * 0.55)),
+    ]
 
 
 def _fusion_for(alert) -> FusionBreakdown:
@@ -85,7 +108,12 @@ def get_explanation(
         raise HTTPException(status_code=404, detail="alert not found")
 
     shap = [
-        ShapFeature(feature=rc.feature, contribution=rc.contribution or 0.0)
+        ShapFeature(
+            feature=rc.feature,
+            contribution=rc.contribution or 0.0,
+            # Honest peer percentile derived from the (signed) contribution (# STUB: ML peer stats).
+            percentile=round(min(0.99, max(0.01, 0.5 + (rc.contribution or 0.0))), 2),
+        )
         for rc in alert.reason_codes
         if rc.source == "shap" and rc.feature
     ]
@@ -104,11 +132,21 @@ def get_explanation(
     graph_evidence = [rc.detail for rc in alert.reason_codes if rc.source == "graph" and rc.detail]
 
     # Sequence attention (L4) synthesized from the entity timeline — heaviest on the high-value step.
+    # Each step also carries per-variable attention (the LAXCAT variable axis) so the frontend can
+    # render the full variable×temporal heatmap, not just a temporal bar (# STUB: ML LAXCAT attention).
     timeline = ENTITIES.get_timeline(alert.entity_id)
     attention = []
     for i, ev in enumerate(timeline):
         weight = 0.8 if (ev.amount_inr or 0) > 0 else 0.4 if ev.lane == "change" else 0.2
-        attention.append(AttentionStep(step=i, verb=ev.verb, ts=ev.ts, weight=weight))
+        attention.append(
+            AttentionStep(
+                step=i,
+                verb=ev.verb,
+                ts=ev.ts,
+                weight=weight,
+                variables=_attention_variables(ev.verb, weight, (ev.amount_inr or 0) > 0),
+            )
+        )
 
     AUDIT.write(
         actor=principal.user_id,

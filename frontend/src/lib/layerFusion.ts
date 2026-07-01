@@ -66,16 +66,23 @@ export interface LayerBreakdown {
   /** the non-GBDT layer that carried the alert over the line, if any (rescue narrative) */
   decisive: LayerContribution | null
   rescued: boolean
+  /** 0–1 cross-layer agreement, when the backend supplies it. */
+  agreement?: number
 }
 
+/** LAYER_COLUMNS uses `L1_rule`; contributing_layers uses `L1_rules`. Normalise to the latter. */
 function normLayer(l: string): string {
-  return l
+  return l === 'L1_rule' ? 'L1_rules' : l
 }
 
 /** Build the six-layer breakdown for an alert (prefers backend fusion numbers when available). */
 export function deriveLayerBreakdown(alert: Alert, fusion?: FusionBreakdown | null): LayerBreakdown {
   const fused = clampPct(alert.risk_score)
-  const threshold = FUSION_THRESHOLD_PCT
+  // Prefer the backend's real decision threshold (0–1 → 0–100); fall back to the nominal constant.
+  const threshold =
+    fusion && typeof fusion.threshold === 'number'
+      ? clampPct(fusion.threshold * 100)
+      : FUSION_THRESHOLD_PCT
   const firedSet = new Set((alert.contributing_layers ?? []).map((l) => normLayer(String(l))))
 
   // exact per-layer numbers from the backend, if present
@@ -121,19 +128,26 @@ export function deriveLayerBreakdown(alert: Alert, fusion?: FusionBreakdown | nu
   // "rescued": GBDT alone would miss it, but graph/sequence carried it over the line.
   const gbdt = layers.find((l) => l.layer === 'L3_gbdt')
   const nonGbdtFired = layers.filter((l) => l.fired && l.layer !== 'L3_gbdt')
+  // Prefer the backend-named decisive layer; else the strongest non-GBDT contributor.
+  const backendDecisive = fusion?.decisive_layer
+    ? layers.find((l) => normLayer(l.layer) === normLayer(String(fusion.decisive_layer)))
+    : undefined
   const decisive =
-    nonGbdtFired.length > 0
+    backendDecisive ??
+    (nonGbdtFired.length > 0
       ? nonGbdtFired.reduce((a, b) => (b.contribution > a.contribution ? b : a))
-      : null
+      : null)
   const rescued =
-    !!gbdt &&
-    gbdt.fired &&
-    gbdt.contribution < threshold &&
-    fused >= threshold &&
-    !!decisive &&
-    decisive.contribution > 0
+    typeof fusion?.rescued === 'boolean'
+      ? fusion.rescued
+      : !!gbdt &&
+        gbdt.fired &&
+        gbdt.contribution < threshold &&
+        fused >= threshold &&
+        !!decisive &&
+        decisive.contribution > 0
 
-  return { fused, threshold, layers, decisive, rescued }
+  return { fused, threshold, layers, decisive, rescued, agreement: fusion?.agreement }
 }
 
 function clampPct(n: number): number {
