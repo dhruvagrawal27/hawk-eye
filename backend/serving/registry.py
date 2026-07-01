@@ -22,6 +22,30 @@ def sign(model_id: str, version: str) -> str:
     return hmac.new(_SIGNING_KEY, f"{model_id}:{version}".encode(), hashlib.sha256).hexdigest()
 
 
+# M1.4 — FREE-AI / MRMF risk tiers, mirrored from ml.mlops.inventory (Part 27). `ml` is not on the
+# backend import path, so the canonical values are duplicated here (kept in lockstep by a doc note).
+TIER_CRITICAL = "tier-1-critical"
+TIER_HIGH = "tier-2-high"
+TIER_MODERATE = "tier-3-moderate"
+TIER_LOW = "tier-4-low"
+RISK_TIERS = (TIER_CRITICAL, TIER_HIGH, TIER_MODERATE, TIER_LOW)
+# Authoritative layer → risk tier (scoring layers outrank the narrative LLM; L6 fusion + L3 are the
+# most critical because they most directly drive whether a person is investigated).
+LAYER_RISK_TIER = {
+    "L2": TIER_HIGH,
+    "L3": TIER_CRITICAL,
+    "L4": TIER_MODERATE,
+    "L5": TIER_HIGH,
+    "L6": TIER_CRITICAL,
+}
+_HIGH_TIERS = (TIER_CRITICAL, TIER_HIGH)
+
+
+def normalize_layer(layer: str) -> str:
+    """`L3_gbdt` -> `L3` so registry layer strings map onto the canonical tier table."""
+    return (layer or "").split("_")[0].upper()
+
+
 @dataclass
 class ArtifactMeta:
     model_id: str
@@ -34,6 +58,7 @@ class ArtifactMeta:
     approving_reviewer: str | None = None
     metrics: dict = field(default_factory=dict)
     uri: str = ""
+    risk_tier: str | None = None  # M1.4: MRMF tier (from LAYER_RISK_TIER), gates promote/load
 
     @property
     def signed_valid(self) -> bool:
@@ -61,6 +86,7 @@ class LocalRegistry:
                 approving_reviewer=reviewer,
                 metrics=metrics,
                 uri=f"s3://models/{layer}/{version}/model.onnx",
+                risk_tier=LAYER_RISK_TIER.get(normalize_layer(layer)),
             )
 
         self._artifacts = [
@@ -112,6 +138,23 @@ class LocalRegistry:
                         a.stage = "Archived"
             art.stage = stage
         return art
+
+    def set_stage_with_tier_gate(
+        self, model_id: str, version: str, stage: str, *, signoff_by: str | None = None
+    ) -> tuple[ArtifactMeta | None, list[str]]:
+        """Tier-gated promotion (M1.4): a tier-1-critical model may only be promoted to Production
+        with an independent sign-off (FREE-AI/MRMF). Returns ``(meta, blockers)``; ``blockers``
+        non-empty means the promotion was refused and no state changed. ``set_stage`` is left
+        untouched for callers that don't want the gate."""
+        art = self.get(model_id, version)
+        if art is None:
+            return None, [f"unknown artifact {model_id}@{version}"]
+        blockers: list[str] = []
+        if stage == "Production" and art.risk_tier == TIER_CRITICAL and not signoff_by:
+            blockers.append("tier-1-critical promotion requires an independent sign-off (signoff_by)")
+        if blockers:
+            return None, blockers
+        return self.set_stage(model_id, version, stage), []
 
 
 REGISTRY = LocalRegistry()

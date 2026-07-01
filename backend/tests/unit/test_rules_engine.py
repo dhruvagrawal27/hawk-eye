@@ -87,5 +87,67 @@ def test_disable_via_upsert_stops_firing():
     assert "JUST_UNDER_THRESHOLD" not in res.fired_codes
 
 
+# --- M1.1 SUSPENSE_NOSTRO_LAPPING ---------------------------------------------------------
+def test_suspense_nostro_lapping_hard_hit():
+    ev = _ev("reconcile", channel="cbs", account_id="ACCT-1")
+    res = DEFAULT_ENGINE.evaluate(
+        ev, {"same_person_post_and_reconcile": True, "max_aging_days": 9}
+    )
+    assert "SUSPENSE_NOSTRO_LAPPING" in res.fired_codes
+    assert res.hard_hit and res.severity == "high"
+
+
+def test_suspense_nostro_lapping_requires_same_person():
+    ev = _ev("reconcile", channel="cbs", account_id="ACCT-1")
+    res = DEFAULT_ENGINE.evaluate(
+        ev, {"same_person_post_and_reconcile": False, "max_aging_days": 9}
+    )
+    assert "SUSPENSE_NOSTRO_LAPPING" not in res.fired_codes
+
+
+def test_suspense_nostro_lapping_respects_aging_threshold():
+    ev = _ev("suspense_post", channel="cbs", account_id="ACCT-1")
+    res = DEFAULT_ENGINE.evaluate(
+        ev, {"same_person_post_and_reconcile": True, "max_aging_days": 0}
+    )
+    assert "SUSPENSE_NOSTRO_LAPPING" not in res.fired_codes
+
+
+def test_suspense_nostro_lapping_tags_rfa():
+    from regulatory.rfa import should_tag_rfa
+
+    assert should_tag_rfa([{"code": "SUSPENSE_NOSTRO_LAPPING"}]) is True
+
+
+# --- M1.2 AUDIT_CONFIG_TAMPERING ----------------------------------------------------------
+def _tamper_ev(verb, *, privileged=False, off=False, actor="EMP-dba1"):
+    return {
+        "event_id": "evt_t",
+        "actor": {"employee_id": actor, "privileged_flag": privileged},
+        "action": {"verb": verb, "channel": "admin"},
+        "object": {},
+        "context": {"is_off_hours": off},
+        "linkage": {},
+    }
+
+
+def test_audit_config_tampering_privileged_is_soft():
+    res = DEFAULT_ENGINE.evaluate(
+        _tamper_ev("disable_logging", privileged=True), {"log_tampering_proxy": 1}
+    )
+    assert "AUDIT_CONFIG_TAMPERING" in res.fired_codes
+    assert not res.hard_hit  # contributes to fusion, does not short-circuit
+
+
+def test_audit_config_tampering_off_hours_fires_without_feature():
+    res = DEFAULT_ENGINE.evaluate(_tamper_ev("clear_log", off=True), {})
+    assert "AUDIT_CONFIG_TAMPERING" in res.fired_codes
+
+
+def test_audit_config_tampering_needs_privileged_or_offhours():
+    res = DEFAULT_ENGINE.evaluate(_tamper_ev("modify_audit"), {})
+    assert "AUDIT_CONFIG_TAMPERING" not in res.fired_codes
+
+
 if __name__ == "__main__":  # pragma: no cover
     pytest.main([__file__, "-q"])

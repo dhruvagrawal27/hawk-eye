@@ -79,8 +79,16 @@ export function OnboardingOverlay() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : dismiss())}>
-      <DialogContent className="max-w-xl">
+    // NON-BLOCKING first-run tour: `modal={false}` + no backdrop so the app behind stays fully
+    // interactive (a modal backdrop here read as "the screen is frozen" — the user could not click
+    // any tab until dismissing it). Docked bottom-centre as a dismissible card, not a screen-covering
+    // modal. Real modals (EDD confirm, rule changes) keep their blocking overlay.
+    <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : dismiss())} modal={false}>
+      <DialogContent
+        showOverlay={false}
+        onInteractOutside={(e) => e.preventDefault()}
+        className="max-w-xl shadow-2xl"
+      >
         <DialogHeader>
           <Eyebrow className="mb-1 flex items-center gap-1.5">
             <Sparkles className="size-3" /> Welcome to Hawkeye

@@ -105,6 +105,11 @@ class FeatureReader:
                     features.setdefault("maker_checker_pair_isolated", True)
                     features.setdefault("maker_checker_partner", creator)
 
+        # Decayed audit/config-tampering counter (M1.2 → AUDIT_CONFIG_TAMPERING).
+        tamper = self._tampering_count(actor, verb, now)
+        if tamper is not None:
+            features.setdefault("log_tampering_proxy", tamper)
+
         # After read, fold this event into memory for subsequent correlated events.
         self.observe(event)
         return features

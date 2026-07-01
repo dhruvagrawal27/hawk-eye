@@ -25,10 +25,14 @@ DialogOverlay.displayName = 'DialogOverlay'
 
 export const DialogContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    /** Render the full-screen dimming backdrop. Default true (a real modal). Pass false for a
+     * non-blocking dialog (e.g. the first-run onboarding) so the app behind stays interactive. */
+    showOverlay?: boolean
+  }
+>(({ className, children, showOverlay = true, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay />
+    {showOverlay ? <DialogOverlay /> : null}
     <DialogPrimitive.Content
       ref={ref}
       className={cn(

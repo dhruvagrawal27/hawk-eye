@@ -58,10 +58,11 @@ test.describe('RBAC (Part 24.1) — forbidden routes/controls are absent', () =>
     await expect(page.getByRole('link', { name: /auditor/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /triage queue/i })).toHaveCount(0)
 
-    // Direct navigation to a forbidden route is blocked (redirect to /forbidden).
+    // Direct navigation to a forbidden route is blocked — RoleShell bounces the user to THEIR
+    // own home (the auditor's /audit), never leaving them on a route their role can't see.
     await page.goto('/triage')
-    await expect(page).toHaveURL(/\/forbidden/)
-    await expect(page.getByText(/not permitted/i)).toBeVisible()
+    await expect(page).toHaveURL(/\/audit/)
+    await expect(page.getByRole('link', { name: /auditor/i })).toBeVisible()
   })
 
   test('IT admin sees Admin but no case data (no triage)', async ({ page }) => {
