@@ -8,10 +8,24 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
-# Pilot talks to the real backend through nginx (no MSW mocks).
-ENV VITE_USE_MOCKS=false \
-    VITE_API_BASE_URL=/api/v1 \
-    VITE_WS_BASE_URL=/ws/alerts
+# The API/WS base are baked into the bundle at build time. Defaults assume a same-origin reverse
+# proxy (/api/v1, /ws/alerts). For a SPLIT deploy (SPA and API on different subdomains) pass
+# absolute URLs as build args, e.g.
+#   --build-arg VITE_API_BASE_URL=https://hawk.nineagents.in/api/v1
+#   --build-arg VITE_WS_BASE_URL=wss://hawk.nineagents.in/ws/alerts
+ARG VITE_API_BASE_URL=/api/v1
+ARG VITE_WS_BASE_URL=/ws/alerts
+# VITE_USE_MOCKS=true builds a self-contained demo: MSW serves fixtures in-browser (persona
+# picker login, no backend calls). Default false = the connected app hits the real API.
+ARG VITE_USE_MOCKS=false
+# Auth mode baked into the SPA: 'local' = username/password persona picker against the backend
+# directory (no Keycloak) — the path a live URL uses with no IdP. Empty defers to env.ts's default
+# (oidc iff VITE_OIDC_AUTHORITY is set, else local). 'oidc' forces Keycloak.
+ARG VITE_AUTH_MODE=
+ENV VITE_USE_MOCKS=${VITE_USE_MOCKS} \
+    VITE_AUTH_MODE=${VITE_AUTH_MODE} \
+    VITE_API_BASE_URL=${VITE_API_BASE_URL} \
+    VITE_WS_BASE_URL=${VITE_WS_BASE_URL}
 RUN npm run build
 
 # ---- stage 2: serve ----

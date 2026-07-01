@@ -16,6 +16,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.clients.serving_client import SERVING_CLIENT
 from app.config import settings
@@ -52,6 +53,21 @@ app = FastAPI(
     redoc_url=f"{settings.api_base_path}/redoc",
     lifespan=lifespan,
 )
+
+
+# CORS — only added when origins are configured (split frontend/backend subdomains).
+# Registered here so it wraps as the outermost layer: it answers OPTIONS preflights and
+# attaches Access-Control-* headers even on error responses. Note: WebSockets (/ws/alerts)
+# bypass this — the ws route accepts any origin by design. Bearer-token auth (no cookies)
+# means allow_credentials is not strictly required but kept on for forward-compat.
+if settings.cors_origin_list:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origin_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 @app.middleware("http")

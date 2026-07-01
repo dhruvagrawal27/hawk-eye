@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     mtls_internal: bool = Field(True, alias="HAWKEYE_MTLS_INTERNAL")
     service_name: str = "hawk-eye-api"
 
+    # --- CORS (cross-origin browser access when the SPA is on a different host) ---
+    # Comma-separated allowed browser origins, e.g. "https://hawk-eye.nineagents.in".
+    # Empty (default) adds no CORS headers — correct for same-origin deploys behind one proxy.
+    cors_origins: str = Field("", alias="HAWKEYE_CORS_ORIGINS")
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
     # --- Auth (BACKEND-2) ---
     auth_mode: Literal["local", "keycloak"] = Field("local", alias="HAWKEYE_AUTH_MODE")
     dev_jwt_secret: str = Field("dev-only-change-me", alias="HAWKEYE_DEV_JWT_SECRET")

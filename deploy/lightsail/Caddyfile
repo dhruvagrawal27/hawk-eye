@@ -1,0 +1,24 @@
+# Hawk-Eye — two-subdomain edge with automatic HTTPS (Let's Encrypt).
+#   hawk-eye.nineagents.in  -> the React SPA          (web/nginx container, :80)
+#   hawk.nineagents.in      -> the FastAPI API + docs (backend container, :8000)
+#
+# Caddy obtains and renews certs for BOTH names automatically on first request,
+# provided the A records already point at this box and ports 80+443 are open.
+# Used by deploy/lightsail/docker-compose.domains.yml (mounted at /etc/caddy/Caddyfile).
+
+{
+	# Let's Encrypt expiry/issue notices. Change or remove if you prefer.
+	email deepjain1405@gmail.com
+}
+
+# ---- Frontend SPA -----------------------------------------------------------
+hawk-eye.nineagents.in {
+	encode zstd gzip
+	reverse_proxy web:80
+}
+
+# ---- Backend API ------------------------------------------------------------
+hawk.nineagents.in {
+	encode zstd gzip
+	reverse_proxy backend:8000
+}

@@ -1,0 +1,107 @@
+# =============================================================================
+# Hawk-Eye — Lightsail TWO-SUBDOMAIN stack (split frontend/backend + auto-HTTPS).
+# Built on top of docker-compose.yml's service set, but split across two hostnames
+# with Caddy terminating TLS for both:
+#   caddy    public edge, TLS (Let's Encrypt) for both names
+#            hawk-eye.nineagents.in -> web ;  hawk.nineagents.in -> backend
+#   web      React SPA + nginx     internal :80 (built pointing at the API subdomain)
+#   backend  FastAPI control plane internal :8000 (CORS allows the SPA origin; live /ws/alerts)
+#   gateway  ML narrative gateway  internal :8002 (NEAR AI -> Groq -> template)
+#
+# Bring up from the repo ROOT (so the root .env is the interpolation source):
+#   sudo docker compose -f deploy/lightsail/docker-compose.domains.yml up -d --build
+#
+# Required in the repo-root .env (see .env.example):
+#   PUBLIC_API_BASE_URL=https://hawk.nineagents.in/api/v1     (baked into the SPA)
+#   PUBLIC_WS_BASE_URL=wss://hawk.nineagents.in/ws/alerts     (baked into the SPA)
+#   HAWKEYE_CORS_ORIGINS=https://hawk-eye.nineagents.in       (read by the backend)
+# =============================================================================
+name: hawkeye-pilot
+
+services:
+  gateway:
+    build:
+      context: ../..
+      dockerfile: deploy/lightsail/Dockerfile.narrative
+    image: hawkeye/narrative:pilot
+    env_file: ../../.env          # NEAR_AI_API_KEY, GROQ_API_KEY, PII_HMAC_KEY
+    expose:
+      - "8002"                    # internal only — never published to the host
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health',timeout=3).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: deploy/Dockerfile.api
+    image: hawkeye/backend:pilot
+    env_file: ../../.env          # HAWKEYE_* settings + PII_HMAC_KEY + HAWKEYE_CORS_ORIGINS
+    environment:
+      # point the control plane at the gateway service (overrides any .env localhost value)
+      HAWKEYE_NARRATIVE_REMOTE: "true"
+      HAWKEYE_NARRATIVE_URL: "http://gateway:8002/narrate"
+      HAWKEYE_NARRATIVE_TIMEOUT: "15"
+      HAWKEYE_API_HOST: "0.0.0.0"
+      # Live realtime stream without brokers (the tape/notifications/EPS are real, not mocked).
+      HAWKEYE_STREAM_MODE: "inprocess"
+      # Durable alerts across restarts via a sqlite volume (no Postgres container needed).
+      HAWKEYE_DB_URL: "sqlite:////data/hawkeye.db"
+    volumes:
+      - hawkeye-db:/data
+    expose:
+      - "8000"                    # internal only — caddy is the public edge
+    depends_on:
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health',timeout=3).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/lightsail/Dockerfile.frontend
+      args:
+        # Baked into the SPA bundle at build time — point it at the API subdomain.
+        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:-https://hawk.nineagents.in/api/v1}
+        VITE_WS_BASE_URL: ${PUBLIC_WS_BASE_URL:-wss://hawk.nineagents.in/ws/alerts}
+        # true = self-contained MSW demo (persona picker, no backend). false = connected app.
+        VITE_USE_MOCKS: ${VITE_USE_MOCKS:-false}
+        # local = username/password persona login against the backend (no Keycloak). This is the
+        # live-deploy path since no IdP is running here.
+        VITE_AUTH_MODE: ${VITE_AUTH_MODE:-local}
+    image: hawkeye/web:pilot
+    expose:
+      - "80"                      # internal only — caddy terminates TLS in front
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"                   # HTTP-01 challenge + redirect to 443
+      - "443:443"                 # HTTPS for both subdomains
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data          # persisted certs — survive restarts/rebuilds
+      - caddy_config:/config
+    depends_on:
+      - web
+      - backend
+    restart: unless-stopped
+
+volumes:
+  hawkeye-db: {}                  # durable sqlite alert store (survives container restarts)
+  caddy_data:
+  caddy_config:
