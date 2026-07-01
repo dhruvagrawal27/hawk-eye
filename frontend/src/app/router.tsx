@@ -1,4 +1,4 @@
-import { lazy } from 'react'
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import { RequireAuth } from '@/auth/rbac'
 import { RoleShell } from '@/auth/RoleShell'
@@ -45,10 +45,27 @@ const GraphExplorer = lazy(() =>
 const ReplayStudio = lazy(() =>
   import('@/views/ReplayStudio').then((m) => ({ default: m.ReplayStudio })),
 )
+// Design-system gallery — mock-only dev reference for the "Daylight Forensics" kit (Agent A).
+const UiGallery = lazy(() =>
+  import('@/ui/gallery/UiGallery').then((m) => ({ default: m.UiGallery })),
+)
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/auth/callback', element: <CallbackPage /> },
+  // Mock-only design-system gallery — no auth shell, top-level so B/C can review the kit directly.
+  {
+    path: '/ui-gallery',
+    element: (
+      <Suspense
+        fallback={
+          <div className="p-10 font-mono text-sm text-muted-foreground">Loading gallery…</div>
+        }
+      >
+        <UiGallery />
+      </Suspense>
+    ),
+  },
   {
     element: <RequireAuth />,
     children: [

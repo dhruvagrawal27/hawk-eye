@@ -97,6 +97,8 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['"Inter Variable"', 'Inter var', 'Inter', 'system-ui', 'sans-serif'],
+        // Editorial display serif for headings / eyebrows (Daylight Forensics house style).
+        display: ['"Fraunces Variable"', 'Fraunces', 'Georgia', 'ui-serif', 'serif'],
         mono: [
           '"JetBrains Mono Variable"',
           '"JetBrains Mono"',

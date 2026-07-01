@@ -3,59 +3,66 @@
 @tailwind utilities;
 
 /*
- * Hawk-Eye design tokens (blueprint Part 11). Dark-first investigator console: deep navy-slate
- * surfaces, a cyan primary, and a domain palette for severity / SLA bands / reason-code provenance
- * (rule·shap·graph) / AI·TEE accents. Light theme provided for accessibility/print parity.
+ * Hawk-Eye design tokens — "Daylight Forensics" (UI uplift, docs/ui/UI_UPLIFT.md).
+ * A light, editorial operations room: warm off-white canvas planes (porcelain/bone/paper), warm
+ * near-black ink, ONE institutional accent (deep ink-teal — never SaaS purple), a sacred colorblind-
+ * safe risk ramp, hairlines over shadows, mono-for-evidence. Light is the default; the legacy `.dark`
+ * terminal palette is kept only as an accessibility/print fallback (not the app default).
  */
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 199 89% 42%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 30% 94%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 30% 94%;
-    --muted-foreground: 215 16% 42%;
-    --accent: 210 30% 92%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 72% 48%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 214 25% 86%;
-    --input: 214 25% 86%;
-    --ring: 199 89% 42%;
-    --radius: 0.6rem;
+    /* canvas planes — warm off-whites, never pure #fff everywhere */
+    --background: 40 30% 97%; /* porcelain */
+    --foreground: 30 14% 12%; /* warm ink */
+    --card: 42 42% 99%; /* bone (raised) */
+    --card-foreground: 30 14% 12%;
+    --popover: 42 42% 99%;
+    --popover-foreground: 30 14% 12%;
 
-    --sidebar: 222 32% 13%;
-    --sidebar-foreground: 210 30% 84%;
-    --sidebar-accent: 217 25% 22%;
-    --sidebar-border: 217 25% 20%;
+    /* the single brand accent — deep ink-teal */
+    --primary: 184 62% 26%;
+    --primary-foreground: 42 42% 99%;
 
-    --severity-critical: 348 83% 47%;
-    --severity-high: 21 90% 48%;
-    --severity-medium: 38 92% 45%;
-    --severity-low: 142 55% 38%;
-    --severity-info: 199 89% 45%;
+    --secondary: 40 18% 94%; /* paper (recessed) */
+    --secondary-foreground: 30 14% 14%;
+    --muted: 40 18% 94%;
+    --muted-foreground: 30 8% 40%;
+    --accent: 184 34% 91%; /* faint teal wash for hover/selected */
+    --accent-foreground: 184 62% 20%;
+    --destructive: 2 70% 44%;
+    --destructive-foreground: 42 42% 99%;
+    --border: 36 18% 87%; /* hairline, warm */
+    --input: 36 18% 87%;
+    --ring: 184 62% 30%;
+    --radius: 0.55rem;
 
-    --sla-ok: 142 55% 38%;
-    --sla-warn: 38 92% 45%;
-    --sla-urgent: 21 90% 48%;
-    --sla-breached: 348 83% 47%;
+    /* a deliberate deep-ink rail against the light canvas (editorial signature, not "dark mode") */
+    --sidebar: 30 12% 13%;
+    --sidebar-foreground: 40 20% 82%;
+    --sidebar-accent: 30 10% 21%;
+    --sidebar-border: 30 10% 19%;
 
-    --reason-rule: 199 89% 45%;
-    --reason-shap: 271 60% 52%;
-    --reason-graph: 161 60% 38%;
+    /* risk ramp — sacred, colorblind-safe (hue AND value shift), tuned for AA on porcelain */
+    --severity-critical: 2 72% 44%; /* vermilion — alarm */
+    --severity-high: 18 82% 45%; /* ember — urgent */
+    --severity-medium: 35 90% 39%; /* amber — caution */
+    --severity-low: 156 30% 32%; /* sage/slate — calm */
+    --severity-info: 199 72% 37%;
 
-    --ai: 271 70% 56%;
-    --tee: 161 70% 36%;
+    --sla-ok: 156 30% 32%;
+    --sla-warn: 35 90% 39%;
+    --sla-urgent: 18 82% 45%;
+    --sla-breached: 2 72% 44%;
 
-    /* terminal accents + flat/neutral risk band + Bloomberg-tape cyan */
-    --risk-flat: 215 16% 47%;
-    --ticker: 187 85% 42%;
+    --reason-rule: 199 72% 37%;
+    --reason-shap: 285 42% 46%;
+    --reason-graph: 156 46% 32%;
+
+    --ai: 285 42% 46%;
+    --tee: 156 46% 30%;
+
+    --risk-flat: 30 6% 45%;
+    --ticker: 184 62% 30%;
 
     /* density: data-row vertical padding (compact | comfortable) */
     --row-py: 0.5rem;
@@ -133,8 +140,7 @@
       'zero' 1;
   }
 
-  /* Terminal background: near-black navy with two low-opacity radial glows — the cheap
-     "this is an ops terminal, not a dark dashboard" tell. Dark theme only; light stays flat. */
+  /* Legacy terminal glow — dark fallback only; the light canvas stays clean/flat. */
   .dark body {
     background-image:
       radial-gradient(ellipse 800px 400px at 30% -120px, hsl(var(--primary) / 0.07), transparent),
@@ -174,7 +180,7 @@
   }
 
   ::selection {
-    @apply bg-primary/30;
+    @apply bg-primary/20;
   }
 }
 
@@ -187,5 +193,61 @@
   /* Focus ring shared by interactive primitives. */
   .focus-ring {
     @apply outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+}
+
+@layer utilities {
+  /* --- Daylight Forensics textures (OPT-IN; never behind dense data) --- */
+
+  /* Micro paper-grain: a faint SVG noise wash for empty regions / hero rails. */
+  .bg-paper-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
+  }
+
+  /* Hairline blueprint / graph-paper grid — nods to the blueprint-built system. */
+  .bg-blueprint {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.6) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.6) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* One soft dossier elevation — hairline-first, no drop-shadow soup. */
+  .shadow-dossier {
+    box-shadow:
+      0 1px 0 0 hsl(var(--border) / 0.7),
+      0 8px 24px -18px hsl(30 20% 20% / 0.35);
+  }
+
+  /* Skeleton shimmer (reduced-motion → static via the motion gate / media query below). */
+  .animate-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--foreground) / 0.06),
+      transparent
+    );
+    background-size: 200% 100%;
+    animation: dfs-shimmer 1.4s linear infinite;
+  }
+  @keyframes dfs-shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+
+  /* Global reduced-motion contract — every animation degrades to instant/opacity-only. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
