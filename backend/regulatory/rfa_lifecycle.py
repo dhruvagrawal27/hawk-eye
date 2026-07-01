@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 
-from regulatory.util import add_days, iso_z, parse
+from regulatory.util import add_days, parse
 
 EXAMINATION_WINDOW_DAYS = 180   # RBI staff-accountability 6-month clock
 SHOW_CAUSE_DUE_DAYS = 30        # natural-justice show-cause deadline
