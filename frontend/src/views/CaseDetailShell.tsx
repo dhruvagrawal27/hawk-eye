@@ -20,7 +20,7 @@ import { ApiError } from '@/lib/http'
 import { formatINR, formatINRCompact, formatIST, statusLabel } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/auth/rbac'
-import { violatesSoD } from '@/auth/capabilities'
+import { violatesSoD, rolesWithCapability, ROLE_META } from '@/auth/capabilities'
 import { PageHeader } from '@/components/PageHeader'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { MaskedPII } from '@/components/MaskedPII'
@@ -53,6 +53,12 @@ import type { Alert, CaseDetail, CaseStatus } from '@/lib/types'
 
 /** Linear case workflow (Part 24.4 screen 4): open → in_progress → escalated → closed. */
 const WORKFLOW: CaseStatus[] = ['open', 'in_progress', 'escalated', 'closed']
+
+/** Short labels of the roles that may triage/assign cases — surfaced to read-only roles so a blocked
+ *  user knows who *does* own the action (per docs/BANK_ROLES.md capability matrix). */
+const TRIAGE_OWNERS = rolesWithCapability('triage')
+  .map((r) => ROLE_META[r].short)
+  .join(', ')
 
 const STATUS_META: Record<CaseStatus, { icon: typeof Flag; verb: string }> = {
   open: { icon: Briefcase, verb: 'Reopen' },
@@ -348,7 +354,7 @@ function WorkflowCard({ detail }: { detail: CaseDetail }) {
         {!canTriage || sod ? (
           <p className="rounded-md bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
             {sod ??
-              'Status transitions require the triage capability. Your role has read-only access to this case.'}
+              `Your role — ${role ? ROLE_META[role].label : 'this role'} — has read-only access to case workflow. Status transitions are performed by the case-handling roles: ${TRIAGE_OWNERS}.`}
           </p>
         ) : (
           <Dialog
@@ -437,7 +443,7 @@ function WorkflowCard({ detail }: { detail: CaseDetail }) {
 /* ── Assignment ─────────────────────────────────────────────────────────── */
 
 function AssignmentCard({ detail }: { detail: CaseDetail }) {
-  const { can, user } = useAuth()
+  const { can, user, role } = useAuth()
   const queryClient = useQueryClient()
   const canTriage = can('triage')
   const [assignee, setAssignee] = useState('')
@@ -518,7 +524,8 @@ function AssignmentCard({ detail }: { detail: CaseDetail }) {
           </Tabs>
         ) : (
           <p className="rounded-md bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
-            Assignment requires the triage capability.
+            Your role — {role ? ROLE_META[role].label : 'this role'} — cannot assign cases. Assignment
+            is handled by the case-handling roles: {TRIAGE_OWNERS}.
           </p>
         )}
       </CardContent>

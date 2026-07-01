@@ -7,6 +7,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { formatINRCompact, formatRelative, severityRank, statusLabel } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { PageHeader } from '@/components/PageHeader'
+import { CasesTriageHint } from '@/components/CasesTriageHint'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { MaskedPII } from '@/components/MaskedPII'
 import { SlaTimer } from '@/components/SlaTimer'
@@ -129,6 +130,8 @@ export function CaseManagement() {
           </Select>
         }
       />
+
+      <CasesTriageHint />
 
       {!casesQuery.isLoading && !casesQuery.isError ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -51,6 +51,13 @@ function Chart({ data }: { data: LayerScoresResponse }) {
 
   return (
     <div>
+      <p className="mb-1.5 text-2xs leading-relaxed text-muted-foreground">
+        Each line is one detection layer’s score (0–100) over time. The{' '}
+        <span className="font-semibold text-foreground">bold line</span> is the fused L6 score; the{' '}
+        <span className="text-severity-high">dashed bar</span> is the emit threshold (
+        {data.threshold_score}). Read left → right: which layer rises first, and which one carries the
+        fused score across the bar.
+      </p>
       <div style={{ height: 220 }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: 6, right: 12, bottom: 4, left: -12 }}>
@@ -108,18 +115,27 @@ function Chart({ data }: { data: LayerScoresResponse }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
-      {/* legend */}
+      {/* legend — with each layer's latest score so it's readable without hovering */}
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-        {series.map((s) => (
-          <span key={s.layer} className="inline-flex items-center gap-1 text-2xs text-muted-foreground">
+        {series.map((s) => {
+          const last = s.points[s.points.length - 1]?.score
+          return (
             <span
-              className="h-0.5 w-3 rounded-full"
-              style={{ backgroundColor: colorFor(s.layer) }}
-              aria-hidden
-            />
-            {labelFor(s.layer)}
-          </span>
-        ))}
+              key={s.layer}
+              className="inline-flex items-center gap-1 text-2xs text-muted-foreground"
+            >
+              <span
+                className="h-0.5 w-3 rounded-full"
+                style={{ backgroundColor: colorFor(s.layer) }}
+                aria-hidden
+              />
+              {labelFor(s.layer)}
+              {last != null ? (
+                <span className="tabular-nums font-medium text-foreground/70">{Math.round(last)}</span>
+              ) : null}
+            </span>
+          )
+        })}
       </div>
     </div>
   )

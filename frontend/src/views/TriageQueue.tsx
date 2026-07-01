@@ -33,6 +33,7 @@ import { compositePriority, slaInfo, statusLabel } from '@/lib/format'
 import type { Alert, AlertQuery, AlertStatus } from '@/lib/types'
 import { useAuth } from '@/auth/rbac'
 import { PageHeader } from '@/components/PageHeader'
+import { CasesTriageHint } from '@/components/CasesTriageHint'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { AlertRow, ALERT_ROW_GRID } from '@/components/AlertRow'
 import { Button } from '@/components/ui/button'
@@ -375,6 +376,8 @@ export function TriageQueue() {
           </div>
         }
       />
+
+      <CasesTriageHint />
 
       {/* ── filter bar ───────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card/40 p-3">
