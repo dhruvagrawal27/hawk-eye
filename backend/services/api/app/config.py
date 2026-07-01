@@ -41,7 +41,12 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        origins = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        if not origins and self.is_local:
+            # Local split-host dev: the Vite SPA (:5173) calls this API (:8000) cross-origin, so
+            # allow the dev origins out of the box. Prod stays env-driven (set HAWKEYE_CORS_ORIGINS).
+            origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+        return origins
 
     # --- Auth (BACKEND-2) ---
     auth_mode: Literal["local", "keycloak"] = Field("local", alias="HAWKEYE_AUTH_MODE")

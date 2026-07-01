@@ -181,6 +181,12 @@ export const GRAPH_EDGE_STYLE: Record<GraphEdgeType, EdgeStyle> = {
     style: 'solid',
     label: 'Transaction',
   },
+  shares_pattern: {
+    colorVar: '--ai',
+    fallback: 'hsl(271 76% 70%)',
+    style: 'dotted',
+    label: 'Shared pattern',
+  },
 }
 
 function Swatch({ color, className }: { color: string; className?: string }) {
