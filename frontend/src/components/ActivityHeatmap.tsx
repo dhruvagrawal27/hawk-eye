@@ -154,7 +154,7 @@ export function ActivityHeatmap({
                     key={hour}
                     title={title}
                     aria-label={title}
-                    className="aspect-square w-full rounded-[3px] border border-border/40 bg-muted/20"
+                    className="h-4 w-full rounded-[3px] border border-border/40 bg-muted/20 sm:h-5"
                     style={
                       count > 0
                         ? { backgroundColor: `hsl(var(${hueVar}) / ${intensity.toFixed(3)})` }

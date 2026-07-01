@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
+import { AlertReportButton } from '@/features/reports/AlertReportButton'
 
 /**
  * Alert/case detail — the investigation workhorse (blueprint Part 24.4 screen 3). Header carries the
@@ -112,7 +113,7 @@ function AlertDetailBody({ alert }: { alert: Alert }) {
       </div>
 
       {/* Evidence (tabs) + action rail (always visible). */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <Tabs defaultValue="timeline" className="min-w-0">
           <TabsList className="flex-wrap">
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
@@ -188,13 +189,16 @@ function Breadcrumb({ alertId }: { alertId: string }) {
         <ChevronRight className="size-3.5 opacity-60" aria-hidden />
         <span className="font-mono tabular-nums text-foreground">{alertId || 'Alert'}</span>
       </nav>
-      <Link
-        to="/triage"
-        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground focus-ring"
-      >
-        <ArrowLeft className="size-3.5" />
-        Back
-      </Link>
+      <div className="flex items-center gap-2">
+        <AlertReportButton alertId={alertId} />
+        <Link
+          to="/triage"
+          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground focus-ring"
+        >
+          <ArrowLeft className="size-3.5" />
+          Back
+        </Link>
+      </div>
     </div>
   )
 }
@@ -204,7 +208,7 @@ function DetailSkeleton() {
     <div className="space-y-4">
       <Skeleton className="h-28 w-full rounded-lg" />
       <Skeleton className="h-10 w-full rounded-lg" />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <Skeleton className="h-80 w-full rounded-lg" />
         <Skeleton className="h-80 w-full rounded-lg" />
       </div>

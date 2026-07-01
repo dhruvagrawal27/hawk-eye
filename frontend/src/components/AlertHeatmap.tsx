@@ -215,7 +215,9 @@ function HeatCell({
       title={title}
       aria-label={title}
       className={cn(
-        'aspect-square w-full rounded-[3px] border border-border/40 bg-muted/20 transition-colors',
+        // Fixed, compact row height (was `aspect-square`, which ballooned the grid to ~380px of
+        // mostly-empty cells on wide screens). Fills the column width; stays short on any viewport.
+        'h-4 w-full rounded-[3px] border border-border/40 bg-muted/20 transition-colors sm:h-5',
         interactive && 'focus-ring hover:border-foreground/40',
         !interactive && 'cursor-default',
       )}

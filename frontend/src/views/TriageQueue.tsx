@@ -536,79 +536,87 @@ export function TriageQueue() {
 
       {/* ── table ────────────────────────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
-        {/* sticky header — one cell per AlertRow grid column, in order. */}
-        <div
-          role="row"
-          className={cn(
-            ALERT_ROW_GRID,
-            'border-b border-border bg-muted/30 px-3 py-2 pl-4 text-xs font-medium text-muted-foreground',
-          )}
-        >
-          <span className="flex justify-center">
-            {mayTriage ? (
-              <Checkbox
-                checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
-                onCheckedChange={(v) => toggleSelectAll(v === true)}
-                aria-label="Select all visible alerts"
-              />
-            ) : null}
-          </span>
-          <SortHeader {...headerProps('risk_score')} className="justify-center" />
-          <SortHeader {...headerProps('composite')} />
-          <span>Entity</span>
-          <span>Title / type</span>
-          <SortHeader {...headerProps('exposure_inr')} className="justify-end text-right" />
-          <SortHeader {...headerProps('confidence')} />
-          <span>Layers</span>
-          <SortHeader {...headerProps('sla')} />
-          <span>Assignee</span>
-          <span className="text-right">Action</span>
-        </div>
-
-        <QueryBoundary
-          isLoading={alertsQuery.isLoading}
-          isError={alertsQuery.isError}
-          error={alertsQuery.error}
-          onRetry={() => void alertsQuery.refetch()}
-          skeleton={<QueueSkeleton />}
-        >
-          {sortedRows.length === 0 ? (
-            <EmptyState
-              icon={Inbox}
-              title={filtersActive ? 'No alerts match your filters' : 'Queue is clear'}
-              description={
-                filtersActive
-                  ? 'Loosen the filters above to see more of the queue.'
-                  : 'No open alerts are waiting for triage right now.'
-              }
-              action={
-                filtersActive ? (
-                  <Button variant="outline" size="sm" onClick={resetFilters}>
-                    Clear filters
-                  </Button>
-                ) : undefined
-              }
-              className="m-3 flex-1"
-            />
-          ) : (
-            <div ref={listRef} className="min-h-0 flex-1 overflow-auto">
-              {sortedRows.map((row) => (
-                <AlertRow
-                  key={row.alert.alert_id}
-                  alert={row.alert}
-                  duplicateCount={dedupe ? row.group.length - 1 : 0}
-                  canClaim={mayTriage}
-                  claiming={claim.isPending && claim.variables === row.alert.alert_id}
-                  selectable={mayTriage}
-                  selected={selectedIds.has(row.alert.alert_id)}
-                  onSelectChange={toggleRow}
-                  onOpen={(a) => navigate(`/alerts/${a.alert_id}`)}
-                  onClaim={(a) => claim.mutate(a.alert_id)}
-                />
-              ))}
+        {/* One scroll area — vertical for rows; horizontal for the dense grid on narrow screens
+            (the min-width keeps every column reachable instead of clipping them). */}
+        <div className="min-h-0 flex-1 overflow-auto">
+          <div className="min-w-[72rem]">
+            {/* sticky header — one cell per AlertRow grid column, in order. */}
+            <div
+              role="row"
+              className={cn(
+                ALERT_ROW_GRID,
+                'sticky top-0 z-10 border-b border-border bg-muted px-3 py-2 pl-4 text-xs font-medium text-muted-foreground',
+              )}
+            >
+              <span className="flex justify-center">
+                {mayTriage ? (
+                  <Checkbox
+                    checked={
+                      allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false
+                    }
+                    onCheckedChange={(v) => toggleSelectAll(v === true)}
+                    aria-label="Select all visible alerts"
+                  />
+                ) : null}
+              </span>
+              <SortHeader {...headerProps('risk_score')} className="justify-center" />
+              <SortHeader {...headerProps('composite')} />
+              <span>Entity</span>
+              <span>Title / type</span>
+              <SortHeader {...headerProps('exposure_inr')} className="justify-end text-right" />
+              <SortHeader {...headerProps('confidence')} />
+              <span>Layers</span>
+              <SortHeader {...headerProps('sla')} />
+              <span>Assignee</span>
+              <span className="text-right">Action</span>
             </div>
-          )}
-        </QueryBoundary>
+
+            <QueryBoundary
+              isLoading={alertsQuery.isLoading}
+              isError={alertsQuery.isError}
+              error={alertsQuery.error}
+              onRetry={() => void alertsQuery.refetch()}
+              skeleton={<QueueSkeleton />}
+            >
+              {sortedRows.length === 0 ? (
+                <EmptyState
+                  icon={Inbox}
+                  title={filtersActive ? 'No alerts match your filters' : 'Queue is clear'}
+                  description={
+                    filtersActive
+                      ? 'Loosen the filters above to see more of the queue.'
+                      : 'No open alerts are waiting for triage right now.'
+                  }
+                  action={
+                    filtersActive ? (
+                      <Button variant="outline" size="sm" onClick={resetFilters}>
+                        Clear filters
+                      </Button>
+                    ) : undefined
+                  }
+                  className="m-3 flex-1"
+                />
+              ) : (
+                <div ref={listRef}>
+                  {sortedRows.map((row) => (
+                    <AlertRow
+                      key={row.alert.alert_id}
+                      alert={row.alert}
+                      duplicateCount={dedupe ? row.group.length - 1 : 0}
+                      canClaim={mayTriage}
+                      claiming={claim.isPending && claim.variables === row.alert.alert_id}
+                      selectable={mayTriage}
+                      selected={selectedIds.has(row.alert.alert_id)}
+                      onSelectChange={toggleRow}
+                      onOpen={(a) => navigate(`/alerts/${a.alert_id}`)}
+                      onClaim={(a) => claim.mutate(a.alert_id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </QueryBoundary>
+          </div>
+        </div>
       </div>
     </RouteTransition>
   )
