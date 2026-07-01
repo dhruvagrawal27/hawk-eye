@@ -24,7 +24,10 @@ export function Stat({ label, value, icon, hint, valueClassName, className, ...p
         {label}
       </Eyebrow>
       <span
-        className={cn('font-mono text-2xl font-semibold leading-tight tabular-nums', valueClassName)}
+        className={cn(
+          'font-mono text-2xl font-semibold leading-tight tabular-nums',
+          valueClassName,
+        )}
       >
         {value}
       </span>

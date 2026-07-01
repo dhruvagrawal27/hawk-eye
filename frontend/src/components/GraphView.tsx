@@ -280,15 +280,17 @@ function GraphViewBody({
                     variant="outline"
                     size="sm"
                     className="h-8 gap-1.5 text-xs"
-                    onClick={() => onDepthChange(depth >= 3 ? INITIAL_DEPTH : ((depth + 1) as GraphDepth))}
+                    onClick={() =>
+                      onDepthChange(depth >= 3 ? INITIAL_DEPTH : ((depth + 1) as GraphDepth))
+                    }
                   >
                     {depth <= INITIAL_DEPTH ? 'Ring neighborhood' : 'Wider network'}
                     <span className="font-mono opacity-60">{depth}-hop</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Auto-scoped to the smallest ring-revealing neighborhood ({INITIAL_DEPTH} hops) — no
-                  need to pick a depth. Click to{' '}
+                  Auto-scoped to the smallest ring-revealing neighborhood ({INITIAL_DEPTH} hops) —
+                  no need to pick a depth. Click to{' '}
                   {depth >= 3 ? 'return to the ring view' : 'widen to more distant links'}.
                 </TooltipContent>
               </Tooltip>

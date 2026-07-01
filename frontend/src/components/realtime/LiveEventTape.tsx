@@ -145,7 +145,10 @@ export function LiveEventTape({ height = 420 }: LiveEventTapeProps): React.JSX.E
           Risk score
         </span>
         {RISK_LEGEND.map(({ level, label }) => (
-          <span key={level} className="inline-flex items-center gap-1 text-3xs text-muted-foreground">
+          <span
+            key={level}
+            className="inline-flex items-center gap-1 text-3xs text-muted-foreground"
+          >
             <span
               className="size-2 rounded-full"
               style={{ backgroundColor: `hsl(${RISK_VAR[level]})` }}
@@ -261,10 +264,7 @@ const TapeRow = React.memo(function TapeRow({ tick, top, index, measureRef }: Ta
         {/* after-hours */}
         <span className="flex w-4 shrink-0 items-center justify-center">
           {tick.is_after_hours ? (
-            <Moon
-              className="size-3 text-risk-medium"
-              aria-label="After hours"
-            />
+            <Moon className="size-3 text-risk-medium" aria-label="After hours" />
           ) : null}
         </span>
 

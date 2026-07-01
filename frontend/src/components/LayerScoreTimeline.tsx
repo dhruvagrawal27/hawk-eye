@@ -37,7 +37,8 @@ function Chart({ data }: { data: LayerScoresResponse }) {
   const series = data.series
   // The backend names each series (e.g. "Fused L6"); prefer that over the generic layer label.
   const labelByLayer = Object.fromEntries(series.map((s) => [s.layer, s.label || s.layer]))
-  const labelFor = (layer: string): string => labelByLayer[layer] ?? LAYER_INFO[layer]?.label ?? layer
+  const labelFor = (layer: string): string =>
+    labelByLayer[layer] ?? LAYER_INFO[layer]?.label ?? layer
   const len = series[0]?.points.length ?? 0
   // zip the aligned per-layer points into one row per time index for a shared X axis
   const rows = Array.from({ length: len }, (_, i) => {
@@ -55,8 +56,8 @@ function Chart({ data }: { data: LayerScoresResponse }) {
         Each line is one detection layer’s score (0–100) over time. The{' '}
         <span className="font-semibold text-foreground">bold line</span> is the fused L6 score; the{' '}
         <span className="text-severity-high">dashed bar</span> is the emit threshold (
-        {data.threshold_score}). Read left → right: which layer rises first, and which one carries the
-        fused score across the bar.
+        {data.threshold_score}). Read left → right: which layer rises first, and which one carries
+        the fused score across the bar.
       </p>
       <div style={{ height: 220 }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -131,7 +132,9 @@ function Chart({ data }: { data: LayerScoresResponse }) {
               />
               {labelFor(s.layer)}
               {last != null ? (
-                <span className="tabular-nums font-medium text-foreground/70">{Math.round(last)}</span>
+                <span className="tabular-nums font-medium text-foreground/70">
+                  {Math.round(last)}
+                </span>
               ) : null}
             </span>
           )

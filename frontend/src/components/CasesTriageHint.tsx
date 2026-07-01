@@ -20,9 +20,10 @@ export function CasesTriageHint({ className }: { className?: string }) {
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
             The live <span className="text-foreground">inbox of individual alerts</span>, ranked by
-            fused risk × exposure × confidence. You claim an alert, investigate it, and disposition it
-            (true / false positive). <span className="text-foreground">One row = one alert.</span> Use
-            it to react to what is firing right now.
+            fused risk × exposure × confidence. You claim an alert, investigate it, and disposition
+            it (true / false positive).{' '}
+            <span className="text-foreground">One row = one alert.</span> Use it to react to what is
+            firing right now.
           </p>
         </div>
         <div className="rounded-md border border-border/70 bg-card p-3">

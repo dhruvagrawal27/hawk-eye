@@ -26,14 +26,25 @@ import { toast } from '@/components/ui/toaster'
 export function ActionGateConsole() {
   const { user } = useAuth()
   const qc = useQueryClient()
-  const holdsQuery = useQuery({ queryKey: ['action-gate', 'holds'], queryFn: apiClient.listActionHolds })
+  const holdsQuery = useQuery({
+    queryKey: ['action-gate', 'holds'],
+    queryFn: apiClient.listActionHolds,
+  })
   const policiesQuery = useQuery({
     queryKey: ['action-gate', 'policies'],
     queryFn: apiClient.listActionPolicies,
   })
 
   const decide = useMutation({
-    mutationFn: ({ holdId, approve, justification }: { holdId: string; approve: boolean; justification: string }) =>
+    mutationFn: ({
+      holdId,
+      approve,
+      justification,
+    }: {
+      holdId: string
+      approve: boolean
+      justification: string
+    }) =>
       apiClient.decideActionHold(holdId, {
         decider: user?.username ?? 'me',
         approve,
@@ -58,10 +69,12 @@ export function ActionGateConsole() {
   })
 
   function act(hold: ActionHold, approve: boolean) {
-    const justification = window.prompt(
-      `${approve ? 'Approve' : 'Reject'} hold for ${hold.subject} (${hold.verb}).\nJustification (audited):`,
-      '',
-    )?.trim()
+    const justification = window
+      .prompt(
+        `${approve ? 'Approve' : 'Reject'} hold for ${hold.subject} (${hold.verb}).\nJustification (audited):`,
+        '',
+      )
+      ?.trim()
     if (!justification) return
     decide.mutate({ holdId: hold.hold_id, approve, justification })
   }
@@ -112,7 +125,10 @@ export function ActionGateConsole() {
           <div className="divide-y divide-border/60">
             {(policiesQuery.data ?? []).map((p) => (
               <div key={p.code} className="flex items-center gap-2 py-1.5 text-xs">
-                <Badge variant={p.gate === 'hard' ? 'destructive' : 'secondary'} className="text-2xs">
+                <Badge
+                  variant={p.gate === 'hard' ? 'destructive' : 'secondary'}
+                  className="text-2xs"
+                >
                   {p.gate === 'hard' ? 'HOLD' : 'STEP-UP'}
                 </Badge>
                 <span className="font-medium">{p.name}</span>
@@ -177,10 +193,16 @@ function HeldActionCard({
             <span className="flex items-center gap-1.5">
               <History className="size-3" /> Activity history for {hold.subject}
             </span>
-            <ChevronDown className={cn('size-3.5 transition-transform', showHistory && 'rotate-180')} />
+            <ChevronDown
+              className={cn('size-3.5 transition-transform', showHistory && 'rotate-180')}
+            />
           </button>
           {showHistory ? (
-            <EmployeeActivitySummary entityId={hold.subject} enabled={showHistory} className="mt-2" />
+            <EmployeeActivitySummary
+              entityId={hold.subject}
+              enabled={showHistory}
+              className="mt-2"
+            />
           ) : null}
         </div>
 

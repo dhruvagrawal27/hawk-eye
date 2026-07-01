@@ -259,7 +259,8 @@ function FusedMeter({
 /** Cross-layer agreement bar — a tight spread across layers is a stronger, more trustworthy signal. */
 function AgreementReadout({ agreement }: { agreement: number }) {
   const pct = Math.round(agreement * 100)
-  const label = agreement >= 0.75 ? 'strong concurrence' : agreement >= 0.45 ? 'partial' : 'divergent'
+  const label =
+    agreement >= 0.75 ? 'strong concurrence' : agreement >= 0.45 ? 'partial' : 'divergent'
   const tone =
     agreement >= 0.75
       ? 'var(--severity-high)'
@@ -327,8 +328,8 @@ export function ScoreComposition({ fusion }: { fusion: FusionBreakdown }) {
           {decisive && (
             <>
               {' '}
-              Strongest driver: <span className="font-medium text-foreground">{decisive.label}</span>
-              .
+              Strongest driver:{' '}
+              <span className="font-medium text-foreground">{decisive.label}</span>.
             </>
           )}
         </InsightCallout>

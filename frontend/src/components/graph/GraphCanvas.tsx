@@ -75,6 +75,34 @@ export function layoutOptions(name: LayoutName): LayoutOptions {
   return { ...base, name: 'circle', spacingFactor: 1.1 } as LayoutOptions
 }
 
+/**
+ * Animated force-directed layout for the focused overview — nodes fly in and settle under physics
+ * ("dynamic" / alive), then stay draggable. Tuned for ~150–200 nodes so it's smooth, airy and clear.
+ */
+export function overviewLayout(): LayoutOptions {
+  return {
+    name: 'cose',
+    // `'end'` computes the force layout, then animates every node into place in ONE cancellable
+    // transition — a dynamic "assemble" that's also teardown-safe (no per-frame callback can fire
+    // after cy.destroy(), unlike animate:true).
+    animate: 'end',
+    animationDuration: 1100,
+    animationEasing: 'ease-out',
+    fit: true,
+    padding: 64,
+    randomize: false, // refine from the seeded positions → deterministic + smooth settle
+    componentSpacing: 140,
+    nodeOverlap: 28,
+    idealEdgeLength: () => 95,
+    nodeRepulsion: () => 16000,
+    edgeElasticity: () => 90,
+    gravity: 0.28,
+    numIter: 1000,
+    coolingFactor: 0.95,
+    initialTemp: 220,
+  } as unknown as LayoutOptions
+}
+
 /* ── Resolve a domain CSS variable to a concrete colour cytoscape can paint ──────────────────── */
 function colourResolver() {
   const root = typeof document !== 'undefined' ? document.documentElement : null
@@ -84,7 +112,10 @@ function colourResolver() {
   // grey. Normalise to a form it accepts: a bare "H S% L%" triplet (or space-`hsl(...)`) becomes comma
   // syntax `hsl(H, S%, L%)`; hex/rgb/already-comma values pass through untouched.
   const toCss = (value: string): string => {
-    const inner = value.trim().replace(/^hsl\(|\)$/gi, '').trim()
+    const inner = value
+      .trim()
+      .replace(/^hsl\(|\)$/gi, '')
+      .trim()
     if (/^[\d.]+\s+[\d.]+%\s+[\d.]+%/.test(inner)) {
       return `hsl(${inner.split('/')[0].trim().split(/\s+/).join(', ')})`
     }
@@ -103,17 +134,19 @@ function nodeSize(risk?: number): number {
 }
 
 /**
- * Dense-overview node diameter — much smaller than the entity view so a few-thousand-node hairball
- * stays legible: employees scale 9→39px by risk, systems sit at 5→16px so the population reads as a
- * cool dust cloud with the hot actors punching through.
+ * Overview node diameter — sized for the focused force-directed subgraph: employees scale 16→50px by
+ * risk (hot actors punch through), systems sit at 11→24px, so the risk heat reads at a glance.
  */
 function overviewNodeSize(type: GraphNode['type'], risk?: number): number {
   const r = typeof risk === 'number' ? clamp(risk, 0, 100) : 0
-  return type === 'employee' ? Math.round(9 + (r / 100) * 30) : Math.round(5 + (r / 100) * 11)
+  return type === 'employee' ? Math.round(16 + (r / 100) * 34) : Math.round(11 + (r / 100) * 13)
 }
 
 /* ── Build cytoscape elements + stylesheet from the API response ─────────────────────────────── */
-export function buildElements(graph: GraphResponse, opts: { overview?: boolean } = {}): ElementDefinition[] {
+export function buildElements(
+  graph: GraphResponse,
+  opts: { overview?: boolean } = {},
+): ElementDefinition[] {
   const ringOf = new Map<string, string>()
   for (const ring of graph.rings ?? []) {
     for (const id of ring.member_ids) ringOf.set(id, ring.ring_id)
@@ -337,50 +370,69 @@ export function buildStylesheet(opts: { overview?: boolean } = {}): StylesheetSt
     },
   ]
 
-  // ── Dense-overview variant — recolour the population as a RISK HEAT MAP and swap to cheap
-  //    straight (haystack) edges + zoom-gated labels so a few-thousand-node graph stays smooth.
-  //    Appended last so these win over the per-type colour rules above (equal specificity, later).
+  // ── Overview variant — recolour the focused subgraph as a RISK HEAT MAP, with clear curved edges,
+  //    always-on labels and a bold halo on the find-path endpoints. Appended last so these win over
+  //    the per-type colour rules above (equal specificity, later); class overlays still win.
   if (opts.overview) {
-    const cool = c('--muted', 'hsl(215 20% 22%)')
-    const coolNode = 'hsl(215, 22%, 34%)' // slate dust for the quiet majority (cytoscape comma syntax)
+    const edge = c('--muted-foreground', 'hsl(215 18% 64%)')
+    const coolNode = 'hsl(215, 20%, 42%)' // slate for the quiet majority (cytoscape comma syntax)
     sheet.push(
       {
         selector: 'node',
         style: {
-          'border-width': 1,
+          'border-width': 1.5,
           'border-color': card,
-          'font-size': 7,
-          'text-margin-y': 2,
-          'text-outline-width': 1.5,
-          'min-zoomed-font-size': 8, // hide labels when zoomed out → fast + uncluttered
+          'font-size': 9,
+          'text-margin-y': 3,
+          'text-outline-width': 2,
+          'min-zoomed-font-size': 5, // labels stay visible across the usual zoom band
         },
       },
-      { selector: 'node[type = "system"]', style: { 'background-color': coolNode } },
-      { selector: 'node[type = "employee"]', style: { 'background-color': coolNode } },
+      {
+        selector: 'node[type = "system"]',
+        style: { 'background-color': coolNode, shape: 'round-rectangle' },
+      },
+      {
+        selector: 'node[type = "employee"]',
+        style: { 'background-color': coolNode, shape: 'ellipse' },
+      },
       // Risk heat ramp — ascending so the hottest band wins.
       { selector: 'node[risk >= 40]', style: { 'background-color': riskMedium } },
       { selector: 'node[risk >= 55]', style: { 'background-color': riskHigh } },
       { selector: 'node[risk >= 70]', style: { 'background-color': riskHigh } },
       { selector: 'node[risk >= 85]', style: { 'background-color': riskCritical } },
-      // `[weight >= 0]` matches every edge but outranks the per-type colour rules (same specificity,
-      // declared later) so the whole mesh reads as one faint uniform hairball. Class overlays
-      // (.path/.dimmed) are still higher specificity and win.
+      // Curved, airy edges — clear but understated (no arrows → reads as an association graph).
+      // `[weight >= 0]` matches every edge but outranks the per-type colour rules (declared later).
       {
         selector: 'edge[weight >= 0]',
         style: {
-          'curve-style': 'haystack',
-          'haystack-radius': 0,
-          width: 'mapData(weight, 1, 2, 0.5, 1.4)',
-          'line-color': cool,
+          'curve-style': 'bezier',
+          width: 'mapData(weight, 1, 2, 1, 2.4)',
+          'line-color': edge,
           'target-arrow-shape': 'none',
           label: '',
-          opacity: 0.4,
+          opacity: 0.3,
         },
       },
-      // Collusion stays loud even in the dust cloud.
+      // Collusion edges — loud red, dashed.
       {
         selector: 'edge[collusion = 1]',
-        style: { 'line-color': collusion, width: 1.6, opacity: 0.9 },
+        style: { 'line-color': collusion, width: 2.6, opacity: 0.95, 'line-style': 'dashed' },
+      },
+      // Find-path endpoints (A & B) — a bold primary halo so the picked pair is unmistakable.
+      {
+        selector: 'node.endpoint',
+        style: {
+          'border-width': 5,
+          'border-color': focusRing,
+          'underlay-color': focusRing,
+          'underlay-opacity': 0.55,
+          'underlay-padding': 12,
+          'font-size': 12,
+          'font-weight': 'bold',
+          color: text,
+          'z-index': 70,
+        },
       },
     )
   }
@@ -408,10 +460,12 @@ export interface GraphCanvasProps {
   /** When set, these nodes/edges are emphasised as the find-path result and the rest dimmed. */
   pathNodeIds?: string[]
   pathEdgeIds?: string[]
+  /** The two find-path endpoints (A, B) — given a bold halo so the picked pair stands out. */
+  pathEndpointIds?: string[]
   /** GNNExplainer-style evidence emphasis (node + edge ids). */
   evidenceNodeIds?: string[]
   evidenceEdgeIds?: string[]
-  /** Dense-population mode: risk heat-map colours, cheap straight edges + large-graph perf flags. */
+  /** Overview mode: focused subgraph, risk heat-map colours + animated force-directed layout. */
   overview?: boolean
   onSelect?: (id: string | null) => void
   className?: string
@@ -425,6 +479,7 @@ export function GraphCanvas({
   highlightId,
   pathNodeIds,
   pathEdgeIds,
+  pathEndpointIds,
   evidenceNodeIds,
   evidenceEdgeIds,
   overview = false,
@@ -445,15 +500,9 @@ export function GraphCanvas({
       container: containerRef.current,
       elements: buildElements(graph, { overview }),
       style: buildStylesheet({ overview }),
-      layout: layoutOptions(layout),
       wheelSensitivity: 0.25,
-      minZoom: overview ? 0.04 : 0.25,
+      minZoom: overview ? 0.15 : 0.25,
       maxZoom: 3,
-      // Large-graph render budget: skip edges mid-pan and render the canvas as a texture while
-      // interacting so a few-thousand-node overview stays smooth.
-      ...(overview
-        ? { hideEdgesOnViewport: true, textureOnViewport: true, pixelRatio: 1, motionBlur: false }
-        : {}),
     })
     cyRef.current = cy
 
@@ -464,7 +513,13 @@ export function GraphCanvas({
       if (evt.target === cy) onSelectRef.current?.(null)
     })
 
+    // Run the layout explicitly so we can STOP it on cleanup — the overview's animated force layout
+    // schedules rAF callbacks, and letting one fire after cy.destroy() throws (reads a null core).
+    const runningLayout = cy.layout(overview ? overviewLayout() : layoutOptions(layout))
+    runningLayout.run()
+
     return () => {
+      runningLayout.stop()
       cy.destroy()
       cyRef.current = null
     }
@@ -472,9 +527,11 @@ export function GraphCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph])
 
-  /* Re-run layout when the layout preset changes. */
+  /* Re-run layout when the layout preset changes (overview keeps its animated force layout). */
   useEffect(() => {
+    if (overview) return
     cyRef.current?.layout(layoutOptions(layout)).run()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout])
 
   /* Evidence overlay — emphasise cited elements, dim the rest. */
@@ -512,6 +569,16 @@ export function GraphCanvas({
       cy.elements().not(path).addClass('dimmed')
     })
   }, [pathNodeIds, pathEdgeIds])
+
+  /* Find-path endpoints (A & B) — a persistent halo, shown even before the second node is picked. */
+  useEffect(() => {
+    const cy = cyRef.current
+    if (!cy) return
+    cy.batch(() => {
+      cy.nodes().removeClass('endpoint')
+      for (const id of pathEndpointIds ?? []) cy.getElementById(id).addClass('endpoint')
+    })
+  }, [pathEndpointIds])
 
   /* Reflect external selection into cytoscape (and centre on the node). */
   useEffect(() => {

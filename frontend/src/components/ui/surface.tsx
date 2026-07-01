@@ -26,8 +26,7 @@ const surfaceVariants = cva('rounded-lg border', {
 })
 
 export interface SurfaceProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof surfaceVariants> {}
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof surfaceVariants> {}
 
 export const Surface = React.forwardRef<HTMLDivElement, SurfaceProps>(
   ({ className, tone, pad, ...props }, ref) => (

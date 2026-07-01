@@ -89,11 +89,7 @@ export function CommandPalette(): React.ReactElement {
             </Cmdk.Empty>
 
             {grouped.map(({ group, items }) => (
-              <Cmdk.Group
-                key={group}
-                heading={<Eyebrow>{group}</Eyebrow>}
-                className="pb-1"
-              >
+              <Cmdk.Group key={group} heading={<Eyebrow>{group}</Eyebrow>} className="pb-1">
                 {items.map((command) => (
                   <CommandRow key={command.id} command={command} onRun={run} />
                 ))}

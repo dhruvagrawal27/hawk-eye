@@ -32,9 +32,7 @@ export function EventRateChart({ height = 64 }: EventRateChartProps) {
           <span
             className={cn(
               'inline-block size-1.5 rounded-full',
-              live
-                ? 'bg-ticker motion-safe:animate-pulse-soft'
-                : 'bg-muted-foreground/40',
+              live ? 'bg-ticker motion-safe:animate-pulse-soft' : 'bg-muted-foreground/40',
             )}
             aria-hidden
           />

@@ -45,7 +45,11 @@ import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { EmptyState } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/toaster'
-import { GraphCanvas, RISK_RING_THRESHOLD, type GraphCanvasHandle } from '@/components/graph/GraphCanvas'
+import {
+  GraphCanvas,
+  RISK_RING_THRESHOLD,
+  type GraphCanvasHandle,
+} from '@/components/graph/GraphCanvas'
 import { GraphLegend, graphTypeLabel } from '@/components/GraphLegend'
 
 export function GraphExplorer() {
@@ -206,20 +210,12 @@ function ExplorerBody({ graph }: { graph: OverviewGraph }) {
     })
   }
 
-  // Open (and re-open after each filter) framed on the dense hot core at a legible zoom — the whole
-  // population fitted to the viewport is just faint dust; the story is where the graph runs red.
-  // Centre on the hot nodes' centre-of-mass (they cluster centrally) at a fixed zoom so individual
-  // actors + labels read, rather than fitting every outlier and zooming back out.
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      const cy = canvasRef.current?.cy()
-      if (!cy) return
-      const hot = cy.nodes('[hot = 1]')
-      const target = hot.length >= 6 ? hot : cy.nodes()
-      cy.animate({ zoom: 1.45, center: { eles: target } }, { duration: 450 })
-    }, 90)
-    return () => window.clearTimeout(t)
-  }, [view])
+  // The animated force layout fits itself on load and after each filter, so no manual camera nudging
+  // is needed — nodes fly in, settle, and stay draggable.
+  const pathEndpointIds = useMemo(
+    () => [path.a, path.b].filter((x): x is string => Boolean(x)),
+    [path.a, path.b],
+  )
 
   const selectedNode = selectedId ? (nodeById.get(selectedId) ?? null) : null
 
@@ -398,7 +394,7 @@ function ExplorerBody({ graph }: { graph: OverviewGraph }) {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-3">
             <div className="flex items-center gap-2">
               <Network className="size-4 text-reason-graph" aria-hidden />
-              <span className="text-sm font-semibold">Population network</span>
+              <span className="text-sm font-semibold">Top-risk network</span>
               <Badge variant="secondary" className="gap-1 text-2xs">
                 <Users className="size-3" /> {formatNumber(view.nodes.length)} nodes
               </Badge>
@@ -450,14 +446,15 @@ function ExplorerBody({ graph }: { graph: OverviewGraph }) {
               <GraphCanvas
                 handleRef={canvasRef}
                 graph={view}
-                layout="preset"
+                layout="cose"
                 overview
                 highlightId={selectedId}
                 pathNodeIds={pathNodeIds}
                 pathEdgeIds={pathEdgeIds}
+                pathEndpointIds={pathEndpointIds}
                 onSelect={handleSelect}
                 className="h-[620px] w-full bg-background"
-                ariaLabel={`Population network: ${view.nodes.length} nodes, ${view.edges.length} edges`}
+                ariaLabel={`Top-risk network: ${view.nodes.length} nodes, ${view.edges.length} edges`}
               />
               {selectedNode ? (
                 <SelectedChip node={selectedNode} onClose={() => setSelectedId(null)} />

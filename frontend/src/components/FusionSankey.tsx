@@ -133,9 +133,7 @@ export function FusionSankey({
   return (
     <Surface tone="operational" pad="md" className={cn('space-y-2', className)}>
       <div className="flex items-baseline justify-between">
-        <Eyebrow>
-          Detection pipeline · L0 → L6 ({firedCount} of 5 detectors fired)
-        </Eyebrow>
+        <Eyebrow>Detection pipeline · L0 → L6 ({firedCount} of 5 detectors fired)</Eyebrow>
         <span className="font-mono text-2xs text-muted-foreground">width ∝ contribution</span>
       </div>
       <div style={{ width: '100%', height }}>
@@ -160,12 +158,15 @@ export function FusionSankey({
         </ResponsiveContainer>
       </div>
       <p className="text-3xs leading-relaxed text-muted-foreground">
-        <span className="text-foreground">L0</span> normalizes raw telemetry (CBS/SWIFT/PAM/HR…) into
-        the unified event model every detector reads. The six layers: <span className="text-foreground">
-        L1</span> rules · <span className="text-foreground">L2</span> anomaly · <span className="text-foreground">
-        L3</span> GBDT · <span className="text-foreground">L4</span> sequence · <span className="text-foreground">
-        L5</span> graph → <span className="text-foreground">L6</span> calibrated fusion. Ribbon
-        width = each layer’s share of the fused score; the widest are the strongest drivers.
+        <span className="text-foreground">L0</span> normalizes raw telemetry (CBS/SWIFT/PAM/HR…)
+        into the unified event model every detector reads. The six layers:{' '}
+        <span className="text-foreground">L1</span> rules ·{' '}
+        <span className="text-foreground">L2</span> anomaly ·{' '}
+        <span className="text-foreground">L3</span> GBDT ·{' '}
+        <span className="text-foreground">L4</span> sequence ·{' '}
+        <span className="text-foreground">L5</span> graph →{' '}
+        <span className="text-foreground">L6</span> calibrated fusion. Ribbon width = each layer’s
+        share of the fused score; the widest are the strongest drivers.
       </p>
       {idleLayers.length > 0 ? (
         <div className="rounded-md border border-border/50 bg-muted/30 p-2 text-3xs text-muted-foreground">
@@ -173,7 +174,8 @@ export function FusionSankey({
           {idleLayers.map((l, i) => (
             <span key={l.layer}>
               {i > 0 ? ' · ' : ''}
-              <span className="text-foreground/80">{l.label}</span> — {IDLE_REASON[l.layer] ?? 'did not score'}
+              <span className="text-foreground/80">{l.label}</span> —{' '}
+              {IDLE_REASON[l.layer] ?? 'did not score'}
             </span>
           ))}
         </div>

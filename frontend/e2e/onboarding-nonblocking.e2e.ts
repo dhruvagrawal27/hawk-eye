@@ -20,7 +20,10 @@ function trap(page: Page) {
 test('first-run tour is shown but does NOT block triage interaction', async ({ page }) => {
   const errors = trap(page)
   await page.goto('/login')
-  await page.getByRole('button', { name: /\bRM\b/ }).first().click()
+  await page
+    .getByRole('button', { name: /\bRM\b/ })
+    .first()
+    .click()
   await expect(page).toHaveURL(/\/triage/)
 
   // The welcome tour is visible…
@@ -39,7 +42,10 @@ test('first-run tour is shown but does NOT block triage interaction', async ({ p
 
 test('tour dismisses and stays dismissed on reload', async ({ page }) => {
   await page.goto('/login')
-  await page.getByRole('button', { name: /\bRM\b/ }).first().click()
+  await page
+    .getByRole('button', { name: /\bRM\b/ })
+    .first()
+    .click()
   await expect(page.getByText(/you're in/i)).toBeVisible()
 
   // Dismiss via Escape (a valid, geometry-independent close for a non-modal Radix dialog).

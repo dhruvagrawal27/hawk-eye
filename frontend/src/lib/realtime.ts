@@ -93,7 +93,9 @@ function severityFromScore(score: number): Severity {
 
 /** One synthetic scored event. `hot` front-loads the high-risk "mule burst". */
 function makeTick(hot: boolean): RealtimeTick {
-  const score = hot ? 70 + rnd(30) : Math.min(99, Math.max(2, Math.round(28 + (Math.random() ** 2) * 60)))
+  const score = hot
+    ? 70 + rnd(30)
+    : Math.min(99, Math.max(2, Math.round(28 + Math.random() ** 2 * 60)))
   const level: RiskLevel = riskLevelFromScore(score)
   const isAlert = score >= 70
   return {
@@ -123,7 +125,8 @@ function tickToAlert(t: RealtimeTick): Alert {
     confidence: 0.6 + Math.random() * 0.35,
     status: 'open',
     created_ts: t.ts,
-    contributing_layers: t.score >= 85 ? ['L1_rules', 'L3_gbdt', 'L5_graph'] : ['L1_rules', 'L2_unsupervised'],
+    contributing_layers:
+      t.score >= 85 ? ['L1_rules', 'L3_gbdt', 'L5_graph'] : ['L1_rules', 'L2_unsupervised'],
     reason_codes: [],
     exposure_inr: t.amount,
     sla_due_ts: new Date(Date.now() + 6 * 3600_000).toISOString(),

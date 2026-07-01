@@ -54,7 +54,9 @@ describe('AttentionHeatmap — variable × temporal', () => {
   })
 
   it('renders variable rows and the LAXCAT model label', () => {
-    const { getByText, getAllByRole } = renderWithProviders(<AttentionHeatmap sessions={[session]} />)
+    const { getByText, getAllByRole } = renderWithProviders(
+      <AttentionHeatmap sessions={[session]} />,
+    )
     getByText('LAXCAT')
     getByText('Verb')
     getByText('Log Amount')

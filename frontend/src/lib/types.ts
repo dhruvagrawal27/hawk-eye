@@ -254,12 +254,7 @@ export interface GraphEvidence {
  * "rescued by graph fusion" insight (GBDT alone would have missed it) is derived client-side from
  * the GBDT component vs `threshold` — see lib/fusion.ts.
  */
-export type FusionLayer =
-  | 'L1_rule'
-  | 'L2_unsupervised'
-  | 'L3_gbdt'
-  | 'L4_sequence'
-  | 'L5_graph'
+export type FusionLayer = 'L1_rule' | 'L2_unsupervised' | 'L3_gbdt' | 'L4_sequence' | 'L5_graph'
 export interface FusionComponent {
   layer: FusionLayer | ContributingLayer | string
   label: string // e.g. "Gradient-boosted trees"

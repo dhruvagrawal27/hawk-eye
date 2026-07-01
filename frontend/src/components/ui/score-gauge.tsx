@@ -34,13 +34,7 @@ export interface ScoreGaugeProps extends React.HTMLAttributes<HTMLDivElement> {
 /** Fraction of the full circle that the visible track covers (270° of 360°). */
 const ARC_FRACTION = 270 / 360
 
-export function ScoreGauge({
-  score,
-  size = 'md',
-  label,
-  className,
-  ...props
-}: ScoreGaugeProps) {
+export function ScoreGauge({ score, size = 'md', label, className, ...props }: ScoreGaugeProps) {
   const { px, stroke, fontClass, labelClass } = SIZES[size]
 
   const safe = Number.isFinite(score) ? Math.min(100, Math.max(0, score)) : 0
@@ -65,7 +59,9 @@ export function ScoreGauge({
       className={cn('relative inline-flex flex-col items-center justify-center', className)}
       style={{ width: px, height: px }}
       role="img"
-      aria-label={label ? `${label}: ${Math.round(safe)} of 100` : `Score ${Math.round(safe)} of 100`}
+      aria-label={
+        label ? `${label}: ${Math.round(safe)} of 100` : `Score ${Math.round(safe)} of 100`
+      }
       {...props}
     >
       <svg

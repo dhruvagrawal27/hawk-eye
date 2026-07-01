@@ -87,7 +87,11 @@ const LiveClock = React.memo(function LiveClock() {
 
 /* ── status bar ──────────────────────────────────────────────────────────── */
 
-const SEP = <span className="text-border" aria-hidden>·</span>
+const SEP = (
+  <span className="text-border" aria-hidden>
+    ·
+  </span>
+)
 
 export function TopStatusBar() {
   // EPS + liveness off the shared stream (one subscription for the whole bar).
@@ -136,11 +140,7 @@ export function TopStatusBar() {
   })
 
   const running = status.running || live
-  const apiState: Health = alertsQuery.isError
-    ? 'down'
-    : alertsQuery.isSuccess
-      ? 'ok'
-      : 'degraded'
+  const apiState: Health = alertsQuery.isError ? 'down' : alertsQuery.isSuccess ? 'ok' : 'degraded'
   const streamState: Health = status.running ? 'ok' : 'down'
   const llmState: Health = readyzQuery.isError
     ? 'down'

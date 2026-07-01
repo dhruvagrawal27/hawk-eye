@@ -1462,7 +1462,12 @@ const _AUDIT_ACTIONS: [string, number, 'emp' | 'alert' | 'rule' | 'model' | 'use
   ['model.promote', 1, 'model'],
   ['admin.user_create', 1, 'user'],
 ]
-const _AUDIT_RULES = ['HIGH_VALUE_PAYMENT', 'NEW_BEN_THEN_HIGHVALUE', 'OFF_HOURS_PRIVILEGED', 'MAKER_CHECKER_PAIR']
+const _AUDIT_RULES = [
+  'HIGH_VALUE_PAYMENT',
+  'NEW_BEN_THEN_HIGHVALUE',
+  'OFF_HOURS_PRIVILEGED',
+  'MAKER_CHECKER_PAIR',
+]
 const _AUDIT_MODELS = ['l3-catboost', 'l4-tabtransformer', 'l5-graphsage']
 const _AUDIT_OUTCOMES = ['confirmed_fraud', 'false_positive', 'inconclusive']
 
@@ -1470,11 +1475,18 @@ function generateAuditHistory(count: number): AuditEvent[] {
   const rand = _mulberry32(0x0a0d17)
   const entities = [
     ...Array.from({ length: 450 }, (_, i) => `EMP-x${String(i).padStart(4, '0')}`),
-    'EMP-7f3a', 'EMP-1a09', 'EMP-2b14', 'EMP-3c55', 'EMP-4d99', 'EMP-9f02',
+    'EMP-7f3a',
+    'EMP-1a09',
+    'EMP-2b14',
+    'EMP-3c55',
+    'EMP-4d99',
+    'EMP-9f02',
   ]
   const alerts = [
     ...Array.from({ length: 450 }, (_, i) => `alr_bulk${String(i).padStart(4, '0')}`),
-    'alr_demo01', 'alr_demo02', 'alr_demo03',
+    'alr_demo01',
+    'alr_demo02',
+    'alr_demo03',
   ]
   const cum: number[] = []
   let acc = 0
@@ -1485,7 +1497,7 @@ function generateAuditHistory(count: number): AuditEvent[] {
     for (let i = 0; i < cum.length; i++) if (r < cum[i]) return _AUDIT_ACTIONS[i]
     return _AUDIT_ACTIONS[0]
   }
-  const pick = <T,>(arr: T[]): T => arr[Math.floor(rand() * arr.length)]
+  const pick = <T>(arr: T[]): T => arr[Math.floor(rand() * arr.length)]
 
   // Span the ~90 days ending just before the curated window (2026-06-27T23:00Z), newest first.
   const endMs = Date.parse('2026-06-27T23:00:00Z')
@@ -1764,11 +1776,20 @@ export const EWS_COVERAGE: EwsCoverageResponse = {
 // (→ CRILC). Kept SEPARATE from the live ALERTS queue (so triage/dashboard/tests are untouched) and
 // folded in only when a report is generated. Mirrors the backend `_seed_regulatory_alerts` seed.
 const _FMR_ROWS: [string, string][] = [
-  ['misappropriation_breach_of_trust', 'New payee added, then high-value payment routed within minutes'],
+  [
+    'misappropriation_breach_of_trust',
+    'New payee added, then high-value payment routed within minutes',
+  ],
   ['manipulation_of_books', 'Direct core-banking write with no matching application transaction'],
-  ['unauthorised_credit_facility', 'Operator self-granted a maker+checker entitlement (SoD breach)'],
+  [
+    'unauthorised_credit_facility',
+    'Operator self-granted a maker+checker entitlement (SoD breach)',
+  ],
   ['cheating_forgery', 'Outbound SWIFT message with no CBS reconciliation'],
-  ['misappropriation_breach_of_trust', 'Dormant account reactivated then drained in a single session'],
+  [
+    'misappropriation_breach_of_trust',
+    'Dormant account reactivated then drained in a single session',
+  ],
 ]
 
 export const REGULATORY_ALERTS: Alert[] = (() => {
@@ -1825,7 +1846,9 @@ export function reportFor(type: 'fmr' | 'crilc'): ReportExport {
       ? pool.filter((a) => a.exposure_inr >= 30000000)
       : pool.filter(
           (a) =>
-            a.status === 'confirmed_fraud' || a.severity === 'critical' || a.exposure_inr >= 10000000,
+            a.status === 'confirmed_fraud' ||
+            a.severity === 'critical' ||
+            a.exposure_inr >= 10000000,
         )
   const lineItems = confirmed.map((a) => ({
     ref: a.alert_id,
@@ -1954,28 +1977,116 @@ export const SUB_THRESHOLD: SubThresholdResponse = {
     { label: 'low', min: 0, max: 40, count: 51_300 },
   ],
   watchlist: [
-    { entity_id: 'EMP-2b14', score: 67, top_signal: 'off_hours_activity_rate_30d', ts: '2026-06-30T01:12:00Z' },
-    { entity_id: 'EMP-9f77', score: 65, top_signal: 'maker_checker_pair_frequency_30d', ts: '2026-06-30T20:41:00Z' },
-    { entity_id: 'EMP-3c55', score: 64, top_signal: 'db_rows_read_zscore_vs_peer', ts: '2026-06-29T22:05:00Z' },
-    { entity_id: 'EMP-7a21', score: 62, top_signal: 'export_volume_vs_baseline', ts: '2026-06-30T02:47:00Z' },
-    { entity_id: 'EMP-5d10', score: 61, top_signal: 'new_beneficiary_to_payment_latency_min', ts: '2026-06-30T19:58:00Z' },
-    { entity_id: 'EMP-8b93', score: 60, top_signal: 'privileged_session_off_hours', ts: '2026-06-29T23:31:00Z' },
-    { entity_id: 'EMP-2c31', score: 59, top_signal: 'swift_message_without_cbs_recon', ts: '2026-06-30T21:10:00Z' },
-    { entity_id: 'EMP-1a09', score: 58, top_signal: 'amount_zscore_vs_peer', ts: '2026-06-30T13:20:00Z' },
-    { entity_id: 'EMP-4f88', score: 57, top_signal: 'entitlement_change_velocity', ts: '2026-06-30T11:02:00Z' },
-    { entity_id: 'EMP-6e02', score: 55, top_signal: 'dormant_account_reactivation', ts: '2026-06-28T16:44:00Z' },
-    { entity_id: 'EMP-3d77', score: 53, top_signal: 'vendor_bank_detail_overlap', ts: '2026-06-30T10:15:00Z' },
-    { entity_id: 'EMP-9b40', score: 51, top_signal: 'standing_privilege_unused', ts: '2026-06-29T14:33:00Z' },
-    { entity_id: 'EMP-7c19', score: 49, top_signal: 'reversal_clustering_7d', ts: '2026-06-30T18:02:00Z' },
-    { entity_id: 'EMP-4d99', score: 48, top_signal: 'failed_login_burst', ts: '2026-06-30T09:05:00Z' },
-    { entity_id: 'EMP-5a62', score: 46, top_signal: 'role_change_recency', ts: '2026-06-27T16:44:00Z' },
-    { entity_id: 'EMP-8f03', score: 45, top_signal: 'geo_velocity_impossible', ts: '2026-06-30T07:20:00Z' },
+    {
+      entity_id: 'EMP-2b14',
+      score: 67,
+      top_signal: 'off_hours_activity_rate_30d',
+      ts: '2026-06-30T01:12:00Z',
+    },
+    {
+      entity_id: 'EMP-9f77',
+      score: 65,
+      top_signal: 'maker_checker_pair_frequency_30d',
+      ts: '2026-06-30T20:41:00Z',
+    },
+    {
+      entity_id: 'EMP-3c55',
+      score: 64,
+      top_signal: 'db_rows_read_zscore_vs_peer',
+      ts: '2026-06-29T22:05:00Z',
+    },
+    {
+      entity_id: 'EMP-7a21',
+      score: 62,
+      top_signal: 'export_volume_vs_baseline',
+      ts: '2026-06-30T02:47:00Z',
+    },
+    {
+      entity_id: 'EMP-5d10',
+      score: 61,
+      top_signal: 'new_beneficiary_to_payment_latency_min',
+      ts: '2026-06-30T19:58:00Z',
+    },
+    {
+      entity_id: 'EMP-8b93',
+      score: 60,
+      top_signal: 'privileged_session_off_hours',
+      ts: '2026-06-29T23:31:00Z',
+    },
+    {
+      entity_id: 'EMP-2c31',
+      score: 59,
+      top_signal: 'swift_message_without_cbs_recon',
+      ts: '2026-06-30T21:10:00Z',
+    },
+    {
+      entity_id: 'EMP-1a09',
+      score: 58,
+      top_signal: 'amount_zscore_vs_peer',
+      ts: '2026-06-30T13:20:00Z',
+    },
+    {
+      entity_id: 'EMP-4f88',
+      score: 57,
+      top_signal: 'entitlement_change_velocity',
+      ts: '2026-06-30T11:02:00Z',
+    },
+    {
+      entity_id: 'EMP-6e02',
+      score: 55,
+      top_signal: 'dormant_account_reactivation',
+      ts: '2026-06-28T16:44:00Z',
+    },
+    {
+      entity_id: 'EMP-3d77',
+      score: 53,
+      top_signal: 'vendor_bank_detail_overlap',
+      ts: '2026-06-30T10:15:00Z',
+    },
+    {
+      entity_id: 'EMP-9b40',
+      score: 51,
+      top_signal: 'standing_privilege_unused',
+      ts: '2026-06-29T14:33:00Z',
+    },
+    {
+      entity_id: 'EMP-7c19',
+      score: 49,
+      top_signal: 'reversal_clustering_7d',
+      ts: '2026-06-30T18:02:00Z',
+    },
+    {
+      entity_id: 'EMP-4d99',
+      score: 48,
+      top_signal: 'failed_login_burst',
+      ts: '2026-06-30T09:05:00Z',
+    },
+    {
+      entity_id: 'EMP-5a62',
+      score: 46,
+      top_signal: 'role_change_recency',
+      ts: '2026-06-27T16:44:00Z',
+    },
+    {
+      entity_id: 'EMP-8f03',
+      score: 45,
+      top_signal: 'geo_velocity_impossible',
+      ts: '2026-06-30T07:20:00Z',
+    },
   ],
 }
 
 /* ───────────────── Management analytics — fraud-typology prevalence [GET /analytics/typologies] ── */
 const _TYP: [string, string, string[], number, number, number, number][] = [
-  ['beneficiary_then_approve', 'New-beneficiary → high-value approve', ['L1', 'L3', 'L5'], 38, 9, 21, 54800000],
+  [
+    'beneficiary_then_approve',
+    'New-beneficiary → high-value approve',
+    ['L1', 'L3', 'L5'],
+    38,
+    9,
+    21,
+    54800000,
+  ],
   ['maker_checker_ring', 'Maker-checker collusion ring', ['L5'], 27, 11, 9, 41200000],
   ['bulk_exfil_resignation', 'Bulk exfil in leaver window', ['L2', 'L4'], 24, 7, 13, 3100000],
   ['alert_suppression', 'AML alert suppression', ['L2', 'L3'], 22, 5, 14, 0],
@@ -1988,20 +2099,22 @@ const _TYP: [string, string, string[], number, number, number, number][] = [
   ['suspense_lapping', 'Suspense / nostro lapping', ['L2'], 8, 2, 5, 9300000],
   ['ghost_loan_appraisal', 'Inflated loan appraisal', ['L3'], 6, 2, 3, 33000000],
 ]
-const _typologies = _TYP.map(([typology, label, layers, alerts, confirmed, false_positive, exposure_inr]) => ({
-  typology,
-  label,
-  layers,
-  alerts,
-  confirmed,
-  false_positive,
-  open: alerts - confirmed - false_positive,
-  confirmed_rate:
-    confirmed + false_positive > 0
-      ? Number((confirmed / (confirmed + false_positive)).toFixed(4))
-      : 0,
-  exposure_inr,
-}))
+const _typologies = _TYP.map(
+  ([typology, label, layers, alerts, confirmed, false_positive, exposure_inr]) => ({
+    typology,
+    label,
+    layers,
+    alerts,
+    confirmed,
+    false_positive,
+    open: alerts - confirmed - false_positive,
+    confirmed_rate:
+      confirmed + false_positive > 0
+        ? Number((confirmed / (confirmed + false_positive)).toFixed(4))
+        : 0,
+    exposure_inr,
+  }),
+)
 export const TYPOLOGY_ANALYTICS: TypologyAnalyticsResponse = {
   typologies: _typologies,
   totals: {

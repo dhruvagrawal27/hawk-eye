@@ -207,9 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } else if (isLocal) {
       const savedUser = sessionStorage.getItem(LOCAL_USER_KEY)
-      const persona = savedUser
-        ? LOCAL_PERSONAS.find((p) => p.username === savedUser)
-        : undefined
+      const persona = savedUser ? LOCAL_PERSONAS.find((p) => p.username === savedUser) : undefined
       if (persona) {
         void login(persona.role)
         return

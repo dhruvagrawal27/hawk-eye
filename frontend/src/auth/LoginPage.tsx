@@ -141,9 +141,7 @@ export function LoginPage() {
                     role="button"
                     tabIndex={0}
                     onClick={() => signIn(p.role)}
-                    onKeyDown={(e) =>
-                      (e.key === 'Enter' || e.key === ' ') && signIn(p.role)
-                    }
+                    onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && signIn(p.role)}
                     className={cn(
                       'cursor-pointer p-3 transition-colors hover:border-primary/60 hover:bg-accent focus-ring',
                       pending === p.role && 'border-primary',

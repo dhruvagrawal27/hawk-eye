@@ -31,8 +31,16 @@ export interface LayerInfo {
 
 export const LAYER_INFO: Record<string, LayerInfo> = {
   L1_rules: { label: 'Rules', sub: 'L1 · deterministic', accentVar: 'var(--reason-rule)' },
-  L2_unsupervised: { label: 'Anomaly', sub: 'L2 · unsupervised', accentVar: 'var(--severity-medium)' },
-  L3_gbdt: { label: 'Gradient-boosted trees', sub: 'L3 · supervised', accentVar: 'var(--reason-shap)' },
+  L2_unsupervised: {
+    label: 'Anomaly',
+    sub: 'L2 · unsupervised',
+    accentVar: 'var(--severity-medium)',
+  },
+  L3_gbdt: {
+    label: 'Gradient-boosted trees',
+    sub: 'L3 · supervised',
+    accentVar: 'var(--reason-shap)',
+  },
   L4_sequence: { label: 'Sequence', sub: 'L4 · attention', accentVar: 'var(--ai)' },
   L5_graph: { label: 'Graph / collusion', sub: 'L5 · GNN', accentVar: 'var(--reason-graph)' },
   L6_fusion: { label: 'Fused risk', sub: 'L6 · meta-learner', accentVar: 'var(--severity-high)' },
@@ -78,7 +86,10 @@ function normLayer(l: string): string {
 }
 
 /** Build the six-layer breakdown for an alert (prefers backend fusion numbers when available). */
-export function deriveLayerBreakdown(alert: Alert, fusion?: FusionBreakdown | null): LayerBreakdown {
+export function deriveLayerBreakdown(
+  alert: Alert,
+  fusion?: FusionBreakdown | null,
+): LayerBreakdown {
   const fused = clampPct(alert.risk_score)
   // Prefer the backend's real decision threshold (0–1 → 0–100); fall back to the nominal constant.
   const threshold =

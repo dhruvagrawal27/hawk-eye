@@ -40,8 +40,9 @@ export function LayerWaterfall({
         </span>
       </div>
       <p className="text-3xs leading-relaxed text-muted-foreground">
-        Each layer adds its weighted contribution to the fused L6 risk (0–100). The tick on the bar is
-        the decision threshold ({b.threshold}); a layer showing “—” did not contribute to this alert.
+        Each layer adds its weighted contribution to the fused L6 risk (0–100). The tick on the bar
+        is the decision threshold ({b.threshold}); a layer showing “—” did not contribute to this
+        alert.
       </p>
 
       {/* fused headline */}
@@ -85,10 +86,7 @@ export function LayerWaterfall({
       {/* per-layer rows */}
       <div className="space-y-1.5">
         {b.layers.map((l) => (
-          <div
-            key={l.layer}
-            className={cn('flex items-center gap-3', !l.fired && 'opacity-40')}
-          >
+          <div key={l.layer} className={cn('flex items-center gap-3', !l.fired && 'opacity-40')}>
             <div className="w-40 shrink-0">
               <p className="truncate text-xs font-medium">{l.label}</p>
               <p className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
@@ -141,8 +139,9 @@ export function LayerWaterfall({
           <ShieldCheck className="mt-0.5 size-4 shrink-0" />
           <p className="leading-relaxed text-foreground/85">
             <span className="font-semibold text-reason-graph">Rescued by {b.decisive.label}.</span>{' '}
-            Gradient-boosted trees alone scored {b.layers.find((l) => l.layer === 'L3_gbdt')?.contribution ?? 0} —
-            below the {b.threshold} threshold. {b.decisive.label} (L{b.decisive.layer.match(/\d/)?.[0]})
+            Gradient-boosted trees alone scored{' '}
+            {b.layers.find((l) => l.layer === 'L3_gbdt')?.contribution ?? 0} — below the{' '}
+            {b.threshold} threshold. {b.decisive.label} (L{b.decisive.layer.match(/\d/)?.[0]})
             carried it to {b.fused}. A tabular-only model would have missed this.
           </p>
         </div>

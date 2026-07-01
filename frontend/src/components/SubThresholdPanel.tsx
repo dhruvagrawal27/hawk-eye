@@ -112,7 +112,10 @@ function PanelBody({ data }: { data: SubThresholdResponse }) {
       <div className="space-y-1.5">
         <Eyebrow>How the watched activity splits</Eyebrow>
         {data.bands.map((b) => {
-          const meta = BAND_META[b.label] ?? { label: humanize(b.label), color: 'var(--muted-foreground)' }
+          const meta = BAND_META[b.label] ?? {
+            label: humanize(b.label),
+            color: 'var(--muted-foreground)',
+          }
           const pct = data.sub_threshold > 0 ? (b.count / data.sub_threshold) * 100 : 0
           return (
             <div key={b.label} className="flex items-center gap-2 text-xs">
@@ -148,7 +151,10 @@ function PanelBody({ data }: { data: SubThresholdResponse }) {
                 <span className="w-24 shrink-0 truncate font-mono text-foreground">
                   {w.entity_id}
                 </span>
-                <span className="flex-1 truncate text-muted-foreground" title={featureFriendlyLabel(w.top_signal)}>
+                <span
+                  className="flex-1 truncate text-muted-foreground"
+                  title={featureFriendlyLabel(w.top_signal)}
+                >
                   {featureFriendlyLabel(w.top_signal)}
                 </span>
                 <span className="shrink-0 text-2xs tabular-nums text-muted-foreground">

@@ -24,8 +24,12 @@ const HOLD: ActionHold = {
   ts: '2026-06-30T02:41:00Z',
 }
 const POLICY: ActionPolicy = {
-  code: 'SELF_GRANT_HOLD', name: 'Entitlement self-grant', gate: 'hard',
-  severity: 'high', enabled: true, verbs: ['self_grant'],
+  code: 'SELF_GRANT_HOLD',
+  name: 'Entitlement self-grant',
+  gate: 'hard',
+  severity: 'high',
+  enabled: true,
+  verbs: ['self_grant'],
 }
 
 function renderConsole() {
@@ -46,7 +50,9 @@ describe('ActionGateConsole', () => {
     vi.spyOn(apiClient, 'listActionPolicies').mockResolvedValue([POLICY])
     renderConsole()
     await waitFor(() => expect(screen.getByText('EMP-3c55')).toBeInTheDocument())
-    expect(screen.getByText(/permits human-initiated execution|never auto-executes/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/permits human-initiated execution|never auto-executes/i),
+    ).toBeInTheDocument()
     expect(screen.getByText(/Entitlement self-grant/i)).toBeInTheDocument()
   })
 

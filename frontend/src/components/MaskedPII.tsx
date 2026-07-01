@@ -41,7 +41,9 @@ export function MaskedPII({
         // Resolve just the token we're displaying (live backend keys the response by token).
         tokens: [value],
         // Case-scoped justification (required for the Relationship Manager; logged for everyone).
-        justification: alertId ? `Case-scoped re-identification for alert ${alertId}` : 'Investigation',
+        justification: alertId
+          ? `Case-scoped re-identification for alert ${alertId}`
+          : 'Investigation',
         alert_id: alertId,
       }),
     onSuccess: (res) => {

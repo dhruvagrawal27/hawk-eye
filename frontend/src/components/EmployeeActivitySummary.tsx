@@ -113,7 +113,11 @@ export function EmployeeActivitySummary({
             {risk.data.top_drivers?.length ? (
               <span className="text-muted-foreground">
                 {' '}
-                · drivers: {risk.data.top_drivers.slice(0, 3).map((d) => featureFriendlyLabel(d)).join(', ')}
+                · drivers:{' '}
+                {risk.data.top_drivers
+                  .slice(0, 3)
+                  .map((d) => featureFriendlyLabel(d))
+                  .join(', ')}
               </span>
             ) : null}
             {risk.data.calibrated === false ? (
@@ -135,7 +139,10 @@ export function EmployeeActivitySummary({
                 <span className="min-w-0 truncate">
                   {humanize(evVerb(e))}
                   {evOffHours(e) ? (
-                    <Moon className="ml-1 inline size-3 text-severity-medium" aria-label="off-hours" />
+                    <Moon
+                      className="ml-1 inline size-3 text-severity-medium"
+                      aria-label="off-hours"
+                    />
                   ) : null}
                 </span>
                 <span className="shrink-0 tabular-nums text-muted-foreground" title={e.ts}>

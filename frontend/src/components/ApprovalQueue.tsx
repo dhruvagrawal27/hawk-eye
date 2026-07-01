@@ -27,7 +27,12 @@ import {
 import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { ApiError } from '@/lib/http'
-import { compositePriority, formatINRCompact, formatRelative, featureFriendlyLabel } from '@/lib/format'
+import {
+  compositePriority,
+  formatINRCompact,
+  formatRelative,
+  featureFriendlyLabel,
+} from '@/lib/format'
 import type { Alert, Paginated, ReasonCode } from '@/lib/types'
 import { useAuth } from '@/auth/rbac'
 import { can } from '@/auth/capabilities'
@@ -277,7 +282,11 @@ function ApprovalRow({
             </div>
           ) : null}
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
-            <MaskedPII value={alert.entity_id} entityId={alert.entity_id} alertId={alert.alert_id} />
+            <MaskedPII
+              value={alert.entity_id}
+              entityId={alert.entity_id}
+              alertId={alert.alert_id}
+            />
             <span className="text-muted-foreground/50">·</span>
             <span className="tabular-nums">{formatINRCompact(alert.exposure_inr)}</span>
             <span className="text-muted-foreground/50">·</span>
@@ -289,13 +298,30 @@ function ApprovalRow({
 
         <div className="flex shrink-0 items-center gap-1.5">
           {canApprove ? (
-            <Button type="button" size="sm" className="h-7 gap-1 px-2" disabled={busy} onClick={onApprove}>
-              {deciding ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 gap-1 px-2"
+              disabled={busy}
+              onClick={onApprove}
+            >
+              {deciding ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Check className="size-3.5" />
+              )}
               Approve
             </Button>
           ) : null}
           {canReject ? (
-            <Button type="button" size="sm" variant="outline" className="h-7 gap-1 px-2" disabled={busy} onClick={onReject}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 px-2"
+              disabled={busy}
+              onClick={onReject}
+            >
               <X className="size-3.5" />
               Reject
             </Button>
@@ -311,7 +337,9 @@ function ApprovalRow({
           {/* Why flagged — the full reason codes */}
           {codes.length > 0 ? (
             <div className="text-2xs">
-              <p className="mb-1 font-medium uppercase tracking-wide text-muted-foreground">Why it fired</p>
+              <p className="mb-1 font-medium uppercase tracking-wide text-muted-foreground">
+                Why it fired
+              </p>
               <ul className="list-disc space-y-0.5 pl-4 text-foreground/85">
                 {codes.map((rc, i) => (
                   <li key={i}>{reasonDetail(rc)}</li>

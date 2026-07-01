@@ -91,7 +91,11 @@ export function Dashboard() {
       {/* Fusion spotlight — the highest-risk open alert decomposed across our 6 detection layers. */}
       {canTriage && topAlert ? (
         <Link to={`/alerts/${topAlert.alert_id}`} className="block focus-ring rounded-lg">
-          <FusionSankey alert={topAlert} height={180} className="transition-colors hover:border-primary/40" />
+          <FusionSankey
+            alert={topAlert}
+            height={180}
+            className="transition-colors hover:border-primary/40"
+          />
         </Link>
       ) : null}
 

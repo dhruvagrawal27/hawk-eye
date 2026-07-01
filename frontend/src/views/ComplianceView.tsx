@@ -74,8 +74,8 @@ export function ComplianceView() {
             <TabIntro>
               <strong className="text-foreground">Your job here:</strong> approve or reject the
               alerts and block-requests that route up to you, and see where risk is concentrated.
-              Expand any queue row for the evidence and the person&apos;s history before you decide —
-              approving permits containment; it never blocks money automatically.
+              Expand any queue row for the evidence and the person&apos;s history before you decide
+              — approving permits containment; it never blocks money automatically.
             </TabIntro>
             {/* Manager oversight — approval/escalation queue + department risk rollup (Agent B). */}
             <div className="grid gap-3 lg:grid-cols-2">
@@ -87,17 +87,17 @@ export function ComplianceView() {
 
         <TabsContent value="rules" className="space-y-3">
           <TabIntro>
-            <strong className="text-foreground">Your job here:</strong> propose and review changes to
-            the detection rules and their thresholds. Every edit is a proposal that needs a second
-            authoriser (four-eyes) before it goes live — nothing changes silently.
+            <strong className="text-foreground">Your job here:</strong> propose and review changes
+            to the detection rules and their thresholds. Every edit is a proposal that needs a
+            second authoriser (four-eyes) before it goes live — nothing changes silently.
           </TabIntro>
           <RulesEditor />
         </TabsContent>
         <TabsContent value="coverage" className="space-y-3">
           <TabIntro>
             <strong className="text-foreground">Your job here:</strong> confirm every RBI
-            early-warning (EWS) and red-flag (RFA) indicator maps to a live detection layer, and spot
-            any gaps in coverage.
+            early-warning (EWS) and red-flag (RFA) indicator maps to a live detection layer, and
+            spot any gaps in coverage.
           </TabIntro>
           <EwsCoverage />
         </TabsContent>
