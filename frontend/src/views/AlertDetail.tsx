@@ -9,6 +9,7 @@ import { QueryBoundary } from '@/components/QueryBoundary'
 import { AlertHeader } from '@/components/AlertHeader'
 import { LayerWaterfall } from '@/components/LayerWaterfall'
 import { FusionSankey } from '@/components/FusionSankey'
+import { RiskIndexGauge } from '@/components/RiskIndexGauge'
 import { Entity360Timeline } from '@/components/Entity360Timeline'
 import { AlertHeatmap } from '@/components/AlertHeatmap'
 import { ScoreOverTime } from '@/components/ScoreOverTime'
@@ -85,6 +86,10 @@ function AlertDetailBody({ alert }: { alert: Alert }) {
   return (
     <div className="space-y-4">
       <AlertHeader alert={alert} />
+
+      {/* Standing per-user insider-risk index (M2.1) — the actor's baseline posture next to this
+          alert's point-in-time score. Renders only when the entity has an index. Alert-only. */}
+      <RiskIndexGauge entityId={alert.entity_id} />
 
       {/* Six-layer detection fusion — the headline "how this score was built" across L1→L6
           (our differentiator vs a 3-stream blend): the waterfall decomposes it, the Sankey shows

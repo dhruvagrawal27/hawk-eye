@@ -39,6 +39,7 @@ import {
   FAMILY_ORDER,
   familyForEvent,
 } from '@/components/TimelineEvent'
+import { ActivityHeatmap, type ActivityPoint } from '@/components/ActivityHeatmap'
 import type { EntityProfile, EventFamily, TimelineEntry } from '@/lib/types'
 
 type FamilyFilter = Record<EventFamily, boolean>
@@ -193,6 +194,12 @@ export function Entity360Timeline({ entityId, alertId }: { entityId: string; ale
 
   const allEvents = useMemo(() => timelineQuery.data?.events ?? [], [timelineQuery.data])
 
+  /** Points for the 7×24 activity heatmap (off-hours from the L0 context flag when present). */
+  const activityPoints = useMemo<ActivityPoint[]>(
+    () => allEvents.map((e) => ({ ts: e.ts, offHours: e.context?.is_off_hours })),
+    [allEvents],
+  )
+
   /** Per-family counts across the full history (drives the filter chips). */
   const counts = useMemo(() => {
     const c: Record<EventFamily, number> = { transaction: 0, access: 0, data: 0, change: 0 }
@@ -230,6 +237,8 @@ export function Entity360Timeline({ entityId, alertId }: { entityId: string; ale
       >
         {entityQuery.data ? <ProfileHeader entity={entityQuery.data} alertId={alertId} /> : null}
       </QueryBoundary>
+
+      {activityPoints.length > 0 ? <ActivityHeatmap points={activityPoints} /> : null}
 
       <Card>
         <CardHeader className="gap-3 pb-3">

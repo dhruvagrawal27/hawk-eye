@@ -18,6 +18,7 @@ import type {
   FusionBreakdown,
   GraphResponse,
   PeerComparisonResponse,
+  RiskIndex,
   ScoreHistoryResponse,
   TimelineResponse,
   AlertStatus,
@@ -234,6 +235,33 @@ function buildExplanation(alertId: string): ExplanationResponse {
  * the chart tells a story (baseline → off-hours burst → current). Pure function of the entity id so
  * it is stable across renders / contract tests.
  */
+function buildRiskIndex(entityId: string): RiskIndex {
+  const e = ENTITIES[entityId]
+  const base = (e?.risk_score ?? 50) / 100
+  const hr = Math.min(1, base * 0.75 + 0.1)
+  const access = Math.min(1, base * 0.6 + 0.05)
+  const anomaly = Math.min(1, base * 0.95)
+  const composite = Math.round((0.3 * hr + 0.35 * access + 0.35 * anomaly) * 100)
+  return {
+    employee_id: entityId,
+    composite,
+    hr_score: Number(hr.toFixed(3)),
+    access_score: Number(access.toFixed(3)),
+    anomaly_score: Number(anomaly.toFixed(3)),
+    components: [
+      { name: 'offhours_score', group: 'anomaly', value: Number(anomaly.toFixed(3)),
+        detail: 'off-hours activity' },
+      { name: 'role_change_recency', group: 'hr', value: Number(hr.toFixed(3)),
+        detail: 'recent role change' },
+      { name: 'standing_privilege', group: 'access', value: Number(access.toFixed(3)),
+        detail: 'unexercised held entitlements' },
+    ],
+    top_drivers: ['offhours_score', 'role_change_recency', 'standing_privilege'],
+    updated_ts: '2026-06-30T06:00:00Z',
+    calibrated: false,
+  }
+}
+
 function buildScoreHistory(entityId: string): ScoreHistoryResponse {
   const e = ENTITIES[entityId]
   const current = e?.risk_score ?? 50
@@ -651,6 +679,9 @@ export const handlers = [
   ),
   http.get(api('/entities/:id/score-history'), ({ params }) =>
     HttpResponse.json(buildScoreHistory(String(params.id))),
+  ),
+  http.get(api('/entities/:id/risk-index'), ({ params }) =>
+    HttpResponse.json(buildRiskIndex(String(params.id))),
   ),
   http.post(api('/entities/:id/unmask'), async ({ params, request }) => {
     const id = String(params.id)

@@ -907,3 +907,22 @@ export interface AuthUser {
   email?: string
   roles: Role[]
 }
+
+/* ── M2.1 — continuous per-user insider-risk index ─────────────────────────── */
+export interface RiskIndexComponent {
+  name: string
+  group: string // "hr" | "access" | "anomaly"
+  value: number // 0–1
+  detail: string
+}
+export interface RiskIndex {
+  employee_id: string
+  composite: number // 0–100
+  hr_score: number // 0–1
+  access_score: number // 0–1
+  anomaly_score: number // 0–1
+  components: RiskIndexComponent[]
+  top_drivers: string[]
+  updated_ts?: string | null
+  calibrated: boolean // false = stub weights (human review only, never auto-actioned)
+}

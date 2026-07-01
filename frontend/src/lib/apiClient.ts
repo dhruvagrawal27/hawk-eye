@@ -50,6 +50,7 @@ import type {
   Paginated,
   AttestationDetail,
   PeerComparisonResponse,
+  RiskIndex,
   ReportExport,
   Rule,
   RuleParam,
@@ -205,6 +206,10 @@ export const apiClient = {
   },
   getEntityPeers(id: string): Promise<PeerComparisonResponse> {
     return request(`/entities/${encodeURIComponent(id)}/peers`)
+  },
+  /** M2.1 continuous per-user insider-risk index (0–100, sub-scores + drivers). Alert-only. */
+  getRiskIndex(id: string): Promise<RiskIndex> {
+    return request(`/entities/${encodeURIComponent(id)}/risk-index`)
   },
   /** [FE-proposed] 0–100 fused-risk-score history for the entity (ScoreOverTime on AlertDetail). */
   getScoreHistory(id: string): Promise<ScoreHistoryResponse> {

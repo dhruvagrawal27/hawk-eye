@@ -35,6 +35,7 @@ class TimelineEvent(BaseModel):
     detail: str = ""
     event_id: str | None = None
     amount_inr: int | None = None
+    is_off_hours: bool = False  # outside IST bank hours (Mon–Fri 08:00–20:00)
 
 
 class EntityTimeline(BaseModel):
