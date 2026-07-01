@@ -37,6 +37,7 @@ import {
   EXPLANATIONS,
   GRAPHS,
   HEALTH,
+  READYZ,
   KRIS,
   METRICS_TEXT,
   MODELS,
@@ -1099,8 +1100,9 @@ export const handlers = [
   // Management analytics — fraud-typology prevalence + confirmed-rate
   http.get(api('/analytics/typologies'), () => HttpResponse.json(TYPOLOGY_ANALYTICS)),
 
-  // Health / metrics
+  // Health / metrics / readiness
   http.get(api('/health'), () => HttpResponse.json(HEALTH)),
+  http.get(api('/readyz'), () => HttpResponse.json(READYZ)),
   http.get(
     api('/metrics'),
     () => new HttpResponse(METRICS_TEXT, { headers: { 'Content-Type': 'text/plain' } }),

@@ -98,6 +98,18 @@ def _reset_state() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _offline_narrative(monkeypatch):
+    """Force the narrative provider OFFLINE for every test so the suite is deterministic and never
+    makes a live NEAR AI / Groq call, regardless of any keys present in the ambient .env."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "narrative_remote_enabled", False, raising=False)
+    monkeypatch.setattr(settings, "llm_provider", "template", raising=False)
+    monkeypatch.setattr(settings, "near_ai_api_key", "", raising=False)
+    monkeypatch.setattr(settings, "groq_api_key", "", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _reset():
     _reset_state()
     yield
