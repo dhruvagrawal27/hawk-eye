@@ -13,7 +13,6 @@ Status: REAL (numpy/pandas only).
 """
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
 E = "actor.employee_id"
