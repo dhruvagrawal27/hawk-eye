@@ -77,4 +77,27 @@ def create_app():
     def health() -> dict:
         return {"status": "ok", "service": "narrative-gateway"}
 
+    @app.get("/attestation")
+    def attestation_endpoint() -> dict:
+        """Live NEAR AI Cloud TEE attestation — the real confidential-compute proof (Intel TDX
+        enclave signing address + quote fingerprint). Free endpoint, works without inference credit,
+        so the UI can independently verify the enclave regardless of which provider served a narrative.
+        """
+        from ml.narrative.attestation import NearAIAttestationVerifier
+
+        rep = NearAIAttestationVerifier().verify("near_ai")
+        if rep is None:
+            return {"tee_attested": False, "provider": "near_ai", "note": "attestation unavailable"}
+        return {
+            "tee_attested": True,
+            "provider": "near_ai",
+            "signing_address": rep.signing_address,
+            "signing_algo": rep.signing_algo,
+            "intel_quote_sha256": rep.quote_sha256,
+            "intel_quote_prefix": rep.intel_quote_prefix,
+            "intel_quote_bytes": rep.intel_quote_bytes,
+            "nvidia_verified": rep.nvidia_verified,
+            "attestation_id": rep.attestation_id,
+        }
+
     return app

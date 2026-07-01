@@ -114,7 +114,7 @@ def narrate(
                 # ungrounded -> reject this provider's output and fail over (Part 25.7)
                 continue
             attestation_id = verify_and_store_attestation(
-                prov.name, attestation_verifier
+                prov.name, attestation_verifier, prompt=user, model=result.model
             )
             tee_attested = bool(prov.tee and attestation_id is not None)
             writer.write(
