@@ -25,6 +25,8 @@ class Actor:
     privileged_flag: bool = False
     leaver_flag: bool = False
     notice_period: bool = False
+    grievance_count: Optional[int] = None       # HR: open/lifetime grievances filed by this staffer
+    grievance_recency_days: Optional[int] = None  # HR: days since the most recent grievance
 
 
 @dataclass
@@ -152,6 +154,7 @@ AVRO_SCHEMA: dict[str, Any] = {
             {"name": "privileged_flag", "type": "boolean", "default": False},
             {"name": "leaver_flag", "type": "boolean", "default": False},
             {"name": "notice_period", "type": "boolean", "default": False},
+            _opt("grievance_count", "int"), _opt("grievance_recency_days", "int"),
         ]}},
         {"name": "action", "type": {"type": "record", "name": "Action", "fields": [
             {"name": "verb", "type": "string"}, _opt("channel"), _opt("maker_checker"),

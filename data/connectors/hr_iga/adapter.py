@@ -68,6 +68,8 @@ class HrIgaAdapter(SourceAdapter):
             tenure_days=raw.get("tenure_days"),
             leaver_flag=(jml == "leaver"),
             notice_period=bool(raw.get("notice_period", False)),
+            grievance_count=raw.get("grievance_count"),
+            grievance_recency_days=raw.get("grievance_recency_days"),
         )
         action = Action(verb=raw["verb"], channel=_SOURCE_CHANNEL[self.source])
         obj = ObjectRef(account_id=raw.get("account_id"),

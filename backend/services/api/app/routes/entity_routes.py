@@ -23,6 +23,7 @@ from app.schemas.entities import (
     UnmaskRequest,
     UnmaskResponse,
 )
+from app.schemas.risk_index import RiskIndexResponse
 from app.store.entity_store import ENTITIES
 
 router = APIRouter(tags=["entities"])
@@ -49,6 +50,20 @@ def get_entity(
     return profile
 
 
+@router.get("/entities/{entity_id}/risk-index", response_model=RiskIndexResponse)
+def get_risk_index(
+    entity_id: str,
+    principal: Principal = Depends(require_capability(Capability.VIEW_ALERTS)),
+) -> RiskIndexResponse:
+    """Continuous per-user insider-risk index (M2.1) — computed by the ML batch job, read here.
+    Alert-only: a displayed, explained score for a human; never an automated action."""
+    idx = ENTITIES.get_risk_index(entity_id)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="no risk index for this entity")
+    _view_audit(principal, entity_id, "risk-index")
+    return idx
+
+
 @router.get("/entities/{entity_id}/timeline", response_model=EntityTimeline)
 def get_timeline(
     entity_id: str,
@@ -57,7 +72,26 @@ def get_timeline(
     if ENTITIES.get_profile(entity_id) is None:
         raise HTTPException(status_code=404, detail="entity not found")
     _view_audit(principal, entity_id, "timeline")
-    return EntityTimeline(entity_id=entity_id, events=ENTITIES.get_timeline(entity_id))
+    events = ENTITIES.get_timeline(entity_id)
+    # Surface off-hours activity (a core insider signal) on every row so the activity heatmap can
+    # colour it. Authoritative when the stored event already carries it; else derived from IST hour.
+    for ev in events:
+        if not ev.is_off_hours:
+            ev.is_off_hours = _is_off_hours_ist(ev.ts)
+    return EntityTimeline(entity_id=entity_id, events=events)
+
+
+def _is_off_hours_ist(ts: str) -> bool:
+    """True when `ts` falls outside IST bank hours (Mon–Fri 08:00–20:00). UTC ISO → IST (+5:30)."""
+    from datetime import datetime, timedelta, timezone
+
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(
+            timezone(timedelta(hours=5, minutes=30))
+        )
+    except ValueError:
+        return False
+    return dt.weekday() >= 5 or dt.hour < 8 or dt.hour >= 20
 
 
 @router.get("/entities/{entity_id}/graph", response_model=EntityGraph)

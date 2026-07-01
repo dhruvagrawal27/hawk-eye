@@ -17,6 +17,7 @@ from app.schemas.entities import (
     PeerComparison,
     TimelineEvent,
 )
+from app.schemas.risk_index import RiskIndexComponent, RiskIndexResponse
 from app.pii.vault import VAULT
 from app.store.alert_store import ALERTS
 from app.store.entity_store import ENTITIES
@@ -231,6 +232,29 @@ def _seed_entity_360() -> None:
             ),
         ],
     )
+    # M2.1 demo insider-risk index (in prod the ML batch job writes this; seeded for the demo).
+    ENTITIES.put_risk_index(
+        RiskIndexResponse(
+            employee_id="EMP-7f3a",
+            composite=78,
+            hr_score=0.55,
+            access_score=0.48,
+            anomaly_score=0.72,
+            components=[
+                RiskIndexComponent(name="offhours_score", group="anomaly", value=0.72,
+                                   detail="off-hours activity"),
+                RiskIndexComponent(name="recent_alerts_30d", group="anomaly", value=0.6,
+                                   detail="alerts in the last 30 days"),
+                RiskIndexComponent(name="role_change_recency", group="hr", value=0.5,
+                                   detail="recent role change"),
+                RiskIndexComponent(name="standing_privilege", group="access", value=0.4,
+                                   detail="unexercised held entitlements"),
+            ],
+            top_drivers=["offhours_score", "recent_alerts_30d", "role_change_recency"],
+            updated_ts="2026-06-30T06:00:00Z",
+            calibrated=False,
+        )
+    )
 
 
 def seed_demo() -> None:
@@ -238,6 +262,13 @@ def seed_demo() -> None:
     # Always (re)seed the re-id vault first — it is separate from the alert store, so it must be
     # populated even when the alerts already exist (e.g. after a restart that reloaded alerts).
     _seed_reid_vault()
+    # Ambient sub-threshold population ('hidden 95%') — reseeded every call (cleared on reset) so the
+    # detection funnel + near-miss watchlist are never empty; the live pipeline also records into it.
+    from app.store.analytics_store import seed_analytics
+    from app.store.subthreshold_store import seed_subthreshold
+
+    seed_subthreshold()
+    seed_analytics()  # fraud-typology prevalence + confirmed-rate (management analytics)
     if ALERTS.get(DEMO_ALERT_ID) is not None:
         return
     for builder in (_demo_alert, _second_alert, _third_alert, _fourth_alert):

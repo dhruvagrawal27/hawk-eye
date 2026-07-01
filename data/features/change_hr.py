@@ -100,7 +100,8 @@ def role_change_recency(df: pd.DataFrame) -> pd.DataFrame:
     for ent, grp in d.groupby(E):
         rc = grp[grp[VERB] == "role_change"]["_t"]
         recency = (ref - rc.max()).total_seconds() / 86400.0 if len(rc) else np.nan
-        tenure = pd.to_numeric(grp.get(TENURE), errors="coerce").dropna()
+        tcol = grp[TENURE] if TENURE in grp.columns else pd.Series(dtype=float)
+        tenure = pd.to_numeric(tcol, errors="coerce").dropna()
         leaver = bool(grp.get(LEAVER, pd.Series(False)).fillna(False).astype(bool).any())
         notice = bool(grp.get(NOTICE, pd.Series(False)).fillna(False).astype(bool).any())
         out[str(ent)] = {
@@ -109,6 +110,45 @@ def role_change_recency(df: pd.DataFrame) -> pd.DataFrame:
             "leaver_notice_window": leaver or notice,
         }
     return pd.DataFrame(out).T
+
+
+def grievance_count(df: pd.DataFrame) -> pd.Series:
+    """Per-entity count of grievances the staffer filed (M1.5 HR insider signal). Counts
+    ``file_grievance`` events; if none are present, falls back to the ``actor.grievance_count``
+    HR attribute so a batch HR feed that ships the tally (not per-event rows) still works."""
+    if df.empty:
+        return pd.Series(dtype=int)
+    filed = df[df[VERB] == "file_grievance"]
+    if not filed.empty:
+        return filed.groupby(E).size().rename("grievance_count")
+    attr = "actor.grievance_count"
+    if attr in df.columns:
+        s = df.groupby(E)[attr].max()
+        s = pd.to_numeric(s, errors="coerce").dropna().astype(int)
+        return s[s > 0].rename("grievance_count")
+    return pd.Series(dtype=int)
+
+
+def grievance_recency(df: pd.DataFrame) -> pd.Series:
+    """Per-entity days since the most recent ``file_grievance`` (smaller = more recent = higher
+    insider risk). Falls back to the ``actor.grievance_recency_days`` HR attribute. Entities with
+    no grievance are omitted (NaN), so the risk index treats 'no grievance' as low-risk."""
+    if df.empty:
+        return pd.Series(dtype=float)
+    d = df.copy()
+    d["_t"] = _ts(d)
+    ref = d["_t"].max()
+    filed = d[d[VERB] == "file_grievance"]
+    if not filed.empty:
+        recency = filed.groupby(E)["_t"].max().apply(
+            lambda t: (ref - t).total_seconds() / 86400.0
+        )
+        return recency.rename("grievance_recency_days")
+    attr = "actor.grievance_recency_days"
+    if attr in d.columns:
+        s = pd.to_numeric(d.groupby(E)[attr].min(), errors="coerce").dropna()
+        return s.rename("grievance_recency_days")
+    return pd.Series(dtype=float)
 
 
 def referrer_cluster(df: pd.DataFrame, min_cluster: int = 3) -> pd.Series:

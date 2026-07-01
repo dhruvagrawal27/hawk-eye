@@ -18,6 +18,9 @@ import type {
   FusionBreakdown,
   GraphResponse,
   PeerComparisonResponse,
+  RiskIndex,
+  ActionHold,
+  ActionPolicy,
   ScoreHistoryResponse,
   TimelineResponse,
   AlertStatus,
@@ -39,7 +42,9 @@ import {
   MODEL_QUALITY,
   PEERS,
   RULES,
+  SUB_THRESHOLD,
   TIMELINES,
+  TYPOLOGY_ANALYTICS,
   USERS,
   findAlert,
   findCase,
@@ -59,72 +64,193 @@ const TOKEN = {
 
 /* ── fallback builders ──────────────────────────────────────────────────── */
 
-/** Decision threshold on the 0–1 fusion scale — mirror of ScoreComposition's THRESHOLD const. */
-const FUSION_THRESHOLD = 0.16032509
+/** Decision threshold on the 0–1 fusion scale — mirrors the backend (EMIT_THRESHOLD / 100). */
+const FUSION_THRESHOLD = 0.7
+
+/** Meta-learner coefficients + presentation chrome per layer — mirror of backend LAYER_META_WEIGHTS. */
+const FUSION_LAYER_META: {
+  layer: string
+  label: string
+  sublabel: string
+  weight: number
+}[] = [
+  { layer: 'L1_rule', label: 'Rules / BRE', sublabel: 'L1 · deterministic', weight: 1.7 },
+  { layer: 'L2_unsupervised', label: 'Anomaly', sublabel: 'L2 · unsupervised', weight: 1.2 },
+  { layer: 'L3_gbdt', label: 'Gradient-boosted trees', sublabel: 'L3 · supervised tabular', weight: 2.4 },
+  { layer: 'L4_sequence', label: 'Sequence', sublabel: 'L4 · attention', weight: 1.0 },
+  { layer: 'L5_graph', label: 'Graph / collusion', sublabel: 'L5 · GNN', weight: 1.2 },
+]
 
 /**
- * Synthesize a plausible L6 fusion breakdown for an alert. The fused probability tracks the alert's
- * calibrated 0–100 risk_score (fused = risk/100). Per-layer probabilities are derived from which
- * layers contributed: a graph layer present + GBDT *just below* threshold seeds the "rescued by
- * graph fusion" insight on the worked example, while other alerts get a GBDT-led blend.
+ * Synthesize the full 5-layer L6 fusion breakdown for an alert — the same shape the backend now
+ * serves from `fusion.build_breakdown`. The fused probability tracks the alert's calibrated 0–100
+ * risk_score; per-layer probabilities are derived from which layers contributed, with GBDT modelled
+ * *just under* threshold when graph is present so the canonical "rescued by graph fusion" story
+ * holds on the worked example. Contribution = weight × proba; agreement = 1 − 2·std(probas).
  */
 function buildFusion(alert: Alert | undefined): FusionBreakdown {
   const fused = alert ? Math.min(0.99, Math.max(0, alert.risk_score / 100)) : 0.5
-  const layers = new Set((alert?.contributing_layers ?? []).map(String))
-  const hasGraph = layers.has('L5_graph')
-  const hasUnsup = layers.has('L2_unsupervised')
+  const fired = new Set(
+    (alert?.contributing_layers ?? []).map((l) => (String(l) === 'L1_rules' ? 'L1_rule' : String(l))),
+  )
+  const hasGraph = fired.has('L5_graph')
 
-  // When graph is in play, model the GBDT as scoring just *under* the threshold so graph fusion is
-  // what carries the alert over — the canonical "rescued" story. Otherwise GBDT leads.
-  const gbdtProba = hasGraph
-    ? Math.max(0.04, FUSION_THRESHOLD * 0.85)
-    : Math.min(0.95, fused * 0.95)
-  const graphProba = hasGraph ? Math.min(0.97, Math.max(fused, 0.6)) : null
-  const unsupProba = hasUnsup ? Math.min(0.9, 0.3 + fused * 0.4) : null
+  const probaFor = (layer: string): number | null => {
+    if (!fired.has(layer)) return null
+    switch (layer) {
+      case 'L1_rule':
+        return 0.45 // rules fired but soft, so graph can be decisive in the rescue story
+      case 'L2_unsupervised':
+        return Math.min(0.9, 0.3 + fused * 0.4)
+      case 'L3_gbdt':
+        return hasGraph ? Number((FUSION_THRESHOLD * 0.85).toFixed(4)) : Math.min(0.95, fused)
+      case 'L4_sequence':
+        return Math.min(0.95, fused * 0.7)
+      case 'L5_graph':
+        return Math.min(0.97, Math.max(fused, 0.6))
+      default:
+        return null
+    }
+  }
+
+  const components = FUSION_LAYER_META.map((m) => {
+    const proba = probaFor(m.layer)
+    return {
+      layer: m.layer,
+      label: m.label,
+      sublabel: m.sublabel,
+      proba: proba != null ? Number(proba.toFixed(4)) : null,
+      weight: m.weight,
+      contribution: proba != null ? Number((m.weight * proba).toFixed(4)) : 0,
+    }
+  })
+
+  const firedComps = components.filter((c) => c.proba != null)
+  const probs = firedComps.map((c) => c.proba as number)
+  const mean = probs.reduce((s, p) => s + p, 0) / (probs.length || 1)
+  const variance = probs.reduce((s, p) => s + (p - mean) ** 2, 0) / (probs.length || 1)
+  const agreement = Number(Math.max(0, 1 - Math.min(1, Math.sqrt(variance) * 2)).toFixed(4))
+
+  const gbdt = components.find((c) => c.layer === 'L3_gbdt')
+  const nonGbdt = firedComps.filter((c) => c.layer !== 'L3_gbdt')
+  const rescued = !!gbdt && gbdt.proba != null && gbdt.proba < FUSION_THRESHOLD && fused >= FUSION_THRESHOLD && nonGbdt.length > 0
+  const pool = rescued && nonGbdt.length ? nonGbdt : firedComps
+  const decisive = pool.reduce<(typeof components)[number] | null>(
+    (a, b) => (a == null || b.contribution > a.contribution ? b : a),
+    null,
+  )
 
   return {
     fused,
     threshold: FUSION_THRESHOLD,
-    components: [
-      {
-        layer: 'L3_gbdt',
-        label: 'Gradient-boosted trees',
-        sublabel: 'L3 · supervised tabular',
-        proba: Number(gbdtProba.toFixed(4)),
-        weight: 0.5,
-      },
-      {
-        layer: 'L5_graph',
-        label: 'Graph / collusion',
-        sublabel: 'L5 · GNN',
-        proba: graphProba != null ? Number(graphProba.toFixed(4)) : null,
-        weight: 0.34,
-      },
-      {
-        layer: 'L2_unsupervised',
-        label: 'Anomaly',
-        sublabel: 'L2 · unsupervised',
-        proba: unsupProba != null ? Number(unsupProba.toFixed(4)) : null,
-        weight: 0.16,
-      },
-    ],
+    calibrated_score: Math.round(fused * 100),
+    agreement,
+    confidence: alert?.confidence ?? Number((0.5 * agreement + 0.5 * fused).toFixed(2)),
+    hard_hit: alert?.severity === 'high' && fired.has('L1_rule'),
+    rescued,
+    decisive_layer: decisive?.layer ?? null,
+    meta_version: 'l6_meta@stub-2026.06.30',
+    components,
   }
+}
+
+/**
+ * Synthesize LAXCAT per-variable attention for a step (the *variable* axis of the variable×temporal
+ * map). Deterministic from the step's verb / off-hours / temporal weight so the heatmap is stable.
+ */
+function stepVariables(step: {
+  verb?: string
+  label?: string
+  weight: number
+  is_off_hours?: boolean
+}): { name: string; weight: number }[] {
+  const verb = String(step.verb ?? step.label ?? '')
+  const amountVerb = /payment|beneficiary|transfer|trade|invoice|disburse|export/i.test(verb)
+  const clamp = (n: number) => Math.max(0, Math.min(1, Number(n.toFixed(3))))
+  return [
+    { name: 'verb', weight: clamp(0.45 + step.weight * 0.5) },
+    { name: 'log_amount', weight: clamp((amountVerb ? 0.6 : 0.15) * (0.6 + step.weight * 0.4)) },
+    { name: 'off_hours', weight: clamp(step.is_off_hours ? 0.5 + step.weight * 0.45 : 0.08) },
+    { name: 'velocity_1h', weight: clamp(0.2 + step.weight * 0.55) },
+  ]
+}
+
+function enrichAttention(sessions: ExplanationResponse['attention']): ExplanationResponse['attention'] {
+  return sessions.map((s) => ({
+    ...s,
+    steps: s.steps.map((st) => ({ ...st, variables: st.variables ?? stepVariables(st) })),
+  }))
+}
+
+/** Add an honest peer percentile to each SHAP feature when the fixture didn't specify one. */
+function enrichShap(shap: ExplanationResponse['shap']): ExplanationResponse['shap'] {
+  return shap.map((f) => ({
+    ...f,
+    percentile:
+      f.percentile ??
+      Math.max(0.01, Math.min(0.99, Number((0.5 + f.contribution).toFixed(2)))),
+  }))
+}
+
+/** Per-layer model lineage — mirror of the backend registry (which model fired each layer + posture). */
+const LINEAGE_REGISTRY: Record<
+  string,
+  { model_id: string; version: string; risk_tier: string; metrics: Record<string, number> }
+> = {
+  L1_rule: { model_id: 'rules_engine', version: '1.x', risk_tier: 'deterministic', metrics: {} },
+  L2_unsupervised: { model_id: 'l2_isoforest', version: 'stub-2026.06.30', risk_tier: 'tier-2-high', metrics: { pr_auc: 0.71 } },
+  L3_gbdt: { model_id: 'l3_lightgbm', version: 'stub-2026.06.30', risk_tier: 'tier-1-critical', metrics: { pr_auc: 0.86, precision_at_k: 0.62 } },
+  L4_sequence: { model_id: 'l4_usad', version: 'stub-2026.06.30', risk_tier: 'tier-3-moderate', metrics: { vus_pr: 0.64 } },
+  L6_fusion: { model_id: 'l6_meta', version: 'l6_meta@stub-2026.06.30', risk_tier: 'tier-1-critical', metrics: { calibration_error: 0.03 } },
+}
+
+function buildLineage(alert: Alert | undefined): ExplanationResponse['model_lineage'] {
+  const fired = new Set((alert?.contributing_layers ?? []).map((l) => (String(l) === 'L1_rules' ? 'L1_rule' : String(l))))
+  const layers = ['L1_rule', 'L2_unsupervised', 'L3_gbdt', 'L4_sequence', 'L6_fusion'].filter(
+    (l) => l === 'L6_fusion' || fired.has(l),
+  )
+  return layers.map((layer) => {
+    const r = LINEAGE_REGISTRY[layer]
+    return {
+      layer,
+      model_id: r.model_id,
+      version: r.version,
+      stage: 'Production',
+      risk_tier: r.risk_tier,
+      signed: true,
+      approving_reviewer: layer === 'L1_rule' ? 'dgm_compliance' : 'EMP-me01',
+      metrics: r.metrics,
+    }
+  })
 }
 
 function buildExplanation(alertId: string): ExplanationResponse {
   const a = findAlert(alertId)
   const fusion = buildFusion(a)
-  if (EXPLANATIONS[alertId]) return { ...EXPLANATIONS[alertId], fusion }
+  if (EXPLANATIONS[alertId]) {
+    const base = EXPLANATIONS[alertId]
+    return {
+      ...base,
+      shap: enrichShap(base.shap),
+      attention: enrichAttention(base.attention),
+      fusion,
+      model_lineage: base.model_lineage ?? buildLineage(a),
+    }
+  }
   const reasons = a?.reason_codes ?? []
   return {
     alert_id: alertId,
-    shap: reasons
-      .filter((r): r is Extract<typeof r, { source: 'shap' }> => r.source === 'shap')
-      .map((r) => ({
-        feature: r.feature,
-        contribution: r.contribution,
-        direction: r.contribution >= 0 ? 'increases_risk' : 'decreases_risk',
-      })),
+    shap: enrichShap(
+      reasons
+        .filter((r): r is Extract<typeof r, { source: 'shap' }> => r.source === 'shap')
+        .map((r) => ({
+          feature: r.feature,
+          contribution: r.contribution,
+          direction: (r.contribution >= 0 ? 'increases_risk' : 'decreases_risk') as
+            | 'increases_risk'
+            | 'decreases_risk',
+        })),
+    ),
     rules: reasons
       .filter((r): r is Extract<typeof r, { source: 'rule' }> => r.source === 'rule')
       .map((r) => ({ code: r.code, detail: r.detail, severity: a?.severity, layer: 'L1_rules' })),
@@ -137,6 +263,7 @@ function buildExplanation(alertId: string): ExplanationResponse {
         }
       : undefined,
     fusion,
+    model_lineage: buildLineage(a),
   }
 }
 
@@ -146,6 +273,81 @@ function buildExplanation(alertId: string): ExplanationResponse {
  * the chart tells a story (baseline → off-hours burst → current). Pure function of the entity id so
  * it is stable across renders / contract tests.
  */
+function buildRiskIndex(entityId: string): RiskIndex {
+  const e = ENTITIES[entityId]
+  const base = (e?.risk_score ?? 50) / 100
+  const hr = Math.min(1, base * 0.75 + 0.1)
+  const access = Math.min(1, base * 0.6 + 0.05)
+  const anomaly = Math.min(1, base * 0.95)
+  const composite = Math.round((0.3 * hr + 0.35 * access + 0.35 * anomaly) * 100)
+  return {
+    employee_id: entityId,
+    composite,
+    hr_score: Number(hr.toFixed(3)),
+    access_score: Number(access.toFixed(3)),
+    anomaly_score: Number(anomaly.toFixed(3)),
+    components: [
+      { name: 'offhours_score', group: 'anomaly', value: Number(anomaly.toFixed(3)),
+        detail: 'off-hours activity' },
+      { name: 'role_change_recency', group: 'hr', value: Number(hr.toFixed(3)),
+        detail: 'recent role change' },
+      { name: 'standing_privilege', group: 'access', value: Number(access.toFixed(3)),
+        detail: 'unexercised held entitlements' },
+    ],
+    top_drivers: ['offhours_score', 'role_change_recency', 'standing_privilege'],
+    updated_ts: '2026-06-30T06:00:00Z',
+    calibrated: false,
+  }
+}
+
+/* L6.5 console fixtures (M3.4). Mutable so a four-eyes decision persists for the session. */
+const ACTION_HOLDS: ActionHold[] = [
+  {
+    hold_id: 'hold_9a1c22',
+    request_id: 'req_7f3a01',
+    subject: 'EMP-3c55',
+    verb: 'self_grant',
+    status: 'pending_review',
+    severity: 'high',
+    reason_codes: [
+      { source: 'policy', code: 'SELF_GRANT_HOLD', detail: 'Entitlement self-grant (hard-gate)' },
+    ],
+    proportionality: 'reversible staff action held pending second-approver review',
+    explanation: 'DBA attempted to self-grant approve_payment entitlement in a privileged session',
+    dpia_binding: true,
+    decider: null,
+    justification: null,
+    outcome: null,
+    ts: '2026-06-30T02:41:00Z',
+  },
+  {
+    hold_id: 'hold_4d8811',
+    request_id: 'req_2b1409',
+    subject: 'EMP-7f3a',
+    verb: 'bulk_export',
+    status: 'pending_review',
+    severity: 'high',
+    reason_codes: [
+      { source: 'policy', code: 'BULK_EXPORT_HOLD', detail: 'Bulk export from a privileged session (hard-gate)' },
+    ],
+    proportionality: 'reversible staff action held pending second-approver review',
+    explanation: 'Mass SELECT/export of customer_pii detected in the PAM session (content-parsed)',
+    dpia_binding: true,
+    decider: null,
+    justification: null,
+    outcome: null,
+    ts: '2026-06-30T02:55:00Z',
+  },
+]
+
+const ACTION_POLICIES: ActionPolicy[] = [
+  { code: 'SELF_GRANT_HOLD', name: 'Entitlement self-grant', gate: 'hard', severity: 'high', enabled: true, verbs: ['grant_entitlement', 'self_grant'] },
+  { code: 'MAKER_CHECKER_SAME_ACTOR_HOLD', name: 'Maker+checker by the same actor', gate: 'hard', severity: 'high', enabled: true, verbs: [] },
+  { code: 'BULK_EXPORT_HOLD', name: 'Bulk export from a privileged session', gate: 'hard', severity: 'high', enabled: true, verbs: ['export', 'bulk_export'] },
+  { code: 'SWIFT_SEND_STEP_UP', name: 'SWIFT / SO message send', gate: 'soft', severity: 'high', enabled: true, verbs: ['swift_send', 'so_send'] },
+  { code: 'DB_WRITE_STEP_UP', name: 'Direct DB write', gate: 'soft', severity: 'medium', enabled: true, verbs: ['db_write', 'direct_write'] },
+]
+
 function buildScoreHistory(entityId: string): ScoreHistoryResponse {
   const e = ENTITIES[entityId]
   const current = e?.risk_score ?? 50
@@ -564,6 +766,32 @@ export const handlers = [
   http.get(api('/entities/:id/score-history'), ({ params }) =>
     HttpResponse.json(buildScoreHistory(String(params.id))),
   ),
+  http.get(api('/entities/:id/risk-index'), ({ params }) =>
+    HttpResponse.json(buildRiskIndex(String(params.id))),
+  ),
+
+  /* ── L6.5 privileged-action interdiction console (M3.4) ─────────────────── */
+  http.get(api('/action-gate/holds'), () =>
+    HttpResponse.json({ items: ACTION_HOLDS.filter((h) => h.status === 'pending_review'), count: ACTION_HOLDS.filter((h) => h.status === 'pending_review').length }),
+  ),
+  http.post(api('/action-gate/holds/:id/decision'), async ({ params, request }) => {
+    const id = String(params.id)
+    const body = (await request.json().catch(() => ({}))) as {
+      decider?: string
+      approve?: boolean
+      justification?: string
+    }
+    const hold = ACTION_HOLDS.find((h) => h.hold_id === id)
+    if (!hold) return new HttpResponse(null, { status: 404 })
+    if (body.decider && body.decider === hold.subject)
+      return HttpResponse.json({ detail: 'four-eyes: the subject cannot resolve their own hold' }, { status: 403 })
+    hold.status = body.approve ? 'approved_via_four_eyes' : 'rejected'
+    hold.outcome = body.approve ? 'permitted_for_human_initiated_execution' : 'denied_by_reviewer'
+    hold.decider = body.decider ?? null
+    hold.justification = body.justification ?? null
+    return HttpResponse.json(hold)
+  }),
+  http.get(api('/action-gate/policies'), () => HttpResponse.json(ACTION_POLICIES)),
   http.post(api('/entities/:id/unmask'), async ({ params, request }) => {
     const id = String(params.id)
     const body = (await request.json().catch(() => ({}))) as { alert_id?: string }
@@ -719,6 +947,12 @@ export const handlers = [
     })
     return HttpResponse.json(user, { status: 201 })
   }),
+
+  // Ambient / sub-threshold activity (the 'hidden 95%')
+  http.get(api('/activity/sub-threshold'), () => HttpResponse.json(SUB_THRESHOLD)),
+
+  // Management analytics — fraud-typology prevalence + confirmed-rate
+  http.get(api('/analytics/typologies'), () => HttpResponse.json(TYPOLOGY_ANALYTICS)),
 
   // Health / metrics
   http.get(api('/health'), () => HttpResponse.json(HEALTH)),

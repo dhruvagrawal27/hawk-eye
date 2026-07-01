@@ -3,6 +3,7 @@ import {
   Inbox,
   FolderKanban,
   Scale,
+  ShieldAlert,
   FileSearch,
   Boxes,
   BarChart3,
@@ -132,6 +133,12 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Scale,
     roles: ['dgm_compliance', 'agm_vigilance'],
     screen: 5,
+  },
+  {
+    to: '/interdiction',
+    label: 'Interdiction',
+    icon: ShieldAlert,
+    roles: ['dgm_compliance', 'agm_vigilance'],
   },
   {
     to: '/audit',

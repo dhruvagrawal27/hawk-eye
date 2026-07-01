@@ -3,8 +3,10 @@
 from fastapi import APIRouter
 
 from app.routes import (
+    activity_routes,
     admin_routes,
     alert_routes,
+    analytics_routes,
     audit_routes,
     auth_routes,
     case_routes,
@@ -20,6 +22,7 @@ from app.routes import (
     model_routes,
     narrative_routes,
     report_routes,
+    rfa_routes,
     rules_routes,
     services_routes,
 )
@@ -29,6 +32,8 @@ api_router = APIRouter()
 for module in (
     auth_routes,
     alert_routes,
+    activity_routes,
+    analytics_routes,
     entity_routes,
     graph_routes,
     explanation_routes,
@@ -40,6 +45,7 @@ for module in (
     audit_routes,
     admin_routes,
     report_routes,
+    rfa_routes,
     coverage_routes,
     case_routes,
     compliance_routes,

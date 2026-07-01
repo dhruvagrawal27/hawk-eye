@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from serving.loader import DEFAULT_LOADER, ModelLoader, SignatureError
+from serving.model_state import MODEL_STATE
 from serving.stubs.deterministic_models import SCORERS
 
 INLINE_LAYERS = ["L2_unsupervised", "L3_gbdt"]
@@ -55,6 +56,12 @@ class InferenceRuntime:
             scorer = SCORERS.get(layer)
             version = self.loader.version_for(layer, routing_key)
             if scorer is None or version is None:
+                result.degraded_layers.append(layer)
+                continue
+            # M2.4 kill-switch: a DISABLED model is skipped (degrades to remaining layers). L1 rules
+            # never run here, so an alert always survives even if every ML layer is disabled.
+            model_id = self.loader.model_id_for(layer)
+            if model_id and MODEL_STATE.is_disabled(model_id):
                 result.degraded_layers.append(layer)
                 continue
             try:

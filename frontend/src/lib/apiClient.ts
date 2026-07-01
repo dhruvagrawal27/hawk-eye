@@ -11,6 +11,8 @@ import { request } from './http'
 import type {
   AdminUser,
   Alert,
+  SubThresholdResponse,
+  TypologyAnalyticsResponse,
   AlertQuery,
   AssignBody,
   AssignResponse,
@@ -50,6 +52,11 @@ import type {
   Paginated,
   AttestationDetail,
   PeerComparisonResponse,
+  RiskIndex,
+  ActionHold,
+  ActionHoldList,
+  ActionPolicy,
+  HoldDecisionBody,
   ReportExport,
   Rule,
   RuleParam,
@@ -206,6 +213,25 @@ export const apiClient = {
   getEntityPeers(id: string): Promise<PeerComparisonResponse> {
     return request(`/entities/${encodeURIComponent(id)}/peers`)
   },
+  /** M2.1 continuous per-user insider-risk index (0–100, sub-scores + drivers). Alert-only. */
+  getRiskIndex(id: string): Promise<RiskIndex> {
+    return request(`/entities/${encodeURIComponent(id)}/risk-index`)
+  },
+
+  /* ── L6.5 privileged-action interdiction console (M3.4) ─────────────────── */
+  listActionHolds(): Promise<ActionHoldList> {
+    return request('/action-gate/holds')
+  },
+  /** Four-eyes decision on a held staff action (approve = PERMIT human execution; never auto-runs). */
+  decideActionHold(holdId: string, body: HoldDecisionBody): Promise<ActionHold> {
+    return request(`/action-gate/holds/${encodeURIComponent(holdId)}/decision`, {
+      method: 'POST',
+      body,
+    })
+  },
+  listActionPolicies(): Promise<ActionPolicy[]> {
+    return request('/action-gate/policies')
+  },
   /** [FE-proposed] 0–100 fused-risk-score history for the entity (ScoreOverTime on AlertDetail). */
   getScoreHistory(id: string): Promise<ScoreHistoryResponse> {
     return request(`/entities/${encodeURIComponent(id)}/score-history`)
@@ -256,6 +282,14 @@ export const apiClient = {
   /** Service map — every platform service, what it's for, where it's used, and live status. */
   getServiceStatus(): Promise<ServiceStatusResponse> {
     return request('/services/status')
+  },
+  /** Sub-threshold ('hidden 95%') activity — detection funnel + near-miss watchlist (scored < 70). */
+  getSubThreshold(limit = 20): Promise<SubThresholdResponse> {
+    return request(`/activity/sub-threshold?limit=${limit}`)
+  },
+  /** Fraud-typology prevalence + confirmed-rate + exposure (management analytics). */
+  getTypologyAnalytics(): Promise<TypologyAnalyticsResponse> {
+    return request('/analytics/typologies')
   },
   /** Downloadable, audit-grade explainability report for one alert (SAR/FMR evidence pack). */
   getExplanationReport(alertId: string): Promise<Record<string, unknown>> {

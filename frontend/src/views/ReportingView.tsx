@@ -18,6 +18,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { KriDashboard } from '@/components/KriDashboard'
 import { AlertHeatmap } from '@/components/AlertHeatmap'
+import { TypologyAnalytics } from '@/components/TypologyAnalytics'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -105,6 +106,9 @@ export function ReportingView() {
       </QueryBoundary>
 
       {alerts.length > 0 ? <AlertHeatmap alerts={alerts} /> : null}
+
+      {/* Fraud-typology prevalence + confirmed-rate — which insider typologies actually fire. */}
+      <TypologyAnalytics />
     </div>
   )
 }

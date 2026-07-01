@@ -27,13 +27,21 @@ def severity_for(score_0_100: int, hard_hit: bool = False) -> str:
     return "low"
 
 
+def agreement_from(layer_scores: list[float]) -> float:
+    """Cross-layer agreement in [0,1]: low dispersion across the layer scores ⇒ high agreement.
+
+    Exposed separately from ``confidence_from`` so the explanation panel can show *how much the
+    layers concur* (a tight spread is a stronger, more trustworthy signal than one loud layer).
+    """
+    if not layer_scores:
+        return 0.5
+    mean = sum(layer_scores) / len(layer_scores)
+    var = sum((s - mean) ** 2 for s in layer_scores) / len(layer_scores)
+    return round(max(0.0, min(1.0, 1.0 - min(1.0, math.sqrt(var) * 2))), 4)
+
+
 def confidence_from(layer_scores: list[float], prob: float) -> float:
     """Confidence = cross-layer agreement (low dispersion ⇒ high confidence), blended with prob."""
-    if layer_scores:
-        mean = sum(layer_scores) / len(layer_scores)
-        var = sum((s - mean) ** 2 for s in layer_scores) / len(layer_scores)
-        agreement = 1.0 - min(1.0, math.sqrt(var) * 2)  # tighter spread ⇒ higher agreement
-    else:
-        agreement = 0.5
+    agreement = agreement_from(layer_scores)
     conf = 0.5 * agreement + 0.5 * prob
     return round(max(0.0, min(0.99, conf)), 2)

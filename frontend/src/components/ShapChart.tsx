@@ -28,6 +28,7 @@ interface Row {
   label: string
   contribution: number
   value?: number | string
+  percentile?: number
   increases: boolean
 }
 
@@ -38,6 +39,7 @@ function buildRows(features: ShapContribution[]): Row[] {
       label: humanize(f.feature),
       contribution: f.contribution,
       value: f.value,
+      percentile: f.percentile,
       increases: f.direction != null ? f.direction === 'increases_risk' : f.contribution >= 0,
     }))
     .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution))
@@ -60,6 +62,13 @@ function ShapTooltip({ active, payload }: Partial<TooltipContentProps<number, st
       {row.value != null ? (
         <div className="mt-0.5 text-muted-foreground">
           value: <span className="tabular-nums text-foreground">{String(row.value)}</span>
+        </div>
+      ) : null}
+      {row.percentile != null ? (
+        <div className="text-muted-foreground">
+          peer percentile:{' '}
+          <span className="tabular-nums text-foreground">p{Math.round(row.percentile * 100)}</span>{' '}
+          <span className="text-[0.65rem]">(vs comparable peers)</span>
         </div>
       ) : null}
     </div>

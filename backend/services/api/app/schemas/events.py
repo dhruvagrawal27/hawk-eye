@@ -20,6 +20,9 @@ class Actor(BaseModel):
     peer_group: str | None = None
     privileged_flag: bool = False
     leaver_flag: bool = False
+    notice_period: bool = False
+    grievance_count: int | None = None
+    grievance_recency_days: int | None = None
 
 
 class Action(BaseModel):

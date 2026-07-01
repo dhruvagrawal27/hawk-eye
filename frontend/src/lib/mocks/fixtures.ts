@@ -28,7 +28,9 @@ import type {
   PeerComparisonResponse,
   ReportExport,
   Rule,
+  SubThresholdResponse,
   TimelineResponse,
+  TypologyAnalyticsResponse,
   UnifiedEvent,
   UnmaskResponse,
 } from '../types'
@@ -1757,6 +1759,79 @@ export const KRIS: KriResponse = {
     { area: 'Payroll / HR', covered_pct: 74 },
     { area: 'IT / data layer', covered_pct: 85 },
   ],
+}
+
+/* ─────────────── Sub-threshold / ambient activity ('hidden 95%') [GET /activity/sub-threshold] ── */
+export const SUB_THRESHOLD: SubThresholdResponse = {
+  total_scored: 954,
+  alerted: 4,
+  sub_threshold: 950,
+  emit_threshold: 70,
+  bands: [
+    { label: 'watch', min: 55, max: 70, count: 6 },
+    { label: 'elevated', min: 40, max: 55, count: 4 },
+    { label: 'low', min: 0, max: 40, count: 940 },
+  ],
+  watchlist: [
+    { entity_id: 'EMP-2b14', score: 66, top_signal: 'off_hours_activity_rate_30d', ts: '2026-06-30T01:12:00Z' },
+    { entity_id: 'EMP-9f77', score: 63, top_signal: 'maker_checker_pair_frequency_30d', ts: '2026-06-30T20:41:00Z' },
+    { entity_id: 'EMP-3c55', score: 61, top_signal: 'db_rows_read_zscore_vs_peer', ts: '2026-06-29T22:05:00Z' },
+    { entity_id: 'EMP-7a21', score: 58, top_signal: 'export_volume_vs_baseline', ts: '2026-06-30T02:47:00Z' },
+    { entity_id: 'EMP-5d10', score: 57, top_signal: 'new_beneficiary_to_payment_latency_min', ts: '2026-06-30T19:58:00Z' },
+    { entity_id: 'EMP-8b93', score: 55, top_signal: 'privileged_session_off_hours', ts: '2026-06-29T23:31:00Z' },
+    { entity_id: 'EMP-1a09', score: 52, top_signal: 'amount_zscore_vs_peer', ts: '2026-06-30T13:20:00Z' },
+    { entity_id: 'EMP-4d99', score: 48, top_signal: 'failed_login_burst', ts: '2026-06-30T09:05:00Z' },
+    { entity_id: 'EMP-6e02', score: 44, top_signal: 'role_change_recency', ts: '2026-06-28T16:44:00Z' },
+  ],
+}
+
+/* ───────────────── Management analytics — fraud-typology prevalence [GET /analytics/typologies] ── */
+const _TYP: [string, string, string[], number, number, number, number][] = [
+  ['beneficiary_then_approve', 'New-beneficiary → high-value approve', ['L1', 'L3', 'L5'], 38, 9, 21, 54800000],
+  ['maker_checker_ring', 'Maker-checker collusion ring', ['L5'], 27, 11, 9, 41200000],
+  ['bulk_exfil_resignation', 'Bulk exfil in leaver window', ['L2', 'L4'], 24, 7, 13, 3100000],
+  ['alert_suppression', 'AML alert suppression', ['L2', 'L3'], 22, 5, 14, 0],
+  ['dormant_takeover', 'Dormant-account takeover', ['L1', 'L2'], 19, 6, 10, 12600000],
+  ['privilege_self_grant', 'Entitlement self-grant', ['L1'], 17, 8, 6, 0],
+  ['fake_vendor', 'Fake-vendor / billing', ['L1', 'L3', 'L5'], 15, 4, 9, 28400000],
+  ['swift_without_cbs', 'SWIFT without CBS recon', ['L1'], 12, 5, 4, 96000000],
+  ['rogue_trader', 'Rogue trading', ['L2', 'L4'], 11, 3, 6, 74500000],
+  ['ghost_employee_payroll', 'Ghost employee / payroll', ['L1', 'L3', 'L5'], 9, 3, 5, 6800000],
+  ['suspense_lapping', 'Suspense / nostro lapping', ['L2'], 8, 2, 5, 9300000],
+  ['ghost_loan_appraisal', 'Inflated loan appraisal', ['L3'], 6, 2, 3, 33000000],
+]
+const _typologies = _TYP.map(([typology, label, layers, alerts, confirmed, false_positive, exposure_inr]) => ({
+  typology,
+  label,
+  layers,
+  alerts,
+  confirmed,
+  false_positive,
+  open: alerts - confirmed - false_positive,
+  confirmed_rate:
+    confirmed + false_positive > 0
+      ? Number((confirmed / (confirmed + false_positive)).toFixed(4))
+      : 0,
+  exposure_inr,
+}))
+export const TYPOLOGY_ANALYTICS: TypologyAnalyticsResponse = {
+  typologies: _typologies,
+  totals: {
+    alerts: _typologies.reduce((s, t) => s + t.alerts, 0),
+    confirmed: _typologies.reduce((s, t) => s + t.confirmed, 0),
+    false_positive: _typologies.reduce((s, t) => s + t.false_positive, 0),
+    open: _typologies.reduce((s, t) => s + t.open, 0),
+    confirmed_rate: Number(
+      (
+        _typologies.reduce((s, t) => s + t.confirmed, 0) /
+        Math.max(
+          1,
+          _typologies.reduce((s, t) => s + t.confirmed + t.false_positive, 0),
+        )
+      ).toFixed(4),
+    ),
+    exposure_inr: _typologies.reduce((s, t) => s + t.exposure_inr, 0),
+  },
 }
 
 /* ───────────────────────────── Health ──────────────────────────────────────────────────────── */

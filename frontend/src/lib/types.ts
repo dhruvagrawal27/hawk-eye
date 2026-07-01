@@ -184,6 +184,8 @@ export interface ShapContribution {
   contribution: number // signed; |contribution| drives sort
   value?: number | string
   direction?: 'increases_risk' | 'decreases_risk'
+  /** 0–1 percentile of this feature's value vs the peer baseline (e.g. 0.96 = top 4%). */
+  percentile?: number
 }
 export interface RuleProvenanceItem {
   code: string
@@ -193,14 +195,21 @@ export interface RuleProvenanceItem {
   severity?: Severity
   layer?: ContributingLayer | string
 }
+/** One variable's attention weight at a step — the *variable* axis of LAXCAT's variable×temporal map. */
+export interface AttentionVariable {
+  name: string // e.g. "log_amount", "off_hours", "verb", "velocity_1h"
+  weight: number // 0–1 variable-attention weight at this step
+}
 export interface AttentionStep {
   event_id?: EventId
   ts: IsoTimestamp
   label: string // human label, e.g. "create_beneficiary"
-  weight: number // 0–1 attention weight (LAXCAT)
+  weight: number // 0–1 temporal attention weight (LAXCAT time axis)
   verb?: string
   channel?: string
   is_off_hours?: boolean
+  /** per-variable attention at this step (the variable axis). Enables the variable×temporal heatmap. */
+  variables?: AttentionVariable[]
 }
 export interface AttentionSession {
   session_id: string
@@ -235,18 +244,50 @@ export interface GraphEvidence {
  * "rescued by graph fusion" insight (GBDT alone would have missed it) is derived client-side from
  * the GBDT component vs `threshold` — see lib/fusion.ts.
  */
-export type FusionLayer = 'L3_gbdt' | 'L5_graph' | 'L2_unsupervised'
+export type FusionLayer =
+  | 'L1_rule'
+  | 'L2_unsupervised'
+  | 'L3_gbdt'
+  | 'L4_sequence'
+  | 'L5_graph'
 export interface FusionComponent {
   layer: FusionLayer | ContributingLayer | string
   label: string // e.g. "Gradient-boosted trees"
   sublabel: string // e.g. "supervised · tabular"
-  proba: number | null // 0–1 layer output; null if the layer did not fire
+  proba: number | null // 0–1 layer output; null if the layer did not run
   weight: number // meta-learner coefficient for this layer in the fusion
+  /** weight × proba — the layer's weighted pull on the fused score (0 when it did not run). */
+  contribution?: number
 }
 export interface FusionBreakdown {
   fused: number // 0–1 fused probability (the meta-learner output)
   threshold: number // decision threshold on the same 0–1 scale
   components: FusionComponent[]
+  /** 0–100 calibrated score (round(fused × 100)). */
+  calibrated_score?: number
+  /** 0–1 cross-layer agreement (tight spread across layers ⇒ higher). */
+  agreement?: number
+  /** 0–1 blended confidence (agreement × prob). */
+  confidence?: number
+  /** true when a hard L1 rule forced the alert (no ML needed). */
+  hard_hit?: boolean
+  /** true when GBDT alone would have missed it but another layer carried it over the line. */
+  rescued?: boolean
+  /** the fired layer with the strongest weighted pull (the "decisive" driver). */
+  decisive_layer?: FusionLayer | string | null
+  /** the L6 meta-model version that produced this blend. */
+  meta_version?: string
+}
+/** Which model produced a layer's score + its governance posture (MRMF / FREE-AI). */
+export interface ModelLineageEntry {
+  layer: string // L1_rule | L2_unsupervised | L3_gbdt | L4_sequence | L5_graph | L6_fusion
+  model_id: string
+  version: string
+  stage: string // Production | Staging | Challenger | Archived
+  risk_tier?: string | null
+  signed: boolean
+  approving_reviewer?: string | null
+  metrics?: Record<string, number>
 }
 export interface ExplanationResponse {
   alert_id: AlertId
@@ -256,6 +297,61 @@ export interface ExplanationResponse {
   graph?: GraphEvidence
   /** [FE-proposed] L6 fusion decomposition driving ScoreComposition (the top "why this fired"). */
   fusion?: FusionBreakdown
+  /** per-layer model provenance + governance posture (which model fired this, who signed it). */
+  model_lineage?: ModelLineageEntry[]
+}
+
+/* ───────────────────────────── Management analytics [GET /analytics/typologies] ──────────────── */
+/** Per-typology prevalence + confirmed-rate + exposure — the portfolio oversight view. */
+export interface TypologyStat {
+  typology: string
+  label: string
+  layers: string[] // detection layers that catch it, e.g. ["L1","L3","L5"]
+  alerts: number
+  confirmed: number
+  false_positive: number
+  open: number
+  confirmed_rate: number // 0–1
+  exposure_inr: number
+}
+export interface TypologyTotals {
+  alerts: number
+  confirmed: number
+  false_positive: number
+  open: number
+  confirmed_rate: number
+  exposure_inr: number
+}
+export interface TypologyAnalyticsResponse {
+  typologies: TypologyStat[]
+  totals: TypologyTotals
+}
+
+/* ───────────────────────────── Sub-threshold / ambient activity [GET /activity/sub-threshold] ── */
+/**
+ * The 'hidden 95%': every event is scored, but only fused ≥ emit_threshold (70) surfaces as an
+ * alert. This is the scored-but-not-alerted population — the detection funnel + a near-miss watchlist
+ * of elevated-but-below-the-bar entities the alert queue never shows.
+ */
+export interface SubThresholdBand {
+  label: string // watch | elevated | low
+  min: number
+  max: number
+  count: number
+}
+export interface WatchlistItem {
+  entity_id: EntityId
+  score: number // 0–100, in the 40–69 near-miss range
+  top_signal: string
+  ts: IsoTimestamp
+}
+export interface SubThresholdResponse {
+  total_scored: number
+  alerted: number
+  sub_threshold: number
+  emit_threshold: number
+  bands: SubThresholdBand[]
+  watchlist: WatchlistItem[]
 }
 
 /* ───────────────────────────── Score history [FE-proposed: GET /entities/{id}/score-history] ─── */
@@ -877,4 +973,64 @@ export interface AuthUser {
   name: string
   email?: string
   roles: Role[]
+}
+
+/* ── M2.1 — continuous per-user insider-risk index ─────────────────────────── */
+export interface RiskIndexComponent {
+  name: string
+  group: string // "hr" | "access" | "anomaly"
+  value: number // 0–1
+  detail: string
+}
+export interface RiskIndex {
+  employee_id: string
+  composite: number // 0–100
+  hr_score: number // 0–1
+  access_score: number // 0–1
+  anomaly_score: number // 0–1
+  components: RiskIndexComponent[]
+  top_drivers: string[]
+  updated_ts?: string | null
+  calibrated: boolean // false = stub weights (human review only, never auto-actioned)
+}
+
+/* ── M3.4 — L6.5 privileged-action interdiction console ────────────────────── */
+export type ActionDecisionKind = 'ALLOW' | 'STEP_UP' | 'HOLD_FOR_REVIEW'
+export interface ActionReasonCode {
+  source: string
+  code: string
+  detail: string
+}
+export interface ActionHold {
+  hold_id: string
+  request_id: string
+  subject: string
+  verb: string
+  status: 'pending_review' | 'approved_via_four_eyes' | 'rejected'
+  severity: string
+  reason_codes: ActionReasonCode[]
+  proportionality: string
+  explanation: string
+  dpia_binding: boolean
+  decider?: string | null
+  justification?: string | null
+  outcome?: string | null
+  ts: string
+}
+export interface ActionHoldList {
+  items: ActionHold[]
+  count: number
+}
+export interface ActionPolicy {
+  code: string
+  name: string
+  gate: 'hard' | 'soft'
+  severity: string
+  enabled: boolean
+  verbs: string[]
+}
+export interface HoldDecisionBody {
+  decider: string
+  approve: boolean
+  justification: string
 }

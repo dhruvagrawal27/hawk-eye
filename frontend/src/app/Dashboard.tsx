@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { LiveEventTape } from '@/components/realtime/LiveEventTape'
 import { EventRateChart } from '@/components/charts/EventRateChart'
 import { FusionSankey } from '@/components/FusionSankey'
+import { SubThresholdPanel } from '@/components/SubThresholdPanel'
 import { slaInfo, severityRank } from '@/lib/format'
 
 /** Role-aware landing. Greets the user, surfaces their permitted screens, and (for triage roles)
@@ -82,6 +83,9 @@ export function Dashboard() {
           <FusionSankey alert={topAlert} height={180} className="transition-colors hover:border-primary/40" />
         </Link>
       ) : null}
+
+      {/* Ambient activity — the 'hidden 95%': detection funnel + near-miss watchlist (scored < 70). */}
+      <SubThresholdPanel />
 
       <div>
         <h2 className="mb-2 text-sm font-medium text-muted-foreground">Your screens</h2>

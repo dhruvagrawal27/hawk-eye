@@ -54,6 +54,12 @@ class Alert(BaseModel):
         description="Per-layer model_version for reproducibility",
     )
     ring_id: str | None = Field(None, exclude=True)
+    fusion_breakdown: dict = Field(
+        default_factory=dict,
+        exclude=True,
+        description="Transparent per-layer L6 fusion decomposition (fusion.build_breakdown); "
+        "surfaced via GET /explanations/{id}. Excluded from the alert wire contract.",
+    )
 
     @field_validator("risk_score")
     @classmethod

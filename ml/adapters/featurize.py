@@ -129,6 +129,9 @@ def entity_level_features(events: pd.DataFrame) -> pd.DataFrame:
     g["priv"] = _bool_int(_col(df, "actor.privileged_flag", False)).values
     g["leaver"] = _bool_int(_col(df, "actor.leaver_flag", False)).values
     g["tenure"] = _num(_col(df, "actor.tenure_days")).values
+    # M1.5 grievance: HR attribute if present, else derived from file_grievance events.
+    g["grievance"] = _num(_col(df, "actor.grievance_count")).values
+    g["is_grievance_evt"] = (verb == "file_grievance").astype(int).values
 
     grp = g.groupby("emp", sort=True)
     out = pd.DataFrame(index=grp.size().index)
@@ -147,6 +150,10 @@ def entity_level_features(events: pd.DataFrame) -> pd.DataFrame:
     out["privileged_flag"] = grp["priv"].max()
     out["leaver_flag"] = grp["leaver"].max()
     out["tenure_days"] = grp["tenure"].max()
+    # grievance_count = HR tally (max) OR count of file_grievance events, whichever is larger.
+    out["grievance_count"] = pd.concat(
+        [grp["grievance"].max(), grp["is_grievance_evt"].sum()], axis=1
+    ).max(axis=1)
     for v in (
         "approve_payment",
         "create_beneficiary",

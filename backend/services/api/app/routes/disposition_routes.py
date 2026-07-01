@@ -93,6 +93,18 @@ def disposition(
 
     new_status = _OUTCOME_STATUS[body.outcome]
     ALERTS.set_status(alert_id, new_status)
+    # M2.5: a human 'fraud' disposition opens the RFA staff-accountability examination (180-day clock
+    # + natural-justice show-cause). Alert-only: the person is confirmed only by a later human step.
+    if new_status == AlertStatus.CONFIRMED_FRAUD:
+        from app.schemas.common import iso_z, utcnow
+        from regulatory.rfa_lifecycle import RFA_LIFECYCLE
+
+        RFA_LIFECYCLE.trigger(
+            alert.entity_id,
+            triggered_ts=iso_z(utcnow()),
+            alert_id=alert_id,
+            triggers=[rc.code for rc in alert.reason_codes if getattr(rc, "code", None)],
+        )
     audit = AUDIT.write(
         actor=principal.user_id,
         actor_role=principal.role,
