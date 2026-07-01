@@ -80,10 +80,31 @@ def no_leave_streak(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
     return None
 
 
+def standing_privilege_detection(ctx: RuleContext, cfg: RuleConfig) -> RuleHit | None:
+    """Entitlements held but not exercised (M2.2, RBI IS-Audit JIT/least-privilege). Reads the
+    per-user standing-privilege posture materialized by DATA (``identity_access.standing_privilege``)."""
+    count = int(ctx.feat("standing_privilege_count", 0) or 0)
+    never = int(ctx.feat("never_exercised_entitlements", 0) or 0)
+    max_age = float(ctx.feat("days_since_grant_max", 0) or 0)
+    min_age = int(cfg.params.get("min_grant_age_days", 14))
+    threshold = int(cfg.params.get("unexercised_threshold", 2))
+    if max_age < min_age:
+        return None
+    if count >= threshold or never >= threshold:
+        return _hit(
+            cfg,
+            f"{ctx.actor_id} holds {count} standing (unexercised ≥{min_age}d) "
+            f"entitlement(s); {never} never exercised — least-privilege gap",
+            0.65,
+        )
+    return None
+
+
 PRIVILEGED_RULES: dict[str, Predicate] = {
     "PRIVILEGED_SESSION_CORRELATION": privileged_session_correlation,
     "ORPHANED_ACCOUNT_USE": orphaned_account_use,
     "LEAST_PRIVILEGE_VIOLATION": least_privilege_violation,
     "LEAVER_WINDOW_EXFIL": leaver_window_exfil,
     "NO_LEAVE_STREAK": no_leave_streak,
+    "STANDING_PRIVILEGE_DETECTION": standing_privilege_detection,
 }

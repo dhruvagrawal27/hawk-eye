@@ -149,5 +149,28 @@ def test_audit_config_tampering_needs_privileged_or_offhours():
     assert "AUDIT_CONFIG_TAMPERING" not in res.fired_codes
 
 
+# --- M2.2 STANDING_PRIVILEGE_DETECTION ----------------------------------------------------
+def test_standing_privilege_detection_fires():
+    res = DEFAULT_ENGINE.evaluate(
+        _ev("login"), {"standing_privilege_count": 3, "days_since_grant_max": 40}
+    )
+    assert "STANDING_PRIVILEGE_DETECTION" in res.fired_codes
+    assert not res.hard_hit  # medium, feeds fusion
+
+
+def test_standing_privilege_respects_min_grant_age():
+    res = DEFAULT_ENGINE.evaluate(
+        _ev("login"), {"standing_privilege_count": 5, "days_since_grant_max": 3}
+    )
+    assert "STANDING_PRIVILEGE_DETECTION" not in res.fired_codes
+
+
+def test_standing_privilege_below_threshold_silent():
+    res = DEFAULT_ENGINE.evaluate(
+        _ev("login"), {"standing_privilege_count": 1, "days_since_grant_max": 90}
+    )
+    assert "STANDING_PRIVILEGE_DETECTION" not in res.fired_codes
+
+
 if __name__ == "__main__":  # pragma: no cover
     pytest.main([__file__, "-q"])

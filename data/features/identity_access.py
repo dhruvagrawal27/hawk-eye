@@ -36,9 +36,12 @@ OFFH = "context.is_off_hours"
 GEO = "context.geo"
 DEVICE = "context.device"
 SESSION = "context.session_id"
+ENT = "object.entitlement_id"
 
 # verbs that represent a privilege escalation / entitlement change
 ESCALATION_VERBS = {"grant_entitlement", "privilege_escalation", "role_change", "self_grant"}
+# verbs that GRANT an entitlement to the actor (a standing privilege begins here)
+GRANT_VERBS = {"grant_entitlement", "self_grant", "role_assign", "add_entitlement"}
 LOGIN_OK = "login"
 LOGIN_FAIL = "login_failed"
 
@@ -308,6 +311,61 @@ def no_leave_taken_streak(df: pd.DataFrame, leave_verb: str = "leave") -> pd.Ser
     streak = active_days.sub(took_leave, fill_value=0).clip(lower=0).astype(int)
     streak.index = [str(i) for i in streak.index]
     return streak.rename("no_leave_taken_streak")
+
+
+def standing_privilege(
+    df: pd.DataFrame,
+    window_days: int = 90,
+    min_grant_age_days: int = 14,
+    exercise_map: Optional[dict[str, str]] = None,
+) -> pd.DataFrame:
+    """Per-entity STANDING-PRIVILEGE posture (M2.2, RBI IS-Audit JIT/least-privilege):
+    entitlements the actor was GRANTED but has NOT exercised recently.
+
+    An entitlement's "exercise verb" defaults to its own id (entitlements are named after the
+    action they authorise, e.g. ``approve_payment``); override via ``exercise_map``. Returns:
+      * ``standing_privilege_count`` — granted, older than ``min_grant_age_days``, and NOT
+        exercised within the trailing ``window_days``.
+      * ``never_exercised_entitlements`` — granted but never exercised at all.
+      * ``days_since_grant_max`` — age (days) of the oldest held grant.
+    Note: L0 has no explicit revoke↔hold ledger, so "held" = "granted and not later revoked"
+    (revoke_entitlement of the same id clears it). Documented assumption; tune windows on labels.
+    """
+    if df.empty or ENT not in df.columns:
+        return pd.DataFrame()
+    d = df.copy()
+    d["_t"] = _ts(d)
+    ref = d["_t"].max()
+    emap = exercise_map or {}
+    window = pd.Timedelta(days=window_days)
+    rows: dict[str, dict[str, float]] = {}
+    for actor, grp in d.groupby(E):
+        grants = grp[grp[VERB].isin(GRANT_VERBS) & grp[ENT].notna()]
+        if grants.empty:
+            continue
+        revokes = grp[grp[VERB] == "revoke_entitlement"]
+        standing = never = 0
+        max_age = 0.0
+        for entitlement, ggrp in grants.groupby(ENT):
+            grant_t = ggrp["_t"].min()
+            # a later revoke of the same entitlement clears the standing privilege
+            if not revokes.empty and (revokes[revokes[ENT] == entitlement]["_t"] > grant_t).any():
+                continue
+            age = (ref - grant_t).total_seconds() / 86400.0
+            max_age = max(max_age, age)
+            exercise_verb = emap.get(str(entitlement), str(entitlement))
+            exercised = grp[(grp[VERB] == exercise_verb) & (grp["_t"] >= grant_t)]
+            if exercised.empty:
+                never += 1
+            recent = exercised[exercised["_t"] >= ref - window]
+            if age >= min_grant_age_days and recent.empty:
+                standing += 1
+        rows[str(actor)] = {
+            "standing_privilege_count": float(standing),
+            "never_exercised_entitlements": float(never),
+            "days_since_grant_max": round(max_age, 2),
+        }
+    return pd.DataFrame(rows).T
 
 
 def demo_frame() -> pd.DataFrame:

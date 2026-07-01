@@ -10,7 +10,7 @@
  *
  * AI explains; L1–L6 decide. This panel is L6 arithmetic, not narrative — it is authoritative.
  */
-import { GitBranch, Network, Sparkles, ShieldCheck, Info } from 'lucide-react'
+import { Activity, GitBranch, Gavel, Network, Sparkles, ShieldCheck, Info } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { humanize } from '@/lib/format'
 import { riskColor, riskLevelFromScore, RISK_TEXT } from '@/lib/risk'
@@ -22,11 +22,13 @@ import type { FusionBreakdown, FusionComponent, FusionLayer } from '@/lib/types'
  * `fused * 100`. Kept here as one const so the "rescued by graph fusion" derivation and any
  * synthesised fixture agree. (Blueprint Part 11 fusion stack.)
  */
-export const THRESHOLD = 0.16032509
+export const THRESHOLD = 0.7 // fallback decision threshold on the 0–1 scale; backend supplies the real one
 export const FUSION_WEIGHTS: Record<FusionLayer, number> = {
-  L3_gbdt: 0.5,
-  L5_graph: 0.34,
-  L2_unsupervised: 0.16,
+  L1_rule: 1.7,
+  L2_unsupervised: 1.2,
+  L3_gbdt: 2.4,
+  L4_sequence: 1.0,
+  L5_graph: 1.2,
 }
 
 /** Per-layer presentation chrome (icon + accent), keyed by the fusion layer code. */
@@ -34,23 +36,35 @@ const LAYER_META: Record<
   string,
   { icon: typeof GitBranch; defaultLabel: string; defaultSub: string; accent: string }
 > = {
-  L3_gbdt: {
-    icon: GitBranch,
-    defaultLabel: 'Gradient-boosted trees',
-    defaultSub: 'L3 · supervised tabular',
-    accent: 'var(--reason-shap)',
-  },
-  L5_graph: {
-    icon: Network,
-    defaultLabel: 'Graph / collusion',
-    defaultSub: 'L5 · GNN',
-    accent: 'var(--reason-graph)',
+  L1_rule: {
+    icon: Gavel,
+    defaultLabel: 'Rules / BRE',
+    defaultSub: 'L1 · deterministic',
+    accent: 'var(--reason-rule)',
   },
   L2_unsupervised: {
     icon: Sparkles,
     defaultLabel: 'Anomaly',
     defaultSub: 'L2 · unsupervised',
     accent: 'var(--severity-medium)',
+  },
+  L3_gbdt: {
+    icon: GitBranch,
+    defaultLabel: 'Gradient-boosted trees',
+    defaultSub: 'L3 · supervised tabular',
+    accent: 'var(--reason-shap)',
+  },
+  L4_sequence: {
+    icon: Activity,
+    defaultLabel: 'Sequence',
+    defaultSub: 'L4 · attention',
+    accent: 'var(--ai)',
+  },
+  L5_graph: {
+    icon: Network,
+    defaultLabel: 'Graph / collusion',
+    defaultSub: 'L5 · GNN',
+    accent: 'var(--reason-graph)',
   },
 }
 
@@ -60,9 +74,26 @@ const LAYER_META: Record<
  * layers (graph especially) are what carried the alert over the line.
  */
 export function computeRescued(fusion: FusionBreakdown): boolean {
+  if (typeof fusion.rescued === 'boolean') return fusion.rescued // trust the backend's arithmetic
   const gbdt = fusion.components.find((c) => c.layer === 'L3_gbdt')
   if (!gbdt || gbdt.proba == null) return false
   return gbdt.proba < fusion.threshold && fusion.fused >= fusion.threshold
+}
+
+/** The layer the backend named as decisive, else the strongest weighted non-GBDT contributor. */
+function decisiveComponent(fusion: FusionBreakdown): FusionComponent | undefined {
+  if (fusion.decisive_layer) {
+    const named = fusion.components.find((c) => c.layer === fusion.decisive_layer)
+    if (named) return named
+  }
+  const fired = fusion.components.filter((c) => c.proba != null && c.layer !== 'L3_gbdt')
+  if (!fired.length) return undefined
+  return fired.reduce((a, b) =>
+    (b.contribution ?? b.weight * (b.proba as number)) >
+    (a.contribution ?? a.weight * (a.proba as number))
+      ? b
+      : a,
+  )
 }
 
 /* ── Small callout used for the "rescued by graph fusion" insight ─────────── */

@@ -23,7 +23,7 @@ from app.schemas.alerts import Alert, ReasonCode
 from app.schemas.common import iso_z, new_alert_id, utcnow
 from app.store.alert_store import ALERTS, AlertStore
 from app.workflow.escalation import apply_sla
-from fusion.service import DEFAULT_FUSION, FusionService
+from fusion.service import DEFAULT_FUSION, FusionService, build_breakdown
 from reliability.circuit_breaker import CircuitBreaker
 from reliability.degradation import DEGRADATION
 from reliability.idempotency import DEDUPE
@@ -104,6 +104,13 @@ class OnlinePipeline:
         layers = ["L1_rules"] + (["L5_graph"] if graph_ev else [])
         risk = max(85, int(round(result.l1_score * 100)))
         confidence = round(min(0.95, 0.6 + 0.35 * result.l1_score), 2)
+        # No ML runs on the short-circuit; the breakdown is rule-driven (L1 + optional L5 graph proxy).
+        layer_scores = {"L1_rule": round(result.l1_score, 4)}
+        if graph_ev:
+            layer_scores["L5_graph"] = 1.0
+        breakdown = build_breakdown(
+            layer_scores, risk / 100.0, hard_hit=True, confidence=confidence
+        )
         return self._emit(
             event,
             risk_score=risk,
@@ -116,6 +123,7 @@ class OnlinePipeline:
             alert_id=alert_id,
             created_ts=created_ts,
             path="l1_shortcircuit",
+            fusion_breakdown=breakdown,
         )
 
     def _emit_fused(
@@ -141,11 +149,19 @@ class OnlinePipeline:
             ]
             layers = ["L1_rules"] + (["L5_graph"] if graph_ev else [])
             risk = max(1, int(round(result.l1_score * 100)))
+            confidence = round(min(0.9, 0.5 + 0.3 * result.l1_score), 2)
+            # Degraded: ML server unavailable — the breakdown honestly shows only the rule floor.
+            layer_scores = {"L1_rule": round(result.l1_score, 4)}
+            if graph_ev:
+                layer_scores["L5_graph"] = 1.0
+            breakdown = build_breakdown(
+                layer_scores, risk / 100.0, hard_hit=result.hard_hit, confidence=confidence
+            )
             return self._emit(
                 event,
                 risk_score=risk,
                 severity=result.severity,
-                confidence=round(min(0.9, 0.5 + 0.3 * result.l1_score), 2),
+                confidence=confidence,
                 contributing_layers=layers,
                 reason_codes=reason_codes,
                 model_versions={"degraded": "L1_rules_only"},
@@ -153,6 +169,7 @@ class OnlinePipeline:
                 alert_id=alert_id,
                 created_ts=created_ts,
                 path="degraded_l1",
+                fusion_breakdown=breakdown,
             )
 
         fusion = self.fusion.fuse(
@@ -181,6 +198,7 @@ class OnlinePipeline:
             alert_id=alert_id,
             created_ts=created_ts,
             path="l6_fusion",
+            fusion_breakdown=fusion.breakdown,
         )
 
     def _emit(
@@ -197,6 +215,7 @@ class OnlinePipeline:
         alert_id,
         created_ts,
         path,
+        fusion_breakdown=None,
     ) -> Alert:
         entity = (event.get("actor") or {}).get("employee_id", "EMP-unknown")
         exposure = int((event.get("object") or {}).get("amount") or 0)
@@ -215,6 +234,7 @@ class OnlinePipeline:
         )
         alert.model_versions = model_versions
         alert.ring_id = ring_id
+        alert.fusion_breakdown = fusion_breakdown or {}
         apply_sla(alert)
         self.store.add(alert)
         ALERTS_EMITTED.inc(severity=str(severity), path=path)

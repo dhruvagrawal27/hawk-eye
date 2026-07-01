@@ -235,18 +235,39 @@ export interface GraphEvidence {
  * "rescued by graph fusion" insight (GBDT alone would have missed it) is derived client-side from
  * the GBDT component vs `threshold` — see lib/fusion.ts.
  */
-export type FusionLayer = 'L3_gbdt' | 'L5_graph' | 'L2_unsupervised'
+export type FusionLayer =
+  | 'L1_rule'
+  | 'L2_unsupervised'
+  | 'L3_gbdt'
+  | 'L4_sequence'
+  | 'L5_graph'
 export interface FusionComponent {
   layer: FusionLayer | ContributingLayer | string
   label: string // e.g. "Gradient-boosted trees"
   sublabel: string // e.g. "supervised · tabular"
-  proba: number | null // 0–1 layer output; null if the layer did not fire
+  proba: number | null // 0–1 layer output; null if the layer did not run
   weight: number // meta-learner coefficient for this layer in the fusion
+  /** weight × proba — the layer's weighted pull on the fused score (0 when it did not run). */
+  contribution?: number
 }
 export interface FusionBreakdown {
   fused: number // 0–1 fused probability (the meta-learner output)
   threshold: number // decision threshold on the same 0–1 scale
   components: FusionComponent[]
+  /** 0–100 calibrated score (round(fused × 100)). */
+  calibrated_score?: number
+  /** 0–1 cross-layer agreement (tight spread across layers ⇒ higher). */
+  agreement?: number
+  /** 0–1 blended confidence (agreement × prob). */
+  confidence?: number
+  /** true when a hard L1 rule forced the alert (no ML needed). */
+  hard_hit?: boolean
+  /** true when GBDT alone would have missed it but another layer carried it over the line. */
+  rescued?: boolean
+  /** the fired layer with the strongest weighted pull (the "decisive" driver). */
+  decisive_layer?: FusionLayer | string | null
+  /** the L6 meta-model version that produced this blend. */
+  meta_version?: string
 }
 export interface ExplanationResponse {
   alert_id: AlertId

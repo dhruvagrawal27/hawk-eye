@@ -127,6 +127,21 @@ rules:
     params:
       no_leave_days_threshold: 365
 
+  # --- Standing-privilege / least-privilege gap (M2.2) ---
+  - code: STANDING_PRIVILEGE_DETECTION
+    name: Standing privilege (entitlements held but unexercised)
+    enabled: true
+    severity: medium
+    hard_hit: false
+    version: "1.0.0"
+    description: >-
+      Entitlements granted but not exercised within the baseline window and older than the
+      minimum grant age — an RBI IS-Audit JIT/least-privilege gap and an evasion vector.
+    params:
+      unexercised_threshold: 2
+      min_grant_age_days: 14
+      window_days: 90
+
   # --- Treasury / suspense lapping (M1.1) ---
   - code: SUSPENSE_NOSTRO_LAPPING
     name: Suspense/nostro lapping (same operator posts & reconciles)
