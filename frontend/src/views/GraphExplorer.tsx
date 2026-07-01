@@ -47,7 +47,6 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/toaster'
 import { GraphCanvas, RISK_RING_THRESHOLD, type GraphCanvasHandle } from '@/components/graph/GraphCanvas'
 import { GraphLegend, graphTypeLabel } from '@/components/GraphLegend'
-import { RouteTransition } from '@/ui'
 
 export function GraphExplorer() {
   // Whole-population graph, generated once (deterministic → stable galaxy across renders).
@@ -65,7 +64,7 @@ export function GraphExplorer() {
   }, [])
 
   return (
-    <RouteTransition className="space-y-4">
+    <div className="space-y-4">
       <PageHeader
         icon={<Network className="size-5" />}
         title="Graph explorer"

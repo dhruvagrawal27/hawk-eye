@@ -298,28 +298,22 @@ export function GraphLegend({
           <li className="flex items-start gap-2">
             <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-severity-critical" aria-hidden />
             <span>
-              <span className="font-medium text-severity-critical">
-                Isolated maker-checker pair
-              </span>{' '}
-              — the same two employees repeatedly approve each other in isolation; a
-              segregation-of-duties breach. The collusion edge is thick, red and animated.
+              <span className="font-medium text-severity-critical">Maker-checker collusion</span> —
+              segregation-of-duties breach; the edge is thick, red and animated.
             </span>
           </li>
           <li className="flex items-start gap-2">
             <Spline className="mt-0.5 size-3.5 shrink-0 text-reason-graph" aria-hidden />
             <span>
-              <span className="font-medium text-reason-graph">
-                Ring cluster <span className="font-mono tabular-nums text-reason-graph">RNG-*</span>
-              </span>{' '}
-              — members of one detected motif share a dashed halo and a matched outline.
+              <span className="font-medium text-reason-graph">Ring cluster (RNG-*)</span> — members
+              of a detected motif share a dashed halo and matched outline.
             </span>
           </li>
           <li className="flex items-start gap-2">
             <Sparkles className="mt-0.5 size-3.5 shrink-0 text-ai" aria-hidden />
             <span>
               <span className="font-medium text-ai">GNNExplainer evidence</span> — when toggled on,
-              the exact nodes/edges the graph model relied on brighten and the rest dim, so the
-              cited subgraph reads at a glance.
+              the nodes/edges the graph model relied on are brightened and the rest are dimmed.
             </span>
           </li>
         </ul>

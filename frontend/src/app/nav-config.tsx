@@ -11,9 +11,11 @@ import {
   Radio,
   Waypoints,
   ServerCog,
+  SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react'
 import type { Role } from '@/lib/types'
+import { HUMAN_ROLES } from '@/auth/capabilities'
 
 /**
  * Navigation + route-access map. The Sidebar filters items by the active role and the router gates
@@ -164,6 +166,8 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/org', label: 'Org chart', icon: Network, roles: ORG_VIEWERS },
   { to: '/replay', label: 'Replay studio', icon: Radio, roles: REPLAY_OPERATORS },
   { to: '/admin', label: 'Admin', icon: ServerCog, roles: ['it_admin'], screen: 8 },
+  // Shared System & model settings — every signed-in human role.
+  { to: '/settings', label: 'Settings', icon: SlidersHorizontal, roles: HUMAN_ROLES },
 ]
 
 /** Role sets per gated route, reused by the router's RoleShell guards. */

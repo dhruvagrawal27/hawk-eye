@@ -43,7 +43,6 @@ import { StatusBadge } from '@/components/badges'
 import { MaskedPII } from '@/components/MaskedPII'
 import { EmployeeActivitySummary } from '@/components/EmployeeActivitySummary'
 import { toast } from '@/components/ui/toaster'
-import { AmountFlip, useAutoAnimateList } from '@/ui'
 
 /** A short label for one reason code (rule code / SHAP feature / graph ring). */
 function reasonLabel(rc: ReasonCode): string {
@@ -146,9 +145,6 @@ export function ApprovalQueue() {
 
   const decidingId = decide.isPending ? decide.variables?.alert.alert_id : undefined
 
-  // AutoAnimate rows out as they clear the queue (optimistic approve/reject) — reduced-motion → instant.
-  const [listRef] = useAutoAnimateList<HTMLUListElement>()
-
   return (
     <Surface tone="actionable" pad="none" className="overflow-hidden">
       <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-2.5">
@@ -168,16 +164,6 @@ export function ApprovalQueue() {
       </header>
 
       <div className="p-3">
-        {/* Four-eyes posture: the investigator raised the request; a Team Lead makes the second-set-of-
-            -eyes decision here. Approving confirms the disposition — it does not block on its own. */}
-        <p className="mb-2.5 flex items-start gap-1.5 rounded-md bg-muted/30 px-2.5 py-1.5 text-2xs text-muted-foreground">
-          <ShieldQuestion className="mt-px size-3.5 shrink-0 text-primary" aria-hidden />
-          <span>
-            Four-eyes review — the investigator raised each request; a{' '}
-            <span className="font-medium text-foreground">Team Lead</span> approves or rejects here.
-            Approving records the disposition; nothing blocks on its own.
-          </span>
-        </p>
         <QueryBoundary
           isLoading={query.isLoading}
           isError={query.isError}
@@ -191,7 +177,7 @@ export function ApprovalQueue() {
               description="Block requests, escalations and severe open alerts surface here for a manager decision."
             />
           ) : (
-            <ul ref={listRef} className="space-y-1.5">
+            <ul className="space-y-1.5">
               {pending.map((alert) => (
                 <ApprovalRow
                   key={alert.alert_id}

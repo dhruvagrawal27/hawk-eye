@@ -21,7 +21,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
-import { RouteTransition } from '@/ui'
 
 /**
  * Alert/case detail — the investigation workhorse (blueprint Part 24.4 screen 3). Header carries the
@@ -38,7 +37,7 @@ export function AlertDetail() {
   })
 
   return (
-    <RouteTransition className="space-y-4">
+    <div className="space-y-4">
       <Breadcrumb alertId={alertId} />
 
       <QueryBoundary
@@ -66,7 +65,7 @@ export function AlertDetail() {
           />
         )}
       </QueryBoundary>
-    </RouteTransition>
+    </div>
   )
 }
 

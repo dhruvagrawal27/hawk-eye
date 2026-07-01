@@ -31,6 +31,17 @@ const FE_PROPOSED: ReadonlySet<string> = new Set([
   '/cases/{}/status',
   '/cases/{}/assign',
   '/cases/{}/notes',
+  // Newer main endpoints (insider-10x + L6.5 interdiction) the apiClient calls but that are not yet in
+  // the committed main-API openapi.json (the action-gate service is a separate :8096 surface). Bound to
+  // MSW; flagged [FE-proposed] in CONTEXT.md until BACKEND folds them into openapi.json.
+  '/alerts/stats',
+  '/entities/{}/risk-index',
+  '/entities/{}/layer-scores',
+  '/analytics/typologies',
+  '/activity/sub-threshold?limit={}',
+  '/action-gate/holds',
+  '/action-gate/holds/{}/decision',
+  '/action-gate/policies',
 ])
 
 /** Normalise any route to canonical form: strip an `/api/v1` prefix, collapse `{param}` and `${expr}`

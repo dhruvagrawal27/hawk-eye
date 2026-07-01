@@ -48,7 +48,11 @@ const GraphExplorer = lazy(() =>
 const ReplayStudio = lazy(() =>
   import('@/views/ReplayStudio').then((m) => ({ default: m.ReplayStudio })),
 )
-// Design-system gallery — mock-only dev reference for the "Daylight Forensics" kit (Agent A).
+// Shared System & model settings — visible to every signed-in role (no RoleShell gate).
+const SettingsView = lazy(() =>
+  import('@/views/SettingsView').then((m) => ({ default: m.SettingsView })),
+)
+// Design-system gallery — mock-only dev reference for the "Daylight Forensics" kit.
 const UiGallery = lazy(() =>
   import('@/ui/gallery/UiGallery').then((m) => ({ default: m.UiGallery })),
 )
@@ -56,7 +60,7 @@ const UiGallery = lazy(() =>
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/auth/callback', element: <CallbackPage /> },
-  // Mock-only design-system gallery — no auth shell, top-level so B/C can review the kit directly.
+  // Mock-only design-system gallery — no auth shell, top-level so the kit can be reviewed directly.
   {
     path: '/ui-gallery',
     element: (
@@ -77,6 +81,9 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Dashboard /> },
           { path: 'forbidden', element: <Forbidden /> },
+
+          // Shared settings — every authenticated role (no RoleShell gate).
+          { path: 'settings', element: <SettingsView /> },
 
           // Triage + cases (Analyst home, Part 24.4 screens 2 & 4)
           {
