@@ -55,10 +55,27 @@ riskColor, riskLevel } from '@/ui'`.
 8. **Surfaces.** Dossier feel: `Card`/`Surface` with hairline borders + at most one `shadow-dossier`;
    `PaperField grain`/`grid` only in genuinely empty hero regions, never under tables/charts.
 
-## Progress
+## Progress — COMPLETE
 - [x] Kickoff: CONTEXT append, this log/crib, ownership read, deps confirmed (motion, auto-animate, fraunces).
-- [ ] Global: `PageHeader` → `font-display` editorial heading (re-skins all screens).
-- [ ] Exemplars: TriageQueue, AlertDetail/AlertHeader.
-- [ ] Heart: ExplanationPanel (SHAP waterfall), Auditor (HashChainBlock), Peer (PeerStrip).
-- [ ] Breadth: remaining screens.
-- [ ] e2e invariants + gates green + screenshots.
+- [x] Global: `PageHeader` → `font-display` editorial heading (re-skins all screens).
+- [x] Exemplars: TriageQueue, AlertDetail, AlertHeader (RiskGauge + confidence ring, AmountFlip ₹, SlaRing, reason-code strip + invalid state).
+- [x] Heart: ExplanationPanel (animated cumulative SHAP **waterfall**), Auditor (HashChainBlock WORM chain + PASS/FAIL seal), Peer (PeerStrip on every dimension), Entity-360 (evidence tape + gap markers).
+- [x] Breadth: all remaining screens (Cases, EDD, Compliance four-eyes, Model-eng, Admin, Reporting/KRI, Org, Replay/EventTicker, Dashboard). 4 parallel sub-agents, disjoint files.
+- [x] Gates (isolated worktree): **tsc 0 · eslint 0 · prettier clean · vitest 200 · vite build ok**.
+- [x] e2e: **5/5 Playwright pass** against the worktree app (login → triage → detail → explanation → disposition; RBAC; alert-only; onboarding non-blocking).
+- [x] Visual: dev server (:5178) + Playwright screenshots of login/dashboard/triage/alert-detail/SHAP-waterfall/auditor — Daylight Forensics renders (porcelain canvas, ink-teal accent, risk ramp, Fraunces headings, mono evidence).
+
+Commits on `hawk-eye/ui-features`: `51bf205` (kickoff + hero) · `5450a41` (SHAP waterfall) · `a351e4c` (all remaining screens).
+
+## Reconcile with A (for whoever integrates)
+- `hawk-eye/ui-features` contains **only B-owned files** (views + domain composites + tests + this log +
+  the CONTEXT append). It was built against a **local snapshot** of A's `@/ui` kit + theme (see the
+  worktree note above); those A/C files are NOT committed here.
+- **Integration order (per the orchestration cheat-sheet): land A's `ui-foundation` first**, then merge
+  `ui-features` — B's `@/ui` imports resolve against A's real primitives. Ownership is disjoint, so the
+  merge is clean.
+- **Cleanup flag for A:** during the early shared-tree phase my commit `96e476c` (ShapChart +
+  ExplanationPanel) briefly landed on `ui-foundation`. Its content is already on `ui-features` (as
+  `5450a41`), so **`96e476c` can be dropped from `ui-foundation`**.
+- Verification-only local edits in the worktree (NOT committed): `vite.config.ts` `server.fs.allow`
+  (to serve fonts through the node_modules junction), `__shot.mjs`, `__e2e.config.ts`.
