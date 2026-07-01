@@ -9,16 +9,9 @@
  * refined client-side so typing feels instant. CLAIM is one click, gated on `triage`, and surfaces
  * the audit_id (golden rules #1 alert-only / #2 RBAC / #3 PII / #5 IST·INR / #6 loading-empty-error).
  */
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type SortingState,
-} from '@tanstack/react-table'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   ArrowDownNarrowWide,
   ArrowUp,
@@ -80,7 +73,6 @@ const STATUS_OPTIONS: AlertStatus[] = [
 ]
 const RISK_FLOORS = [0, 40, 65, 85] as const
 const ALL = '__all__'
-const ROW_HEIGHT = 60
 
 const SORT_KEYS: SortKey[] = ['risk_score', 'composite', 'exposure_inr', 'confidence', 'sla']
 const SORT_LABELS: Record<SortKey, string> = {
@@ -222,25 +214,19 @@ export function TriageQueue() {
     return grouped
   }, [refined, dedupe])
 
-  /* ── react-table drives sort state (data already in memory; we virtualize rows) ── */
-  const sorting: SortingState = [{ id: sort.key, desc: sort.dir === 'desc' }]
-  const table = useReactTable<QueueRow>({
-    data: rows,
-    state: { sorting },
-    columns: useMemo(
-      () =>
-        SORT_KEYS.map((key) => ({
-          id: key,
-          accessorFn: (row: QueueRow) => sortValue(row.alert, key),
-        })),
-      [],
-    ),
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    enableSortingRemoval: false,
-  })
-
-  const sortedRows = table.getRowModel().rows
+  /* ── sort in memory ─────────────────────────────────────────────────────────
+   * Uniform rows → a plain sort + plain render (no windowing / `measureElement`). The queue is
+   * deduped-per-entity and case-scoped, so the row count is bounded and renders comfortably. This
+   * deliberately avoids the virtualizer's ResizeObserver measurement loop, which could peg the main
+   * thread and hard-freeze the tab on this route. */
+  const sortedRows = useMemo<QueueRow[]>(() => {
+    const arr = [...rows]
+    arr.sort((a, b) => {
+      const diff = sortValue(a.alert, sort.key) - sortValue(b.alert, sort.key)
+      return sort.dir === 'desc' ? -diff : diff
+    })
+    return arr
+  }, [rows, sort.key, sort.dir])
 
   /* ── BULK SELECT ────────────────────────────────────────────────────────────
    * Selection is keyed by the representative row's alert_id and lives in component state (not the
@@ -251,7 +237,7 @@ export function TriageQueue() {
 
   const rowById = useMemo(() => {
     const m = new Map<string, QueueRow>()
-    for (const r of sortedRows) m.set(r.original.alert.alert_id, r.original)
+    for (const r of sortedRows) m.set(r.alert.alert_id, r)
     return m
   }, [sortedRows])
 
@@ -281,7 +267,7 @@ export function TriageQueue() {
 
   const toggleSelectAll = useCallback(
     (next: boolean) => {
-      setSelectedIds(next ? new Set(sortedRows.map((r) => r.original.alert.alert_id)) : new Set())
+      setSelectedIds(next ? new Set(sortedRows.map((r) => r.alert.alert_id)) : new Set())
     },
     [sortedRows],
   )
@@ -333,16 +319,6 @@ export function TriageQueue() {
     },
     [bulkAction, selectedAlertIds, user],
   )
-
-  /* ── virtualization ───────────────────────────────────────────────────────── */
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const virtualizer = useVirtualizer({
-    count: sortedRows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 12,
-  })
-  const virtualItems = virtualizer.getVirtualItems()
 
   const total = alertsQuery.data?.total ?? allAlerts.length
   const collapsed = allAlerts.length - rows.length
@@ -606,36 +582,21 @@ export function TriageQueue() {
               className="m-3 flex-1"
             />
           ) : (
-            <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-              <div
-                style={{ height: `${virtualizer.getTotalSize()}px` }}
-                className="relative w-full"
-              >
-                {virtualItems.map((vi) => {
-                  const row = sortedRows[vi.index].original
-                  return (
-                    <div
-                      key={row.alert.alert_id}
-                      data-index={vi.index}
-                      ref={virtualizer.measureElement}
-                      className="absolute inset-x-0 top-0"
-                      style={{ transform: `translateY(${vi.start}px)` }}
-                    >
-                      <AlertRow
-                        alert={row.alert}
-                        duplicateCount={dedupe ? row.group.length - 1 : 0}
-                        canClaim={mayTriage}
-                        claiming={claim.isPending && claim.variables === row.alert.alert_id}
-                        selectable={mayTriage}
-                        selected={selectedIds.has(row.alert.alert_id)}
-                        onSelectChange={toggleRow}
-                        onOpen={(a) => navigate(`/alerts/${a.alert_id}`)}
-                        onClaim={(a) => claim.mutate(a.alert_id)}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
+            <div className="min-h-0 flex-1 overflow-auto">
+              {sortedRows.map((row) => (
+                <AlertRow
+                  key={row.alert.alert_id}
+                  alert={row.alert}
+                  duplicateCount={dedupe ? row.group.length - 1 : 0}
+                  canClaim={mayTriage}
+                  claiming={claim.isPending && claim.variables === row.alert.alert_id}
+                  selectable={mayTriage}
+                  selected={selectedIds.has(row.alert.alert_id)}
+                  onSelectChange={toggleRow}
+                  onOpen={(a) => navigate(`/alerts/${a.alert_id}`)}
+                  onClaim={(a) => claim.mutate(a.alert_id)}
+                />
+              ))}
             </div>
           )}
         </QueryBoundary>
