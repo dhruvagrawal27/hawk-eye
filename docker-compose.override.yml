@@ -1,0 +1,16 @@
+# =============================================================================
+# LOCAL-RUN override (not for CI/prod). Remaps only the HOST ports that collide
+# with other processes on this machine:
+#   - 6379 is held by an unrelated `bolofy-redis` container  -> Hawk-Eye redis on host 6380
+#   - 5000 is held by macOS AirPlay/ControlCenter            -> MLflow on host 5001
+# Internal service-to-service comms are UNCHANGED (they use redis:6379 / mlflow:5000
+# on the compose network). Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
+# =============================================================================
+services:
+  redis:
+    ports: !override
+      - "6380:6379"
+  mlflow:
+    ports: !override
+      - "5001:5000"

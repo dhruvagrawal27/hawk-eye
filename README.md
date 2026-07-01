@@ -4,11 +4,12 @@
 > to what this is, how to run it in 2 minutes, how it works, and a glossary of every term.
 
 A production-shaped, on-prem, **alert-only** insider-fraud detection platform for a public-sector bank, built local-first on **synthetic data**. Source of truth for *what* to build: [`Insider_Fraud_Detection_Implementation_Blueprint (2).md`](Insider_Fraud_Detection_Implementation_Blueprint%20(2).md) (34 parts). Source of truth for *how / in what order*: [`BUILD_PLAN.md`](BUILD_PLAN.md) (6 workstreams → 149 tasks).
-
+hii
 ## Golden rules (every laptop, every task)
 1. **Alert-only.** The system scores and explains; a human decides. **It never auto-blocks money.**
 2. **On-prem + synthetic.** No real bank systems, no cloud creds, no real PII. Everything runs locally on the synthetic simulator + public datasets. Real feeds/creds/hardware are **SCAFFOLD**; human/legal/hardware acts are **MOCK**.
 3. **Validate against the blueprint.** No task is "done" until the matching blueprint Part's requirement is met. Cite the Part in your commits and your laptop log.
+test 
 4. **Nothing is dropped.** The 6 workstreams partition the entire blueprint. If you find a blueprint requirement that isn't in your task list or anyone else's, raise it in `CONTEXT.md` immediately.
 
 ## The 6 workstreams (one laptop each)
