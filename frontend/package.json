@@ -26,8 +26,10 @@
     "msw:init": "msw init public --save"
   },
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.2.9",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@formkit/auto-animate": "^0.9.0",
     "@radix-ui/react-avatar": "1.2.0",
     "@radix-ui/react-checkbox": "1.3.5",
     "@radix-ui/react-dialog": "1.1.17",
@@ -50,6 +52,7 @@
     "cytoscape": "3.34.0",
     "date-fns": "4.4.0",
     "lucide-react": "1.22.0",
+    "motion": "^12.42.2",
     "oidc-client-ts": "3.5.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
