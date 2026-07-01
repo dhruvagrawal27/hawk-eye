@@ -17,11 +17,14 @@ import { slaInfo, severityRank } from '@/lib/format'
 /** Role-aware landing. Greets the user, surfaces their permitted screens, and (for triage roles)
  *  a live snapshot of the queue so the most urgent work is one click away. */
 export function Dashboard() {
-  const { user, role } = useAuth()
+  const { user, role, can } = useAuth()
   const items = navItemsForRole(role).filter((i) => i.to !== '/')
   const canTriage = role
     ? ['relationship_manager', 'branch_manager', 'cluster_head', 'agm_vigilance'].includes(role)
     : false
+  // Portfolio KPIs are aggregate counts (no PII) → shown to ANY role that may view alerts, including
+  // the de-identified board/exec view (MD&CEO, ED, CGM) and compliance/audit — not just triage roles.
+  const canViewAlerts = can('view_alerts')
 
   const alerts = useQuery({
     queryKey: queryKeys.alerts({}),
@@ -34,7 +37,7 @@ export function Dashboard() {
   const stats = useQuery({
     queryKey: queryKeys.alertStats(),
     queryFn: () => apiClient.getAlertStats(),
-    enabled: canTriage,
+    enabled: canViewAlerts,
   })
 
   const pageOpen = (alerts.data?.items ?? []).filter((a) =>
@@ -57,25 +60,25 @@ export function Dashboard() {
         description={role ? ROLE_META[role].description : undefined}
       />
 
-      {canTriage ? (
+      {canViewAlerts ? (
         <div className="grid gap-3 sm:grid-cols-3">
           <StatCard
             icon={<ShieldAlert className="size-4 text-severity-high" />}
             label="Open alerts"
             value={openCount}
-            to="/triage"
+            to={canTriage ? '/triage' : undefined}
           />
           <StatCard
             icon={<TrendingUp className="size-4 text-severity-critical" />}
             label="High / critical"
             value={highCount}
-            to="/triage"
+            to={canTriage ? '/triage' : undefined}
           />
           <StatCard
             icon={<Timer className="size-4 text-sla-urgent" />}
             label="SLA at risk"
             value={slaCount}
-            to="/triage"
+            to={canTriage ? '/triage' : undefined}
           />
         </div>
       ) : null}
@@ -136,21 +139,28 @@ function StatCard({
   icon: React.ReactNode
   label: string
   value: number
-  to: string
+  /** When set, the card links to the actionable screen (triage). Omitted for read-only roles
+   *  (board/exec/compliance), which see the KPI as a plain, non-clickable tile. */
+  to?: string
 }) {
-  return (
+  const card = (
+    <Card className={to ? 'transition-colors hover:border-primary/50' : undefined}>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          {icon}
+          {label}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-2xl font-semibold tabular-nums">{value}</p>
+      </CardContent>
+    </Card>
+  )
+  return to ? (
     <Link to={to} className="focus-ring rounded-lg">
-      <Card className="transition-colors hover:border-primary/50">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            {icon}
-            {label}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold tabular-nums">{value}</p>
-        </CardContent>
-      </Card>
+      {card}
     </Link>
+  ) : (
+    card
   )
 }

@@ -9,16 +9,25 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { BarChart3, FileSpreadsheet, Info } from 'lucide-react'
+import {
+  BarChart3,
+  FileSpreadsheet,
+  IndianRupee,
+  Info,
+  ShieldAlert,
+  Timer,
+  TrendingUp,
+} from 'lucide-react'
 import { apiClient } from '@/lib/apiClient'
 import { queryKeys } from '@/lib/queryKeys'
-import { formatIST } from '@/lib/format'
+import { formatINRCompact, formatIST } from '@/lib/format'
 import { useAuth } from '@/auth/rbac'
 import { PageHeader } from '@/components/PageHeader'
 import { QueryBoundary } from '@/components/QueryBoundary'
 import { KriDashboard } from '@/components/KriDashboard'
 import { AlertHeatmap } from '@/components/AlertHeatmap'
 import { TypologyAnalytics } from '@/components/TypologyAnalytics'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -45,6 +54,14 @@ export function ReportingView() {
 
   const krisQuery = useQuery({ queryKey: queryKeys.kris(), queryFn: () => apiClient.getKris() })
   const generatedTs = krisQuery.data?.generated_ts
+
+  // Portfolio snapshot — aggregate, non-PII counts so the board/exec sees top-line health on their
+  // landing screen (the same numbers investigators see on the operational dashboard).
+  const statsQuery = useQuery({
+    queryKey: queryKeys.alertStats(),
+    queryFn: () => apiClient.getAlertStats(),
+  })
+  const stats = statsQuery.data
 
   // Org-wide alert list feeds the temporal heatmap (when alerts land, by IST day/hour).
   const alertsQuery = useQuery({
@@ -95,6 +112,30 @@ export function ReportingView() {
         </p>
       </div>
 
+      {/* Portfolio at a glance — top-line counts for the board/exec (aggregate, no case PII). */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiTile
+          icon={<ShieldAlert className="size-4 text-severity-high" />}
+          label="Open alerts"
+          value={stats ? stats.open.toLocaleString('en-IN') : '—'}
+        />
+        <KpiTile
+          icon={<TrendingUp className="size-4 text-severity-critical" />}
+          label="High / critical"
+          value={stats ? stats.high_critical.toLocaleString('en-IN') : '—'}
+        />
+        <KpiTile
+          icon={<Timer className="size-4 text-sla-urgent" />}
+          label="SLA at risk"
+          value={stats ? stats.sla_at_risk.toLocaleString('en-IN') : '—'}
+        />
+        <KpiTile
+          icon={<IndianRupee className="size-4 text-severity-high" />}
+          label="Open exposure"
+          value={stats ? formatINRCompact(stats.open_exposure_inr) : '—'}
+        />
+      </div>
+
       <QueryBoundary
         isLoading={krisQuery.isLoading}
         isError={krisQuery.isError}
@@ -110,5 +151,22 @@ export function ReportingView() {
       {/* Fraud-typology prevalence + confirmed-rate — which insider typologies actually fire. */}
       <TypologyAnalytics />
     </div>
+  )
+}
+
+/** Read-only portfolio tile for the board/exec landing (no drill-through — this persona reads). */
+function KpiTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          {icon}
+          {label}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-2xl font-semibold tabular-nums">{value}</p>
+      </CardContent>
+    </Card>
   )
 }
