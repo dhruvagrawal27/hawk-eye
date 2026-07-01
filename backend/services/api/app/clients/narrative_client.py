@@ -89,21 +89,27 @@ class NarrativeClient:
         prov = (settings.llm_provider or "").lower()
         if prov in ("nearai", "near_ai") and settings.near_ai_api_key:
             return True
-        if prov == "groq" and settings.groq_api_key:
-            return True
-        return False
+        return bool(prov == "groq" and settings.groq_api_key)
 
     @staticmethod
     def _provider_chain() -> list[tuple[str, str, str, str]]:
         """(provider, base_url, api_key, model) tuples to try in order — NEAR AI primary, Groq next.
-        Only providers with a configured key are included; honours an explicit ``groq`` preference."""
+        Only providers with a configured key are included; honours an explicit ``groq`` preference.
+        """
         chain: list[tuple[str, str, str, str]] = []
         if settings.near_ai_api_key:
             chain.append(
-                ("near_ai", settings.near_ai_base_url, settings.near_ai_api_key, settings.near_ai_model)
+                (
+                    "near_ai",
+                    settings.near_ai_base_url,
+                    settings.near_ai_api_key,
+                    settings.near_ai_model,
+                )
             )
         if settings.groq_api_key:
-            chain.append(("groq", settings.groq_base_url, settings.groq_api_key, settings.groq_model))
+            chain.append(
+                ("groq", settings.groq_base_url, settings.groq_api_key, settings.groq_model)
+            )
         if (settings.llm_provider or "").lower() == "groq":
             chain.sort(key=lambda c: 0 if c[0] == "groq" else 1)
         return chain
@@ -111,7 +117,8 @@ class NarrativeClient:
     def _remote_direct(self, alert_ctx: dict, ph: str, timeout: float) -> dict | None:
         """Try each configured provider in order via the OpenAI-compatible SDK. Returns the narrative
         dict on the first success, or None if no provider is configured / all fail (→ gateway/template).
-        The ``openai`` package is an optional dep; if it isn't importable we quietly fall through."""
+        The ``openai`` package is an optional dep; if it isn't importable we quietly fall through.
+        """
         chain = self._provider_chain()
         if not chain:
             return None
