@@ -1759,11 +1759,73 @@ export const EWS_COVERAGE: EwsCoverageResponse = {
 }
 
 /* ───────────────────────────── Regulatory exports ──────────────────────────────────────────── */
+// Accumulated regulatory case history — confirmed frauds (→ FMR/CFR) + large-credit exposures ≥ ₹3cr
+// (→ CRILC). Kept SEPARATE from the live ALERTS queue (so triage/dashboard/tests are untouched) and
+// folded in only when a report is generated. Mirrors the backend `_seed_regulatory_alerts` seed.
+const _FMR_ROWS: [string, string][] = [
+  ['misappropriation_breach_of_trust', 'New payee added, then high-value payment routed within minutes'],
+  ['manipulation_of_books', 'Direct core-banking write with no matching application transaction'],
+  ['unauthorised_credit_facility', 'Operator self-granted a maker+checker entitlement (SoD breach)'],
+  ['cheating_forgery', 'Outbound SWIFT message with no CBS reconciliation'],
+  ['misappropriation_breach_of_trust', 'Dormant account reactivated then drained in a single session'],
+]
+
+export const REGULATORY_ALERTS: Alert[] = (() => {
+  const out: Alert[] = []
+  const isoDaysAgo = (d: number) =>
+    new Date(Date.parse('2026-06-27T00:00:00Z') - d * 86400000).toISOString()
+  // Confirmed frauds → FMR + CFR.
+  for (let i = 0; i < 60; i++) {
+    const [category, detail] = _FMR_ROWS[i % _FMR_ROWS.length]
+    out.push(
+      alert({
+        alert_id: `alr_fmr${String(i).padStart(3, '0')}`,
+        entity_id: `EMP-f${String(i).padStart(3, '0')}`,
+        risk_score: 88 + (i % 12),
+        severity: 'critical',
+        confidence: Number((0.8 + (i % 20) / 100).toFixed(2)),
+        status: 'confirmed_fraud',
+        exposure_inr: 5000000 + ((i * 53) % 170) * 500000, // ₹50L–₹9cr
+        sla_due_ts: isoDaysAgo(2),
+        created_ts: isoDaysAgo(5 + ((i * 11) % 150)),
+        alert_type: category,
+        title: detail,
+        reason_codes: [{ source: 'rule', code: 'FRAUD_CONFIRMED', detail }],
+      }),
+    )
+  }
+  // Large-credit exposures ≥ ₹3cr under watch → CRILC.
+  const watch: Alert['status'][] = ['open', 'assigned', 'in_progress']
+  for (let i = 0; i < 42; i++) {
+    out.push(
+      alert({
+        alert_id: `alr_crilc${String(i).padStart(3, '0')}`,
+        entity_id: `EMP-c${String(i).padStart(3, '0')}`,
+        risk_score: 72 + (i % 25),
+        severity: 'high',
+        confidence: Number((0.65 + (i % 30) / 100).toFixed(2)),
+        status: watch[i % watch.length],
+        exposure_inr: 30000000 + ((i * 47) % 220) * 1000000, // ₹3cr–₹25cr
+        sla_due_ts: isoDaysAgo(1),
+        created_ts: isoDaysAgo(8 + ((i * 13) % 160)),
+        alert_type: 'large_credit_exposure',
+        title: 'Large-credit exposure under early-warning watch',
+      }),
+    )
+  }
+  return out
+})()
+
 export function reportFor(type: 'fmr' | 'crilc'): ReportExport {
-  const confirmed = ALERTS.filter(
-    (a) =>
-      a.status === 'confirmed_fraud' || a.severity === 'critical' || a.exposure_inr >= 10000000,
-  )
+  // FMR = human-confirmed fraud; CRILC = large-credit exposures ≥ ₹3 crore.
+  const pool = [...ALERTS, ...REGULATORY_ALERTS]
+  const confirmed =
+    type === 'crilc'
+      ? pool.filter((a) => a.exposure_inr >= 30000000)
+      : pool.filter(
+          (a) =>
+            a.status === 'confirmed_fraud' || a.severity === 'critical' || a.exposure_inr >= 10000000,
+        )
   const lineItems = confirmed.map((a) => ({
     ref: a.alert_id,
     entity_id: a.entity_id,
@@ -1861,12 +1923,13 @@ export const KRIS: KriResponse = {
       delta: 1,
     },
   ],
-  trends: Array.from({ length: 12 }, (_, i) => ({
-    period: `2026-W${String(15 + i).padStart(2, '0')}`,
-    alerts: 40 + Math.round(18 * Math.sin(i / 2)) + i,
-    confirmed: 6 + (i % 4),
-    false_positives: 14 + Math.round(6 * Math.cos(i / 2)),
-    mttd: Number((8 - i * 0.15).toFixed(1)),
+  // 16 weeks of detection trends at real-bank volume (hundreds of alerts/week).
+  trends: Array.from({ length: 16 }, (_, i) => ({
+    period: `2026-W${String(11 + i).padStart(2, '0')}`,
+    alerts: 340 + Math.round(120 * Math.sin(i / 2.4)) + i * 7,
+    confirmed: 22 + Math.round(8 * Math.sin(i / 3)) + (i % 5),
+    false_positives: 95 + Math.round(38 * Math.cos(i / 2)),
+    mttd: Number((8.6 - i * 0.16).toFixed(1)),
   })),
   coverage: [
     { area: 'Trade finance', covered_pct: 92 },
