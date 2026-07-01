@@ -37,36 +37,48 @@ import { AttentionView } from '@/components/AttentionView'
 import { AiNarrative } from '@/components/AiNarrative'
 import { ScoreComposition } from '@/components/ScoreComposition'
 import { ProvenanceBadge } from '@/components/ProvenanceBadge'
+import { m, useReducedMotionSafe } from '@/ui'
 import type { GraphEvidence } from '@/lib/types'
 
-/* ── Section chrome ─────────────────────────────────────────────────────── */
+/* ── Section chrome ─────────────────────────────────────────────────────────
+ * Each evidence section reveals with a short, ordered rise-in so the case reads top-to-bottom;
+ * reduced motion renders them all at once (no transform). */
 function Section({
   icon: Icon,
   title,
   meta,
   description,
+  index = 0,
   children,
 }: {
   icon: typeof ScrollText
   title: string
   meta?: React.ReactNode
   description?: string
+  index?: number
   children: React.ReactNode
 }) {
+  const reduce = useReducedMotionSafe()
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2">
-            <Icon className="size-4 text-muted-foreground" />
-            {title}
-          </CardTitle>
-          {meta}
-        </div>
-        {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <m.div
+      initial={reduce ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={reduce ? { duration: 0 } : { duration: 0.24, delay: index * 0.06, ease: 'easeOut' }}
+    >
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2 font-display text-base font-semibold">
+              <Icon className="size-4 text-muted-foreground" />
+              {title}
+            </CardTitle>
+            {meta}
+          </div>
+          {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
+        </CardHeader>
+        <CardContent>{children}</CardContent>
+      </Card>
+    </m.div>
   )
 }
 
@@ -236,6 +248,7 @@ export function ExplanationPanel({ alertId }: { alertId: string }) {
               <Section
                 icon={Crosshair}
                 title="Why this fired"
+                index={0}
                 description="Fused L6 score against the decision threshold, decomposed into the layer contributions the fusion meta-learner weighed."
               >
                 <ScoreComposition fusion={data.fusion} />
@@ -246,6 +259,7 @@ export function ExplanationPanel({ alertId }: { alertId: string }) {
             <Section
               icon={BarChartHorizontal}
               title="Feature attribution"
+              index={1}
               description="Signed SHAP contribution of each feature to the fused risk score (L3 · GBDT)."
               meta={
                 shapCount > 0 ? (
@@ -262,6 +276,7 @@ export function ExplanationPanel({ alertId }: { alertId: string }) {
             <Section
               icon={ScrollText}
               title="Rule provenance"
+              index={2}
               description="Deterministic SoD / typology rules that fired (L1)."
               meta={
                 ruleCount > 0 ? (
@@ -278,6 +293,7 @@ export function ExplanationPanel({ alertId }: { alertId: string }) {
             <Section
               icon={Activity}
               title="Sequence attention"
+              index={3}
               description="Steps the sequence model weighed within the behavioural session (L4 · LAXCAT)."
               meta={
                 attentionCount > 0 ? (
@@ -294,6 +310,7 @@ export function ExplanationPanel({ alertId }: { alertId: string }) {
             <Section
               icon={Share2}
               title="Graph evidence"
+              index={4}
               description="Collusion ring / subgraph the graph model surfaced (L5)."
               meta={
                 <div className="flex items-center gap-1.5">
